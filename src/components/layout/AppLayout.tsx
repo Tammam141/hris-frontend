@@ -18,7 +18,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="navbar-brand">HRIS</div>
           <div className="navbar-right">
             <span className="navbar-user">
-              Halo, <strong>{user?.name}</strong>
+              <strong>{user?.full_name}</strong>
             </span>
             <button onClick={handleLogout} className="btn-logout">
               Logout

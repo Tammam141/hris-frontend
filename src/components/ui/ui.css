@@ -1,44 +1,57 @@
-/* ===== HALAMAN AUTH (LOGIN & REGISTER) ===== */
+/*global*/
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  transition: all 0.3s ease-in-out;
+}
 
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*auth page*/
 .auth-page-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: #1a78d7;
-  padding: 20px;
+  padding: 24px;
 }
 
-/* ===== CARD ===== */
-
+/*card*/
 .ui-card {
   background: #ffffff;
   width: 100%;
-  max-width: 380px;
-  padding: 32px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  max-width: 440px;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+  box-sizing: border-box;
 }
 
 .ui-card-title {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: #0f172a;
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
-/* ===== FORM ===== */
-
+/*form*/
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .input-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #334155;
   margin-bottom: -4px;
@@ -46,8 +59,8 @@
 
 .input-field {
   width: 100%;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 14px 16px;
+  font-size: 15px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   outline: none;
@@ -64,12 +77,11 @@
   cursor: not-allowed;
 }
 
-/* ===== TOMBOL ===== */
-
+/*button*/
 .btn {
   width: 100%;
-  padding: 12px;
-  font-size: 15px;
+  padding: 14px;
+  font-size: 16px;
   font-weight: 600;
   border: none;
   border-radius: 8px;
@@ -91,15 +103,14 @@
   cursor: not-allowed;
 }
 
-/* ===== PESAN ERROR & SUKSES ===== */
-
+/*alert*/
 .alert-error {
   background-color: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: 14px;
   margin-bottom: 16px;
   text-align: center;
 }
@@ -108,17 +119,16 @@
   background-color: #f0fdf4;
   color: #16a34a;
   border: 1px solid #bbf7d0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: 14px;
   margin-bottom: 16px;
   text-align: center;
 }
 
-/* ===== LINK REGISTER / LOGIN ===== */
-
+/*auth link*/
 .auth-links {
-  margin-top: 20px;
+  margin-top: 24px;
   text-align: center;
 }
 
@@ -139,12 +149,11 @@
   text-decoration: underline;
 }
 
-/*NAVBAR*/
-
+/*navbar*/
 .app-navbar {
   background-color: #ffffff;
   border-bottom: 1px solid #e2e8f0;
-  padding: 16px 32px;
+  padding: 20px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -152,7 +161,7 @@
 
 .navbar-brand {
   font-weight: bold;
-  font-size: 18px;
+  font-size: 20px;
   color: #1a78d7;
 }
 
@@ -163,7 +172,7 @@
 }
 
 .navbar-user {
-  font-size: 14px;
+  font-size: 15px;
   color: #334155;
 }
 
@@ -171,10 +180,10 @@
   background-color: #ef4444;
   color: #ffffff;
   border: none;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -182,42 +191,124 @@
   background-color: #dc2626;
 }
 
-/* ===== DASHBOARD ===== */
-
+/*dashboard*/
 .dashboard-container {
-  padding: 32px;
-  max-width: 800px;
+  padding: 40px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
 .dashboard-card {
   background-color: #ffffff;
-  padding: 32px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 48px;
+  border-radius: 16px;
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+  box-sizing: border-box;
 }
 
 .dashboard-title {
-  font-size: 24px;
+  font-size: 28px;
   color: #0f172a;
   margin-bottom: 16px;
 }
 
 .dashboard-subtitle {
-  font-size: 15px;
+  font-size: 16px;
   color: #475569;
   margin-bottom: 24px;
 }
 
 .dashboard-info {
   background-color: #f1f5f9;
-  padding: 16px;
+  padding: 20px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 15px;
   color: #334155;
 }
 
 .dashboard-info p {
   margin: 4px 0;
+}
+
+/*RESPONSIVE*/
+@media (max-width: 900px) {
+  .dashboard-container {
+    padding: 32px;
+  }
+
+  .ui-card {
+    padding: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+
+  .auth-page-container {
+    padding: 16px;
+  }
+
+  .ui-card {
+    padding: 24px;
+    border-radius: 12px;
+  }
+
+  .ui-card-title {
+    font-size: 22px;
+    margin-bottom: 24px;
+  }
+
+  .auth-form {
+    gap: 12px;
+  }
+
+  .input-label {
+    font-size: 14px;
+  }
+
+  .input-field {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .app-navbar {
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .navbar-brand {
+    font-size: 18px;
+  }
+
+  .navbar-user {
+    font-size: 14px;
+  }
+
+  .dashboard-container {
+    padding: 16px;
+  }
+
+  .dashboard-card {
+    padding: 24px;
+    border-radius: 12px;
+  }
+
+  .dashboard-title {
+    font-size: 20px;
+  }
+
+  .dashboard-subtitle {
+    font-size: 14px;
+  }
+
+  .dashboard-info {
+    padding: 16px;
+    font-size: 14px;
+  }
 }
