@@ -1,4 +1,5 @@
 import { useAuth } from '../hooks/useAuth';
+import '../components/ui/dashboard.css';
 
 export function DashboardPage() {
   const { user } = useAuth();

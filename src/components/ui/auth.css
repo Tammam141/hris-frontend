@@ -1,0 +1,44 @@
+/* AUTHENTICATION PAGES */
+.auth-page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a78d7;
+  padding: 24px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-links {
+  margin-top: 24px;
+  text-align: center;
+}
+.auth-text {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+.auth-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+}
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive Auth */
+@media (max-width: 640px) {
+  .auth-page-container {
+    padding: 16px;
+  }
+  .auth-form {
+    gap: 12px;
+  }
+}

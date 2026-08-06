@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
-import '../../components/ui/ui.css';
+import '../../components/ui/auth.css';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');

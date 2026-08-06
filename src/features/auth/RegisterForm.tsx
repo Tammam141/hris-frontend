@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { registerApi } from '../../api/auth';
 import { registerSchema } from './authSchema';
-import '../../components/ui/ui.css';
+import '../../components/ui/auth.css';
 
 export function RegisterForm() {
   // state untuk menyimpan inputan user
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   // state untuk nomor telepon
   const [countryCode, setCountryCode] = useState('+62');
@@ -20,6 +21,7 @@ export function RegisterForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // fungsi saat tombol register ditekan
   async function handleSubmit(e: React.FormEvent) {
@@ -36,6 +38,7 @@ export function RegisterForm() {
       full_name: fullName, 
       email, 
       password, 
+      confirmPassword,
       phone: fullPhone, 
       gender, 
       terms_accepted: termsAccepted 
@@ -52,14 +55,8 @@ export function RegisterForm() {
       // kirim data ke backend
       await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
 
-      setSuccess('Registrasi berhasil! Silakan login.');
-      // kosongkan form setelah sukses
-      setFullName('');
-      setEmail('');
-      setPassword('');
-      setPhoneNumber('');
-      setGender('male');
-      setTermsAccepted(false);
+      // langsung arahkan ke halaman login
+      navigate('/login');
     } catch (err: any) {
       setError(err.message || 'Gagal terhubung ke server');
     } finally {
@@ -108,6 +105,19 @@ export function RegisterForm() {
             placeholder="Min. 8 karakter"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            disabled={loading}
+            required
+          />
+
+          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            className="input-field"
+            placeholder="Ulangi password di atas"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             minLength={8}
             disabled={loading}
             required
