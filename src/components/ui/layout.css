@@ -1,4 +1,14 @@
-/* LAYOUT COMPONENTS (Navbar & Sidebar) */
+/*(Navbar & Sidebar) */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 4px;
+}
+
 .app-navbar {
   background-color: #ffffff;
   border-bottom: 1px solid #e2e8f0;
@@ -7,16 +17,19 @@
   justify-content: space-between;
   align-items: center;
 }
+
 .navbar-brand {
   font-weight: bold;
   font-size: 20px;
   color: #1a78d7;
 }
+
 .navbar-right {
   display: flex;
   align-items: center;
   gap: 16px;
 }
+
 .navbar-user {
   font-size: 15px;
   color: #334155;
@@ -32,8 +45,22 @@
   font-size: 14px;
   font-weight: 600;
 }
+
 .btn-logout:hover {
   background-color: #dc2626;
+}
+
+/* Main Layout Wrapper */
+.app-main-wrapper {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-content {
+  flex: 1;
+  padding: 24px;
+  min-width: 0;
 }
 
 /* Sidebar */
@@ -42,12 +69,16 @@
   background-color: #ffffff;
   border-right: 1px solid #e2e8f0;
   padding: 24px;
+  transition: transform 0.3s ease-in-out;
+  z-index: 50;
 }
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
+
 .sidebar-link {
   text-decoration: none;
   color: #334155;
@@ -56,15 +87,18 @@
   padding: 10px 16px;
   border-radius: 8px;
 }
+
 .sidebar-link:hover {
   background-color: #f1f5f9;
   color: #1a78d7;
 }
+
 .sidebar-link.active {
   background-color: #eff6ff;
   color: #1a78d7;
   font-weight: 600;
 }
+
 .sidebar-link.active::before {
   content: "";
   position: absolute;
@@ -78,13 +112,63 @@
 }
 
 /* Responsive Layout */
-@media (max-width: 640px) {
-  .app-navbar {
+@media (max-width: 768px) {
+
+  /* iPad / Tablets */
+  .hamburger-btn {
+    display: block;
+  }
+
+  .app-main-wrapper {
     flex-direction: column;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    border-right: 1px solid #e2e8f0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    transform: translateX(-100%);
+    padding: 24px;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    backdrop-filter: blur(2px);
+  }
+
+  .app-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Mobile Phones */
+  .app-navbar {
+    flex-direction: row;
+    /* keep it row to show hamburger and brand */
+    justify-content: space-between;
+    flex-wrap: wrap;
     padding: 16px;
     gap: 12px;
   }
-  .navbar-brand {
-    font-size: 18px;
+
+  .navbar-right {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

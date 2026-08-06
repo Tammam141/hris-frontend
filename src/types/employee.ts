@@ -1,0 +1,45 @@
+export interface Department {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+}
+
+export interface Position {
+  id: string;
+  code: string;
+  name: string;
+  level: number;
+  is_active: boolean;
+}
+
+export interface EmployeeListItem {
+  id: string;
+  employee_number: string;
+  full_name: string;
+  email: string | null;
+  position_name: string | null;
+  department_name: string | null;
+  manager_name: string | null;
+  is_active: boolean;
+}
+
+export interface ListEmployeesResponse {
+  success: boolean;
+  data: EmployeeListItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+export interface ListEmployeesParams {
+  search?: string;
+  department_id?: string;
+  is_active?: boolean;
+  page?: number;
+  limit?: number;
+}
