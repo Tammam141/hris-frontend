@@ -10,11 +10,11 @@ export function RegisterForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   // state untuk nomor telepon
   const [countryCode, setCountryCode] = useState('+62');
   const [phoneNumber, setPhoneNumber] = useState('');
-  
+
   const [gender, setGender] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -34,14 +34,14 @@ export function RegisterForm() {
     const fullPhone = `${countryCode}${cleanPhone}`;
 
     // fungsi validasi dengan zod
-    const cek = registerSchema.safeParse({ 
-      full_name: fullName, 
-      email, 
-      password, 
+    const cek = registerSchema.safeParse({
+      full_name: fullName,
+      email,
+      password,
       confirmPassword,
-      phone: fullPhone, 
-      gender, 
-      terms_accepted: termsAccepted 
+      phone: fullPhone,
+      gender,
+      terms_accepted: termsAccepted
     });
 
     if (!cek.success) {
@@ -52,11 +52,11 @@ export function RegisterForm() {
     setLoading(true);
 
     try {
-      // kirim data ke backend
-      await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
+      const response = await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
 
-      // langsung arahkan ke halaman login
-      navigate('/login');
+      navigate('/login', {
+        state: { message: response.message || 'Registrasi berhasil! Akun Anda sedang menunggu persetujuan HR.' }
+      });
     } catch (err: any) {
       setError(err.message || 'Gagal terhubung ke server');
     } finally {
@@ -125,11 +125,11 @@ export function RegisterForm() {
 
           <label className="input-label">Nomor Telepon</label>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <select 
-              className="input-field" 
-              style={{ width: '110px' }} 
-              value={countryCode} 
-              onChange={(e) => setCountryCode(e.target.value)} 
+            <select
+              className="input-field"
+              style={{ width: '110px' }}
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
               disabled={loading}
             >
               <option value="+62">+62 (ID)</option>
@@ -152,23 +152,23 @@ export function RegisterForm() {
           <label className="input-label">Jenis Kelamin</label>
           <div style={{ display: 'flex', gap: '20px', marginTop: '4px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-              <input 
-                type="radio" 
-                name="gender" 
-                value="male" 
-                checked={gender === 'male'} 
-                onChange={(e) => setGender(e.target.value)} 
+              <input
+                type="radio"
+                name="gender"
+                value="male"
+                checked={gender === 'male'}
+                onChange={(e) => setGender(e.target.value)}
                 disabled={loading}
               />
               Laki-laki
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-              <input 
-                type="radio" 
-                name="gender" 
-                value="female" 
-                checked={gender === 'female'} 
-                onChange={(e) => setGender(e.target.value)} 
+              <input
+                type="radio"
+                name="gender"
+                value="female"
+                checked={gender === 'female'}
+                onChange={(e) => setGender(e.target.value)}
                 disabled={loading}
               />
               Perempuan
@@ -176,11 +176,11 @@ export function RegisterForm() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-            <input 
-              type="checkbox" 
-              id="terms" 
-              checked={termsAccepted} 
-              onChange={(e) => setTermsAccepted(e.target.checked)} 
+            <input
+              type="checkbox"
+              id="terms"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
               disabled={loading}
             />
             <label htmlFor="terms" style={{ fontSize: '14px', color: '#334155', cursor: 'pointer' }}>

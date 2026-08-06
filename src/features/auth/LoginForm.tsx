@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,6 +13,8 @@ export function LoginForm() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = location.state?.message;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +47,7 @@ export function LoginForm() {
       <div className="ui-card">
         <h2 className="ui-card-title">Login</h2>
 
+        {successMessage && <div className="alert-success">{successMessage}</div>}
         {error && <div className="alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
