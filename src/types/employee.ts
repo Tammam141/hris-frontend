@@ -43,3 +43,24 @@ export interface ListEmployeesParams {
   page?: number;
   limit?: number;
 }
+
+export interface CreateEmployeePayload {
+  full_name: string;
+  email: string;
+  password?: string;
+  role?: 'employee' | 'hr' | 'admin';
+  phone: string;
+  gender: 'male' | 'female';
+  birth_date?: string;
+  address?: string;
+  department_id?: string;
+  position_id?: string;
+  manager_id?: string;
+  employment_status?: 'probation' | 'contract' | 'permanent' | 'intern' | 'resigned';
+  join_date?: string;
+}
+
+export interface UpdateEmployeePayload extends Partial<CreateEmployeePayload> {
+  is_active?: boolean;
+  resign_date?: string;
+}

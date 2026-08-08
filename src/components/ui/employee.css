@@ -1,8 +1,64 @@
+/* Employee Layout Classes */
+.employee-container {
+  max-width: 1200px;
+}
+
+.employee-card {
+  padding: 32px;
+}
+
+.employee-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.employee-search-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.employee-filter-select {
+  width: auto;
+}
+
+.employee-search-btn {
+  width: auto;
+  margin: 0;
+  padding: 14px 24px;
+}
+
+.btn-success {
+  width: auto;
+  margin-top: 0;
+  padding: 14px 24px;
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #059669;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.empty-table-cell {
+  padding: 32px;
+  text-align: center;
+  color: #64748b;
+}
+
 .employee-filter-form {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .employee-table-wrapper {

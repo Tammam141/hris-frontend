@@ -11,3 +11,7 @@ export async function registerApi(full_name: string, email: string, password: st
 export async function getMeApi() {
   return apiRequest('/auth/me', 'GET');
 }
+
+export async function changePasswordApi(current_password: string, new_password: string) {
+  return apiRequest('/auth/password', 'PATCH', { current_password, new_password });
+}

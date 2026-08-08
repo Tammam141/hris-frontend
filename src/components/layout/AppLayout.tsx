@@ -2,11 +2,13 @@ import { useState, ReactNode } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import '../ui/layout.css';
 import { useAuth } from '../../hooks/useAuth';
+import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   function handleLogout() {
     logout();
@@ -40,6 +42,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <span className="navbar-user">
             <strong>{user?.full_name}</strong>
           </span>
+          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
+            Ganti Password
+          </button>
           <button onClick={handleLogout} className="btn-logout">
             Logout
           </button>
@@ -70,6 +75,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </main>
 
       </div>
+      
+      <ChangePasswordModal 
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </div>
   );
 }

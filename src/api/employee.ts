@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, Department, Position } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, Department, Position, CreateEmployeePayload, UpdateEmployeePayload } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();
@@ -23,4 +23,19 @@ export async function getDepartments(): Promise<{ success: boolean; data: Depart
 export async function getPositions(): Promise<{ success: boolean; data: Position[] }> {
   const response = await apiRequest('/positions', 'GET');
   return response as { success: boolean; data: Position[] };
+}
+
+export async function createEmployee(data: CreateEmployeePayload): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest('/employees', 'POST', data);
+  return response as { success: boolean; message: string };
+}
+
+export async function updateEmployee(id: string, data: UpdateEmployeePayload): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest(`/employees/${id}`, 'PATCH', data);
+  return response as { success: boolean; message: string };
+}
+
+export async function deleteEmployee(id: string): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest(`/employees/${id}`, 'DELETE');
+  return response as { success: boolean; message: string };
 }
