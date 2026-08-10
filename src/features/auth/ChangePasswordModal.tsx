@@ -5,9 +5,10 @@ import '../employee/employee-modal.css'; // Reusing the same modal CSS
 interface ChangePasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
+  mustChange?: boolean;
 }
 
-export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
+export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: ChangePasswordModalProps) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,11 +33,15 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       const response = await changePasswordApi(currentPassword, newPassword);
       setSuccess(response.message || 'Password berhasil diubah');
       setTimeout(() => {
-        onClose();
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setSuccess('');
+        if (mustChange) {
+          window.location.reload();
+        } else {
+          onClose();
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setSuccess('');
+        }
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Gagal mengubah password');
@@ -55,11 +60,13 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   }
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
+    <div className="modal-overlay" onClick={mustChange ? undefined : handleClose}>
       <div className="modal-content" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Ganti Password</h2>
-          <button className="modal-close-btn" onClick={handleClose}>&times;</button>
+          {!mustChange && (
+            <button className="modal-close-btn" onClick={handleClose}>&times;</button>
+          )}
         </div>
 
         <div className="modal-body">
@@ -110,7 +117,9 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
         </div>
 
         <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={loading} style={{ width: 'auto' }}>Tutup</button>
+          {!mustChange && (
+            <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={loading} style={{ width: 'auto' }}>Tutup</button>
+          )}
           <button type="submit" form="changePasswordForm" className="btn btn-primary" disabled={loading || !!success} style={{ width: 'auto' }}>
             {loading ? 'Memproses...' : 'Simpan Password'}
           </button>

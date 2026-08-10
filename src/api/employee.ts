@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, Department, Position, CreateEmployeePayload, UpdateEmployeePayload } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, Department, Position, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();
@@ -15,15 +15,12 @@ export async function getEmployees(params: ListEmployeesParams): Promise<ListEmp
   return response as ListEmployeesResponse;
 }
 
-export async function getDepartments(): Promise<{ success: boolean; data: Department[] }> {
-  const response = await apiRequest('/departments', 'GET');
-  return response as { success: boolean; data: Department[] };
+export async function getEmployeeDetail(id: string): Promise<{ success: boolean; data: EmployeeDetail }> {
+  const response = await apiRequest(`/employees/${id}`, 'GET');
+  return response as { success: boolean; data: EmployeeDetail };
 }
 
-export async function getPositions(): Promise<{ success: boolean; data: Position[] }> {
-  const response = await apiRequest('/positions', 'GET');
-  return response as { success: boolean; data: Position[] };
-}
+
 
 export async function createEmployee(data: CreateEmployeePayload): Promise<{ success: boolean; message: string }> {
   const response = await apiRequest('/employees', 'POST', data);

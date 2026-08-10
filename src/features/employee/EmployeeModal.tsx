@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreateEmployeePayload, UpdateEmployeePayload, Department, Position, EmployeeListItem } from '../../types/employee';
+import { CreateEmployeePayload, UpdateEmployeePayload, Department, Position, EmployeeListItem, EmployeeDetail } from '../../types/employee';
 import './employee-modal.css';
 
 interface EmployeeModalProps {
@@ -7,12 +7,13 @@ interface EmployeeModalProps {
   onClose: () => void;
   onSubmit: (data: CreateEmployeePayload | UpdateEmployeePayload) => Promise<void>;
   mode: 'create' | 'edit';
-  employeeData?: EmployeeListItem | null;
+  employeeData?: EmployeeDetail | null;
   departments: Department[];
   positions: Position[];
+  managers: EmployeeListItem[];
 }
 
-export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, departments, positions }: EmployeeModalProps) {
+export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, departments, positions, managers }: EmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -26,21 +27,39 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
   const [role, setRole] = useState<'employee' | 'hr' | 'admin'>('employee');
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const [managerId, setManagerId] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [address, setAddress] = useState('');
+  const [employmentStatus, setEmploymentStatus] = useState<'probation' | 'contract' | 'permanent' | 'intern' | 'resigned'>('probation');
+  const [joinDate, setJoinDate] = useState('');
+  const [resignDate, setResignDate] = useState('');
 
   // Reset form when modal opens or employee data changes
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && employeeData) {
         setFullName(employeeData.full_name || '');
-        // Note: phone, gender usually exist in detail API, but our List API might not have them.
-        // For a real app, we'd fetch Detail API here. For now, we'll edit what we have.
-        setCountryCode('+62'); 
-        setPhoneNumber('');
-        setGender('male'); 
-        setDepartmentId(departments.find(d => d.name === employeeData.department_name)?.id || '');
-        setPositionId(positions.find(p => p.name === employeeData.position_name)?.id || '');
-        setIsActive(employeeData.is_active);
+        
+        let phone = employeeData.phone || '';
+        if (phone.startsWith('+62')) {
+          setCountryCode('+62');
+          setPhoneNumber(phone.substring(3));
+        } else if (phone.startsWith('0')) {
+          setCountryCode('+62');
+          setPhoneNumber(phone.substring(1));
+        } else {
+          setPhoneNumber(phone);
+        }
+
+        setGender(employeeData.gender || 'male'); 
+        setDepartmentId(employeeData.department_id || '');
+        setPositionId(employeeData.position_id || '');
+        setManagerId(employeeData.manager_id || '');
+        setBirthDate(employeeData.birth_date ? employeeData.birth_date.split('T')[0] : '');
+        setAddress(employeeData.address || '');
+        setEmploymentStatus(employeeData.employment_status as any || 'probation');
+        setJoinDate(employeeData.join_date ? employeeData.join_date.split('T')[0] : '');
+        setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
       } else {
         // Reset for create
         setFullName('');
@@ -52,11 +71,16 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         setRole('employee');
         setDepartmentId('');
         setPositionId('');
-        setIsActive(true);
+        setManagerId('');
+        setBirthDate('');
+        setAddress('');
+        setEmploymentStatus('probation');
+        setJoinDate('');
+        setResignDate('');
       }
       setError('');
     }
-  }, [isOpen, mode, employeeData, departments, positions]);
+  }, [isOpen, mode, employeeData, departments, positions, managers]);
 
   if (!isOpen) return null;
 
@@ -71,22 +95,26 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
 
       const payload: any = {
         full_name: fullName,
-        phone: fullPhone || '+62800000000', // Default if missing for now
+        phone: fullPhone || '+62800000000', // Default if missing
         gender,
+        employment_status: employmentStatus,
       };
+
+      if (birthDate) payload.birth_date = birthDate;
+      if (address) payload.address = address;
+      if (joinDate) payload.join_date = joinDate;
 
       if (mode === 'create') {
         payload.email = email;
         payload.password = password;
         payload.role = role;
+      } else {
+        if (resignDate) payload.resign_date = resignDate;
       }
 
       if (departmentId) payload.department_id = departmentId;
       if (positionId) payload.position_id = positionId;
-
-      if (mode === 'edit') {
-        payload.is_active = isActive;
-      }
+      if (managerId) payload.manager_id = managerId;
 
       await onSubmit(payload);
       onClose();
@@ -152,46 +180,62 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                 </>
               )}
 
-              {mode === 'create' && (
-                <div className="form-group">
-                  <label className="input-label">Nomor Telepon</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <select
-                      className="input-field"
-                      style={{ width: '110px' }}
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                    >
-                      <option value="+62">+62 (ID)</option>
-                      <option value="+1">+1 (US)</option>
-                      <option value="+44">+44 (UK)</option>
-                      <option value="+60">+60 (MY)</option>
-                    </select>
-                    <input 
-                      type="tel" 
-                      className="input-field" 
-                      value={phoneNumber}
-                      onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                      placeholder="812345678"
-                      required={mode === 'create'}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {mode === 'create' && (
-                <div className="form-group">
-                  <label className="input-label">Jenis Kelamin</label>
-                  <select 
-                    className="input-field" 
-                    value={gender}
-                    onChange={e => setGender(e.target.value as 'male' | 'female')}
+              <div className="form-group">
+                <label className="input-label">Nomor Telepon</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    className="input-field"
+                    style={{ width: '110px' }}
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
                   >
-                    <option value="male">Laki-laki</option>
-                    <option value="female">Perempuan</option>
+                    <option value="+62">+62 (ID)</option>
+                    <option value="+1">+1 (US)</option>
+                    <option value="+44">+44 (UK)</option>
+                    <option value="+60">+60 (MY)</option>
                   </select>
+                  <input 
+                    type="tel" 
+                    className="input-field" 
+                    value={phoneNumber}
+                    onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                    placeholder="812345678"
+                    required
+                  />
                 </div>
-              )}
+              </div>
+
+              <div className="form-group">
+                <label className="input-label">Jenis Kelamin</label>
+                <select 
+                  className="input-field" 
+                  value={gender}
+                  onChange={e => setGender(e.target.value as 'male' | 'female')}
+                >
+                  <option value="male">Laki-laki</option>
+                  <option value="female">Perempuan</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="input-label">Tanggal Lahir</label>
+                <input 
+                  type="date" 
+                  className="input-field" 
+                  value={birthDate}
+                  onChange={e => setBirthDate(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group full-width">
+                <label className="input-label">Alamat Lengkap</label>
+                <textarea 
+                  className="input-field" 
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  rows={2}
+                />
+              </div>
 
               {mode === 'create' && (
                 <div className="form-group">
@@ -236,17 +280,54 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                 </select>
               </div>
 
+              <div className="form-group">
+                <label className="input-label">Manajer</label>
+                <select 
+                  className="input-field" 
+                  value={managerId}
+                  onChange={e => setManagerId(e.target.value)}
+                >
+                  <option value="">- Pilih Manajer -</option>
+                  {managers.filter(m => mode === 'create' || m.id !== employeeData?.id).map(m => (
+                    <option key={m.id} value={m.id}>{m.full_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="input-label">Status Kepegawaian</label>
+                <select 
+                  className="input-field" 
+                  value={employmentStatus}
+                  onChange={e => setEmploymentStatus(e.target.value as any)}
+                >
+                  <option value="probation">Probation</option>
+                  <option value="contract">Contract</option>
+                  <option value="permanent">Permanent</option>
+                  <option value="intern">Intern</option>
+                  <option value="resigned">Resigned</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="input-label">Tanggal Bergabung</label>
+                <input 
+                  type="date" 
+                  className="input-field" 
+                  value={joinDate}
+                  onChange={e => setJoinDate(e.target.value)}
+                />
+              </div>
+
               {mode === 'edit' && (
                 <div className="form-group">
-                  <label className="input-label">Status Aktif</label>
-                  <select 
+                  <label className="input-label">Tanggal Resign</label>
+                  <input 
+                    type="date" 
                     className="input-field" 
-                    value={isActive.toString()}
-                    onChange={e => setIsActive(e.target.value === 'true')}
-                  >
-                    <option value="true">Aktif</option>
-                    <option value="false">Non-aktif</option>
-                  </select>
+                    value={resignDate}
+                    onChange={e => setResignDate(e.target.value)}
+                  />
                 </div>
               )}
 

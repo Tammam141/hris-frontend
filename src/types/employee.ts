@@ -23,6 +23,20 @@ export interface EmployeeListItem {
   department_name: string | null;
   manager_name: string | null;
   is_active: boolean;
+  user_id?: string;
+}
+
+export interface EmployeeDetail extends EmployeeListItem {
+  phone: string;
+  gender: 'male' | 'female';
+  birth_date: string | null;
+  address: string | null;
+  employment_status: string;
+  join_date: string | null;
+  resign_date: string | null;
+  department_id: string | null;
+  position_id: string | null;
+  manager_id: string | null;
 }
 
 export interface ListEmployeesResponse {

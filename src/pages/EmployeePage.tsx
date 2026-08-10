@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getEmployees, getDepartments, createEmployee, updateEmployee, deleteEmployee, getPositions } from '../api/employee';
-import { EmployeeListItem, Department, Position } from '../types/employee';
+import { getEmployees, deleteEmployee, getEmployeeDetail } from '../api/employee';
+import { getDepartments } from '../api/department';
+import { getPositions } from '../api/position';
+import { setUserActive } from '../api/user';
+import { EmployeeListItem, Department, Position, EmployeeDetail } from '../types/employee';
 import { EmployeeModal } from '../features/employee/EmployeeModal';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
@@ -28,7 +31,7 @@ export function EmployeePage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeListItem | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
 
   // Delete Confirmation State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -94,20 +97,43 @@ export function EmployeePage() {
     setIsModalOpen(true);
   }
 
-  function openEditModal(emp: EmployeeListItem) {
-    setModalMode('edit');
-    setSelectedEmployee(emp);
-    setIsModalOpen(true);
+  async function openEditModal(emp: EmployeeListItem) {
+    try {
+      setLoading(true);
+      const res = await getEmployeeDetail(emp.id);
+      if (res.success) {
+        setModalMode('edit');
+        setSelectedEmployee(res.data);
+        setIsModalOpen(true);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Gagal memuat detail karyawan');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleModalSubmit(data: any) {
-    if (modalMode === 'create') {
-      await createEmployee(data);
-    } else if (modalMode === 'edit' && selectedEmployee) {
-      await updateEmployee(selectedEmployee.id, data);
+    try {
+      if (modalMode === 'create') {
+        await createEmployee(data);
+      } else if (modalMode === 'edit' && selectedEmployee) {
+        await updateEmployee(selectedEmployee.id, data);
+      }
+      setIsModalOpen(false);
+      loadEmployees();
+    } catch (err: any) {
+      setError(err.message || 'Gagal menyimpan data');
     }
-    // Reload data setelah sukses
-    loadEmployees();
+  }
+
+  async function toggleEmployeeStatus(id: string, currentStatus: boolean) {
+    try {
+      await setUserActive(id, !currentStatus);
+      loadEmployees();
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengubah status pengguna');
+    }
   }
 
   function handleDelete(emp: EmployeeListItem) {
@@ -196,6 +222,7 @@ export function EmployeePage() {
                 <th>EMAIL</th>
                 <th>DEPARTEMEN</th>
                 <th>JABATAN</th>
+                <th>MANAJER</th>
                 <th>STATUS</th>
                 <th className="text-center">AKSI</th>
               </tr>
@@ -203,13 +230,13 @@ export function EmployeePage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="empty-table-cell">
+                  <td colSpan={8} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="empty-table-cell">
+                  <td colSpan={8} className="empty-table-cell">
                     Tidak ada data karyawan ditemukan.
                   </td>
                 </tr>
@@ -221,10 +248,16 @@ export function EmployeePage() {
                     <td className="employee-subtext">{emp.email || '-'}</td>
                     <td>{emp.department_name || '-'}</td>
                     <td>{emp.position_name || '-'}</td>
+                    <td>{emp.manager_name || '-'}</td>
                     <td>
-                      <span className={`status-badge ${emp.is_active ? 'status-active' : 'status-inactive'}`}>
+                      <button 
+                        onClick={() => toggleEmployeeStatus(emp.user_id || emp.id, emp.is_active)}
+                        className={`status-badge ${emp.is_active ? 'status-active' : 'status-inactive'}`}
+                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                        title={emp.is_active ? 'Klik untuk menonaktifkan' : 'Klik untuk mengaktifkan'}
+                      >
                         {emp.is_active ? 'Aktif' : 'Non-aktif'}
-                      </span>
+                      </button>
                     </td>
                     <td>
                       <div className="action-buttons">
@@ -277,6 +310,7 @@ export function EmployeePage() {
         employeeData={selectedEmployee}
         departments={departments}
         positions={positions}
+        managers={employees}
       />
 
       {/* Delete Confirmation Modal */}
