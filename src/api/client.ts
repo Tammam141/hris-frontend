@@ -20,7 +20,9 @@ export async function apiRequest(endpoint: string, method: string, body?: object
   const data = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.message || 'Terjadi kesalahan pada server');
+    const error: any = new Error(data.message || 'Terjadi kesalahan pada server');
+    if (data.details) error.details = data.details;
+    throw error;
   }
 
   return data;

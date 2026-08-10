@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { getEmployees, getDepartments, createEmployee, updateEmployee, deleteEmployee, getPositions } from '../api/employee';
 import { EmployeeListItem, Department, Position } from '../types/employee';
 import { EmployeeModal } from '../features/employee/EmployeeModal';
+import { EditIcon } from '../components/icons/EditIcon';
+import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 
@@ -24,10 +26,15 @@ export function EmployeePage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeListItem | null>(null);
+
+  // Delete Confirmation State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
+  const [subordinatesList, setSubordinatesList] = useState<any[]>([]);
 
   // muat data departemen saat halaman dibuka
   useEffect(() => {
@@ -103,13 +110,28 @@ export function EmployeePage() {
     loadEmployees();
   }
 
-  async function handleDelete(emp: EmployeeListItem) {
-    if (window.confirm(`Yakin ingin menghapus karyawan ${emp.full_name}?`)) {
+  function handleDelete(emp: EmployeeListItem) {
+    setEmployeeToDelete(emp);
+    setDeleteErrorMsg('');
+    setSubordinatesList([]);
+    setIsDeleteModalOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (employeeToDelete) {
       try {
-        await deleteEmployee(emp.id);
+        await deleteEmployee(employeeToDelete.id);
         loadEmployees();
+        setIsDeleteModalOpen(false);
+        setEmployeeToDelete(null);
       } catch (err: any) {
-        alert(err.message || 'Gagal menghapus karyawan');
+        if (err.details && err.details.subordinates) {
+          setDeleteErrorMsg(err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.');
+          setSubordinatesList(err.details.subordinates);
+        } else {
+          alert(err.message || 'Gagal menghapus karyawan');
+          setIsDeleteModalOpen(false);
+        }
       }
     }
   }
@@ -206,8 +228,8 @@ export function EmployeePage() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Edit">✏️</button>
-                        <button className="btn-icon btn-delete" onClick={() => handleDelete(emp)} title="Hapus">🗑️</button>
+                        <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                        <button className="btn-icon btn-delete" onClick={() => handleDelete(emp)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                       </div>
                     </td>
                   </tr>
@@ -256,6 +278,56 @@ export function EmployeePage() {
         departments={departments}
         positions={positions}
       />
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ color: '#dc2626' }}>
+                {deleteErrorMsg ? 'Gagal Menghapus' : 'Konfirmasi Hapus'}
+              </h2>
+              <button className="modal-close-btn" onClick={() => setIsDeleteModalOpen(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {deleteErrorMsg ? (
+                <>
+                  <div className="alert-error" style={{ marginBottom: '16px' }}>{deleteErrorMsg}</div>
+                  {subordinatesList.length > 0 && (
+                    <div style={{ marginTop: '12px' }}>
+                      <p style={{ fontWeight: 600, marginBottom: '8px', color: '#0f172a' }}>
+                        Daftar Bawahan ({subordinatesList.length}):
+                      </p>
+                      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', color: '#334155', maxHeight: '150px', overflowY: 'auto' }}>
+                        {subordinatesList.map(sub => (
+                          <li key={sub.id} style={{ marginBottom: '4px' }}>
+                            {sub.full_name} <span style={{ color: '#64748b', fontSize: '13px' }}>({sub.employee_number})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p>Apakah kamu yakin ingin menghapus data karyawan <strong>{employeeToDelete?.full_name}</strong>?</p>
+                  <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Tindakan ini tidak dapat dibatalkan.</p>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)} style={{ width: 'auto' }}>
+                {deleteErrorMsg ? 'Tutup' : 'Batal'}
+              </button>
+              {!deleteErrorMsg && (
+                <button type="button" className="btn" style={{ backgroundColor: '#dc2626', color: 'white', width: 'auto', padding: '10px 16px', borderRadius: '6px', fontWeight: 500, border: 'none', cursor: 'pointer' }} onClick={confirmDelete}>
+                  Ya, Hapus Data
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
