@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getEmployees, deleteEmployee, getEmployeeDetail } from '../api/employee';
+import { getEmployees, deleteEmployee, getEmployeeDetail, createEmployee, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { setUserActive } from '../api/user';
@@ -114,17 +114,13 @@ export function EmployeePage() {
   }
 
   async function handleModalSubmit(data: any) {
-    try {
-      if (modalMode === 'create') {
-        await createEmployee(data);
-      } else if (modalMode === 'edit' && selectedEmployee) {
-        await updateEmployee(selectedEmployee.id, data);
-      }
-      setIsModalOpen(false);
-      loadEmployees();
-    } catch (err: any) {
-      setError(err.message || 'Gagal menyimpan data');
+    if (modalMode === 'create') {
+      await createEmployee(data);
+    } else if (modalMode === 'edit' && selectedEmployee) {
+      await updateEmployee(selectedEmployee.id, data);
     }
+    setIsModalOpen(false);
+    loadEmployees();
   }
 
   async function toggleEmployeeStatus(id: string, currentStatus: boolean) {

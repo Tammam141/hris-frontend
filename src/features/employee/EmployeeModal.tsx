@@ -52,9 +52,16 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         }
 
         setGender(employeeData.gender || 'male'); 
-        setDepartmentId(employeeData.department_id || '');
-        setPositionId(employeeData.position_id || '');
-        setManagerId(employeeData.manager_id || '');
+        
+        const matchedDept = departments.find(d => d.name === employeeData.department_name);
+        setDepartmentId(employeeData.department_id || (matchedDept ? matchedDept.id : ''));
+        
+        const matchedPos = positions.find(p => p.name === employeeData.position_name);
+        setPositionId(employeeData.position_id || (matchedPos ? matchedPos.id : ''));
+        
+        const matchedMgr = managers.find(m => m.full_name === employeeData.manager_name);
+        setManagerId(employeeData.manager_id || (matchedMgr ? matchedMgr.id : ''));
+        
         setBirthDate(employeeData.birth_date ? employeeData.birth_date.split('T')[0] : '');
         setAddress(employeeData.address || '');
         setEmploymentStatus(employeeData.employment_status as any || 'probation');
@@ -200,7 +207,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                     value={phoneNumber}
                     onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                     placeholder="812345678"
-                    required
+                    required={mode === 'create'}
                   />
                 </div>
               </div>
