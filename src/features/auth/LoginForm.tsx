@@ -48,7 +48,21 @@ export function LoginForm() {
         <h2 className="ui-card-title">Login</h2>
 
         {successMessage && <div className="alert-success">{successMessage}</div>}
-        {error && <div className="alert-error">{error}</div>}
+        {error && (
+          <div className="alert-error" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span>{error}</span>
+            {error.toLowerCase().includes('belum diverifikasi') && (
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ padding: '4px 8px', fontSize: '14px', width: 'fit-content' }}
+                onClick={() => navigate('/verify-email', { state: { email } })}
+              >
+                Verifikasi Email Sekarang
+              </button>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label htmlFor="email" className="input-label">Email</label>
@@ -74,6 +88,12 @@ export function LoginForm() {
             disabled={loading}
             required
           />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px', marginBottom: '16px' }}>
+            <Link to="/forgot-password" style={{ fontSize: '14px', color: '#1a78d7', textDecoration: 'none' }}>
+              Lupa Password?
+            </Link>
+          </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Memproses...' : 'Login'}

@@ -19,9 +19,25 @@ export async function apiRequest(endpoint: string, method: string, body?: object
 
   const data = await response.json();
 
+  if (response.status === 401 && endpoint !== '/auth/login') {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+    // Throw error anyway to stop execution chain
+    throw new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali');
+  }
+
   if (!response.ok || !data.success) {
-    const error: any = new Error(data.message || 'Terjadi kesalahan pada server');
-    if (data.details) error.details = data.details;
+    let errorMsg = data?.message || 'Terjadi kesalahan pada server';
+    
+    // Parse array errors if available
+    if (data?.errors && Array.isArray(data.errors)) {
+      errorMsg = data.errors.map((e: any) => e.message).join(', ');
+    }
+    
+    const error: any = new Error(errorMsg);
+    if (data?.details) error.details = data.details;
+    if (response.status === 429 && data?.code) error.code = data.code;
     throw error;
   }
 

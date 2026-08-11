@@ -54,9 +54,16 @@ export function RegisterForm() {
     try {
       const response = await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
 
-      navigate('/login', {
-        state: { message: response.message || 'Registrasi berhasil! Akun Anda sedang menunggu persetujuan HR.' }
-      });
+      if (response.data?.verification_required) {
+        navigate('/verify-email', {
+          state: { email: email }
+        });
+      } else {
+        // Fallback jika tidak perlu verifikasi (seharusnya tidak terjadi berdasar instruksi)
+        navigate('/login', {
+          state: { message: response.message || 'Registrasi berhasil! Akun Anda sedang menunggu persetujuan HR.' }
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Gagal terhubung ke server');
     } finally {

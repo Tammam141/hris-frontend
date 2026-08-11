@@ -33,15 +33,9 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
       const response = await changePasswordApi(currentPassword, newPassword);
       setSuccess(response.message || 'Password berhasil diubah');
       setTimeout(() => {
-        if (mustChange) {
-          window.location.reload();
-        } else {
-          onClose();
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-          setSuccess('');
-        }
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Gagal mengubah password');
