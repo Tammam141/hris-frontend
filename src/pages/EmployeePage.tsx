@@ -9,6 +9,8 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AlertModal } from '../components/ui/AlertModal';
 
 export function EmployeePage() {
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
@@ -33,11 +35,18 @@ export function EmployeePage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
 
-  // Delete Confirmation State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  // Delete State
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
-  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
   const [subordinatesList, setSubordinatesList] = useState<any[]>([]);
+
+  // Status Toggle State
+  const [isStatusConfirmOpen, setIsStatusConfirmOpen] = useState(false);
+  const [empToToggle, setEmpToToggle] = useState<{id: string, currentStatus: boolean, name: string} | null>(null);
+
+  // Alert State
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<React.ReactNode>('');
 
   // muat data departemen saat halaman dibuka
   useEffect(() => {
@@ -49,8 +58,8 @@ export function EmployeePage() {
         ]);
         if (depRes.success) setDepartments(depRes.data);
         if (posRes.success) setPositions(posRes.data);
-      } catch (err) {
-        console.error('Gagal memuat data referensi', err);
+      } catch (err: any) {
+        setError(err.message || 'Gagal memuat data referensi');
       }
     }
     loadReferences();
@@ -123,20 +132,30 @@ export function EmployeePage() {
     loadEmployees();
   }
 
-  async function toggleEmployeeStatus(id: string, currentStatus: boolean) {
+  function confirmToggleStatus(id: string, currentStatus: boolean, name: string) {
+    setEmpToToggle({ id, currentStatus, name });
+    setIsStatusConfirmOpen(true);
+  }
+
+  async function handleToggleStatus() {
+    if (!empToToggle) return;
+    setIsStatusConfirmOpen(false);
+    
     try {
-      await setUserActive(id, !currentStatus);
+      await setUserActive(empToToggle.id, !empToToggle.currentStatus);
       loadEmployees();
     } catch (err: any) {
-      alert(err.message || 'Gagal mengubah status pengguna');
+      setAlertMessage(err.message || 'Gagal mengubah status pengguna');
+      setAlertOpen(true);
+    } finally {
+      setEmpToToggle(null);
     }
   }
 
   function handleDelete(emp: EmployeeListItem) {
     setEmployeeToDelete(emp);
-    setDeleteErrorMsg('');
     setSubordinatesList([]);
-    setIsDeleteModalOpen(true);
+    setIsDeleteConfirmOpen(true);
   }
 
   async function confirmDelete() {
@@ -144,16 +163,33 @@ export function EmployeePage() {
       try {
         await deleteEmployee(employeeToDelete.id);
         loadEmployees();
-        setIsDeleteModalOpen(false);
+        setIsDeleteConfirmOpen(false);
         setEmployeeToDelete(null);
       } catch (err: any) {
+        setIsDeleteConfirmOpen(false);
         if (err.details && err.details.subordinates) {
-          setDeleteErrorMsg(err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.');
           setSubordinatesList(err.details.subordinates);
+          setAlertMessage(
+            <>
+              <div style={{ marginBottom: '16px' }}>{err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.'}</div>
+              <div>
+                <p style={{ fontWeight: 600, marginBottom: '8px', color: '#0f172a' }}>
+                  Daftar Bawahan ({err.details.subordinates.length}):
+                </p>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '20px', color: '#334155', maxHeight: '150px', overflowY: 'auto' }}>
+                  {err.details.subordinates.map((sub: any) => (
+                    <li key={sub.id} style={{ marginBottom: '4px' }}>
+                      {sub.full_name} <span style={{ color: '#64748b', fontSize: '13px' }}>({sub.employee_number})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          );
         } else {
-          alert(err.message || 'Gagal menghapus karyawan');
-          setIsDeleteModalOpen(false);
+          setAlertMessage(err.message || 'Gagal menghapus karyawan');
         }
+        setAlertOpen(true);
       }
     }
   }
@@ -247,7 +283,7 @@ export function EmployeePage() {
                     <td>{emp.manager_name || '-'}</td>
                     <td>
                       <button 
-                        onClick={() => toggleEmployeeStatus(emp.user_id || emp.id, emp.is_active)}
+                        onClick={() => confirmToggleStatus(emp.user_id || emp.id, emp.is_active, emp.full_name)}
                         className={`status-badge ${emp.is_active ? 'status-active' : 'status-inactive'}`}
                         style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                         title={emp.is_active ? 'Klik untuk menonaktifkan' : 'Klik untuk mengaktifkan'}
@@ -310,54 +346,48 @@ export function EmployeePage() {
       />
 
       {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title" style={{ color: '#dc2626' }}>
-                {deleteErrorMsg ? 'Gagal Menghapus' : 'Konfirmasi Hapus'}
-              </h2>
-              <button className="modal-close-btn" onClick={() => setIsDeleteModalOpen(false)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {deleteErrorMsg ? (
-                <>
-                  <div className="alert-error" style={{ marginBottom: '16px' }}>{deleteErrorMsg}</div>
-                  {subordinatesList.length > 0 && (
-                    <div style={{ marginTop: '12px' }}>
-                      <p style={{ fontWeight: 600, marginBottom: '8px', color: '#0f172a' }}>
-                        Daftar Bawahan ({subordinatesList.length}):
-                      </p>
-                      <ul style={{ listStyleType: 'disc', paddingLeft: '20px', color: '#334155', maxHeight: '150px', overflowY: 'auto' }}>
-                        {subordinatesList.map(sub => (
-                          <li key={sub.id} style={{ marginBottom: '4px' }}>
-                            {sub.full_name} <span style={{ color: '#64748b', fontSize: '13px' }}>({sub.employee_number})</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p>Apakah kamu yakin ingin menghapus data karyawan <strong>{employeeToDelete?.full_name}</strong>?</p>
-                  <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Tindakan ini tidak dapat dibatalkan.</p>
-                </>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)} style={{ width: 'auto' }}>
-                {deleteErrorMsg ? 'Tutup' : 'Batal'}
-              </button>
-              {!deleteErrorMsg && (
-                <button type="button" className="btn" style={{ backgroundColor: '#dc2626', color: 'white', width: 'auto', padding: '10px 16px', borderRadius: '6px', fontWeight: 500, border: 'none', cursor: 'pointer' }} onClick={confirmDelete}>
-                  Ya, Hapus Data
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Konfirmasi Hapus"
+        message={
+          <>
+            <p>Apakah kamu yakin ingin menghapus data karyawan <strong>{employeeToDelete?.full_name}</strong>?</p>
+            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Tindakan ini tidak dapat dibatalkan.</p>
+          </>
+        }
+        confirmText="Ya, Hapus Data"
+        isDestructive={true}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setEmployeeToDelete(null);
+        }}
+      />
+
+      {/* Status Toggle Modal */}
+      <ConfirmModal
+        isOpen={isStatusConfirmOpen}
+        title="Konfirmasi Ubah Status"
+        message={
+          empToToggle ? 
+          `Apakah Anda yakin ingin ${empToToggle.currentStatus ? 'menonaktifkan' : 'mengaktifkan'} akun ${empToToggle.name}?` 
+          : ''
+        }
+        confirmText="Ya, Lanjutkan"
+        onConfirm={handleToggleStatus}
+        onCancel={() => {
+          setIsStatusConfirmOpen(false);
+          setEmpToToggle(null);
+        }}
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertOpen}
+        title="Informasi"
+        message={alertMessage}
+        onClose={() => setAlertOpen(false)}
+      />
     </div>
   );
 }

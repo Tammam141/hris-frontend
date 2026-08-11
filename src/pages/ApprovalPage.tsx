@@ -2,12 +2,21 @@ import { useState, useEffect } from 'react';
 import { getPendingUsers, approveUser, PendingUser } from '../api/user';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AlertModal } from '../components/ui/AlertModal';
 
 export function ApprovalPage() {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // States for Modals
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{id: string, email: string} | null>(null);
+  
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -29,17 +38,26 @@ export function ApprovalPage() {
     }
   }
 
-  async function handleApprove(id: string, email: string) {
-    if (!window.confirm(`Setujui pendaftaran akun untuk ${email}?`)) return;
+  function confirmApprove(id: string, email: string) {
+    setSelectedUser({ id, email });
+    setConfirmOpen(true);
+  }
+
+  async function handleApprove() {
+    if (!selectedUser) return;
+    setConfirmOpen(false);
     
     try {
-      const res = await approveUser(id);
+      const res = await approveUser(selectedUser.id);
       if (res.success) {
-        setSuccessMsg(res.message || `Akun ${email} berhasil disetujui.`);
+        setSuccessMsg(res.message || `Akun ${selectedUser.email} berhasil disetujui.`);
         loadUsers();
       }
     } catch (err: any) {
-      alert(err.message || 'Gagal menyetujui akun');
+      setAlertMessage(err.message || 'Gagal menyetujui akun');
+      setAlertOpen(true);
+    } finally {
+      setSelectedUser(null);
     }
   }
 
@@ -76,7 +94,7 @@ export function ApprovalPage() {
                     <td className="employee-name">{u.email}</td>
                     <td className="employee-subtext">{new Date(u.created_at).toLocaleString('id-ID')}</td>
                     <td>
-                      <button className="btn btn-success" style={{ padding: '6px 12px', fontSize: '13px', margin: 0, width: '100%' }} onClick={() => handleApprove(u.id, u.email)}>
+                      <button className="btn btn-success" style={{ padding: '6px 12px', fontSize: '13px', margin: 0, width: '100%' }} onClick={() => confirmApprove(u.id, u.email)}>
                         Setujui
                       </button>
                     </td>
@@ -87,6 +105,24 @@ export function ApprovalPage() {
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Setujui Akun"
+        message={`Apakah Anda yakin ingin menyetujui pendaftaran akun untuk ${selectedUser?.email}?`}
+        onConfirm={handleApprove}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setSelectedUser(null);
+        }}
+      />
+
+      <AlertModal
+        isOpen={alertOpen}
+        title="Peringatan"
+        message={alertMessage}
+        onClose={() => setAlertOpen(false)}
+      />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AlertModal } from '../components/ui/AlertModal';
 
 export function PositionPage() {
   const [positions, setPositions] = useState<Position[]>([]);
@@ -21,10 +23,11 @@ export function PositionPage() {
   const [name, setName] = useState('');
   const [level, setLevel] = useState<number | ''>('');
 
-  // Delete State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  // Delete & Alert State
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [posToDelete, setPosToDelete] = useState<Position | null>(null);
-  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
   useEffect(() => {
     loadPositions();
@@ -75,30 +78,31 @@ export function PositionPage() {
       setIsModalOpen(false);
       loadPositions();
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan jabatan');
+      setAlertMessage(err.message || 'Gagal menyimpan jabatan');
+      setAlertOpen(true);
     }
   }
 
   function handleDelete(pos: Position) {
     setPosToDelete(pos);
-    setDeleteErrorMsg('');
-    setIsDeleteModalOpen(true);
+    setIsDeleteConfirmOpen(true);
   }
 
   async function confirmDelete() {
     if (posToDelete) {
       try {
         await deletePosition(posToDelete.id);
-        setIsDeleteModalOpen(false);
+        setIsDeleteConfirmOpen(false);
         setPosToDelete(null);
         loadPositions();
       } catch (err: any) {
+        setIsDeleteConfirmOpen(false);
         if (err.details && (err.details as any).employee_count) {
-          setDeleteErrorMsg(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);
+          setAlertMessage(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);
         } else {
-          alert(err.message || 'Gagal menghapus jabatan');
-          setIsDeleteModalOpen(false);
+          setAlertMessage(err.message || 'Gagal menghapus jabatan');
         }
+        setAlertOpen(true);
       }
     }
   }
@@ -183,39 +187,26 @@ export function PositionPage() {
         </div>
       )}
 
-      {/* Modal Hapus */}
-      {isDeleteModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title" style={{ color: '#dc2626' }}>
-                {deleteErrorMsg ? 'Gagal Menghapus' : 'Konfirmasi Hapus'}
-              </h2>
-              <button className="modal-close-btn" onClick={() => setIsDeleteModalOpen(false)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {deleteErrorMsg ? (
-                <div className="alert-error" style={{ marginBottom: '16px' }}>{deleteErrorMsg}</div>
-              ) : (
-                <>
-                  <p>Apakah kamu yakin ingin menghapus jabatan <strong>{posToDelete?.name}</strong>?</p>
-                  <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Tindakan ini tidak dapat dibatalkan.</p>
-                </>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)} style={{ width: 'auto' }}>
-                {deleteErrorMsg ? 'Tutup' : 'Batal'}
-              </button>
-              {!deleteErrorMsg && (
-                <button type="button" className="btn" style={{ backgroundColor: '#dc2626', color: 'white', width: 'auto', padding: '10px 16px', borderRadius: '6px', fontWeight: 500, border: 'none', cursor: 'pointer' }} onClick={confirmDelete}>
-                  Ya, Hapus
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm & Alert Modals */}
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Konfirmasi Hapus"
+        message={`Apakah kamu yakin ingin menghapus jabatan ${posToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        isDestructive={true}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setPosToDelete(null);
+        }}
+      />
+
+      <AlertModal
+        isOpen={alertOpen}
+        title="Peringatan"
+        message={alertMessage}
+        onClose={() => setAlertOpen(false)}
+      />
     </div>
   );
 }
