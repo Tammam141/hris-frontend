@@ -79,6 +79,59 @@
   font-style: italic;
 }
 
+/* File Upload Card Styles */
+.file-upload-card {
+  position: relative;
+  width: 100%;
+  padding: 32px 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.file-upload-card:hover {
+  border-color: #3b82f6;
+  background-color: #f1f5f9;
+}
+
+.file-upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.file-upload-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 4px 0;
+}
+
+.file-upload-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+.file-upload-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
 /* Kustomisasi Sedikit untuk React Datepicker (Library eksternal) */
 .react-datepicker-wrapper {
   width: 100%;

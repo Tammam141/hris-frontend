@@ -53,9 +53,15 @@ export function LeavePeriod() {
       setIsAlertOpen(true);
       return;
     }
+    if (!reason.trim()) {
+      setAlertType('error');
+      setAlertMessage('Harap isi alasan cuti terlebih dahulu.');
+      setIsAlertOpen(true);
+      return;
+    }
     if (leaveType === 'sakit' && !attachment) {
       setAlertType('error');
-      setAlertMessage('Harap unggah foto bukti untuk cuti sakit.');
+      setAlertMessage('Harap unggah foto/dokumen bukti untuk cuti sakit.');
       setIsAlertOpen(true);
       return;
     }
@@ -133,45 +139,55 @@ export function LeavePeriod() {
           </div>
           
           <div style={{ marginTop: '16px' }}>
-            <label className="leave-label">Alasan Cuti</label>
+            <label className="leave-label">Alasan Cuti <span style={{ color: '#dc2626' }}>*</span></label>
             <textarea
               className="custom-datepicker-input"
               style={{ minHeight: '100px', resize: 'vertical', marginTop: '8px' }}
               placeholder="Tuliskan alasan cuti Anda di sini..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              required
             />
           </div>
 
-          <div style={{ marginTop: '16px' }}>
-            <label className="leave-label">Upload Foto Bukti {leaveType === 'sakit' && <span style={{ color: '#dc2626' }}>*</span>}</label>
-            <div className="file-upload-wrapper">
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    const file = e.target.files[0];
-                    if (file.size > 5 * 1024 * 1024) {
-                      setAlertType('error');
-                      setAlertMessage('Ukuran file foto tidak boleh melebihi 5 MB.');
-                      setIsAlertOpen(true);
-                      e.target.value = ''; // Reset input
+          {leaveType === 'sakit' && (
+            <div style={{ marginTop: '16px' }}>
+              <label className="leave-label">Upload Foto Bukti <span style={{ color: '#dc2626' }}>*</span></label>
+              <div className="file-upload-card">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const file = e.target.files[0];
+                      if (file.size > 5 * 1024 * 1024) {
+                        setAlertType('error');
+                        setAlertMessage('Ukuran file foto tidak boleh melebihi 5 MB.');
+                        setIsAlertOpen(true);
+                        e.target.value = ''; // Reset input
+                        setAttachment(null);
+                        return;
+                      }
+                      setAttachment(file);
+                    } else {
                       setAttachment(null);
-                      return;
                     }
-                    setAttachment(file);
-                  } else {
-                    setAttachment(null);
-                  }
-                }}
-                className="file-upload-input"
-              />
-              <div className="file-upload-text">
-                {attachment ? attachment.name : 'Pilih file atau tarik ke sini (Maks 5MB)'}
+                  }}
+                  className="file-upload-input"
+                  required
+                />
+                <div className="file-upload-content">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '12px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <p className="file-upload-title">{attachment ? attachment.name : 'Pilih file atau tarik ke sini'}</p>
+                  <p className="file-upload-subtitle">{attachment ? `${(attachment.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal ukuran file 5 MB (JPG, PNG)'}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="leave-column-right">
