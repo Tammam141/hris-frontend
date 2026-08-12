@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { differenceInBusinessDays } from 'date-fns';
+import { AlertModal } from '../../components/ui/AlertModal';
 import '../../components/ui/leave.css';
 
 export function LeavePeriod() {
@@ -12,8 +13,15 @@ export function LeavePeriod() {
   // State total hari kerja
   const [totalDays, setTotalDays] = useState<number>(0);
 
-  // State alasan cuti
+  // State alasan cuti & tipe cuti
   const [reason, setReason] = useState<string>('');
+  const [leaveType, setLeaveType] = useState<string>('tahunan');
+  const [attachment, setAttachment] = useState<File | null>(null);
+
+  // State notifikasi submit
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<'success' | 'error'>('success');
 
   // Blokir hari Sabtu (6) dan Minggu (0)
   const isWeekday = (date: Date) => {
@@ -37,12 +45,53 @@ export function LeavePeriod() {
     }
   }, [startDate, endDate]);
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!startDate) {
+      setAlertType('error');
+      setAlertMessage('Harap pilih periode cuti terlebih dahulu.');
+      setIsAlertOpen(true);
+      return;
+    }
+    if (leaveType === 'sakit' && !attachment) {
+      setAlertType('error');
+      setAlertMessage('Harap unggah foto bukti untuk cuti sakit.');
+      setIsAlertOpen(true);
+      return;
+    }
+
+    // Mock Submit Success
+    setAlertType('success');
+    setAlertMessage(`Pengajuan Cuti ${leaveType === 'tahunan' ? 'Tahunan' : leaveType === 'sakit' ? 'Sakit' : 'Melahirkan'} berhasil diajukan dan sedang menunggu persetujuan HR.`);
+    setIsAlertOpen(true);
+    
+    // Reset Form
+    setDateRange([null, null]);
+    setReason('');
+    setAttachment(null);
+    setLeaveType('tahunan');
+  }
+
   return (
     <div className="leave-container">
       <h2 className="leave-title">Pengajuan Cuti Karyawan</h2>
       
-      <div className="leave-grid">
+      <form onSubmit={handleSubmit} className="leave-grid">
         <div className="leave-column-left">
+          
+          <div style={{ marginBottom: '16px' }}>
+            <label className="leave-label">Jenis Cuti</label>
+            <select 
+              className="custom-datepicker-input" 
+              value={leaveType}
+              onChange={(e) => setLeaveType(e.target.value)}
+            >
+              <option value="tahunan">Cuti Tahunan (Sisa: 12 Hari)</option>
+              <option value="sakit">Cuti Sakit</option>
+              <option value="melahirkan">Cuti Melahirkan</option>
+            </select>
+          </div>
+
           <label className="leave-label">Pilih Periode Cuti</label>
           <div style={{ position: 'relative' }}>
             <DatePicker
@@ -57,6 +106,13 @@ export function LeavePeriod() {
               className="custom-datepicker-input"
               dateFormat="dd MMMM yyyy"
               isClearable={true}
+              onCalendarClose={() => {
+                // Solusi alternatif: Jika pengguna hanya memilih 1 tanggal lalu menutup kalender,
+                // jadikan tanggal tersebut sebagai startDate sekaligus endDate (cuti 1 hari).
+                if (startDate && !endDate) {
+                  setDateRange([startDate, startDate]);
+                }
+              }}
               onChangeRaw={(e) => e.preventDefault()} 
             />
             <svg 
@@ -69,7 +125,7 @@ export function LeavePeriod() {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
-              style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              style={{ position: 'absolute', right: '35px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }}
             >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -88,13 +144,58 @@ export function LeavePeriod() {
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <label className="leave-label">Upload Foto Bukti {leaveType === 'sakit' && <span style={{ color: '#dc2626' }}>*</span>}</label>
+            <div className="file-upload-wrapper">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    if (file.size > 5 * 1024 * 1024) {
+                      setAlertType('error');
+                      setAlertMessage('Ukuran file foto tidak boleh melebihi 5 MB.');
+                      setIsAlertOpen(true);
+                      e.target.value = ''; // Reset input
+                      setAttachment(null);
+                      return;
+                    }
+                    setAttachment(file);
+                  } else {
+                    setAttachment(null);
+                  }
+                }}
+                className="file-upload-input"
+              />
+              <div className="file-upload-text">
+                {attachment ? attachment.name : 'Pilih file atau tarik ke sini (Maks 5MB)'}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="leave-column-right">
-          <span className="leave-total-title">Total</span>
-          <span className="leave-total-number">{totalDays}</span>
+          <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+            <span className="leave-total-title">Total Hari</span>
+            <span className="leave-total-number" style={{ display: 'block', fontSize: '48px', color: '#1a78d7', fontWeight: 700, margin: '8px 0' }}>{totalDays}</span>
+            <span style={{ fontSize: '14px', color: '#64748b' }}>hari kerja terpilih</span>
+          </div>
+          
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px', padding: '14px', fontSize: '16px', fontWeight: 600 }}>
+            Ajukan Cuti
+          </button>
         </div>
-      </div>
+      </form>
+
+      <AlertModal
+        isOpen={isAlertOpen}
+        title={alertType === 'success' ? 'Berhasil' : 'Peringatan'}
+        type={alertType}
+        message={alertMessage}
+        onClose={() => setIsAlertOpen(false)}
+      />
     </div>
   );
 }

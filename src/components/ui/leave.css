@@ -98,3 +98,45 @@
 .custom-datepicker-input:focus {
   border-color: #1a78d7;
 }
+
+/* File Upload Styles */
+.file-upload-wrapper {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  background-color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.file-upload-wrapper:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
+}
+
+.file-upload-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-upload-text {
+  font-size: 14px;
+  color: #64748b;
+  pointer-events: none;
+  padding: 0 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
