@@ -1,8 +1,6 @@
 import { apiRequest } from './client';
 
-// ============================================================
 // INTERFACES
-// ============================================================
 
 export interface LeaveType {
   id: string;
@@ -72,9 +70,7 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
-// ============================================================
 // LEAVE TYPES — CRUD (HR/Admin bisa tulis, semua bisa baca)
-// ============================================================
 
 export async function getLeaveTypes(): Promise<{ data: LeaveType[] }> {
   return apiRequest('/leave-types', 'GET');
@@ -96,9 +92,7 @@ export async function deleteLeaveType(id: string): Promise<{ success: boolean; m
   return apiRequest(`/leave-types/${id}`, 'DELETE');
 }
 
-// ============================================================
 // LEAVE BALANCES
-// ============================================================
 
 export async function getMyLeaveBalances(periodYear?: number): Promise<{ data: { employee_id: string; period_year: number; balances: LeaveBalance[] } }> {
   const query = periodYear ? `?period_year=${periodYear}` : '';
@@ -135,9 +129,7 @@ export async function adjustBalance(data: {
   return apiRequest('/leave-balances/adjustments', 'POST', payload);
 }
 
-// ============================================================
 // LEAVE REQUESTS — Pengajuan Cuti
-// ============================================================
 
 export async function createLeaveRequest(data: LeaveRequestData): Promise<{ data: LeaveRequest }> {
   return apiRequest('/leave-requests', 'POST', data);
@@ -173,9 +165,7 @@ export async function getAllLeaveRequests(params?: {
   return apiRequest(`/leave-requests${qs ? '?' + qs : ''}`, 'GET');
 }
 
-// ============================================================
 // LEAVE APPROVALS
-// ============================================================
 
 export async function getLeaveApprovals(params?: {
   status?: string;
@@ -202,9 +192,7 @@ export async function cancelLeaveRequest(id: string): Promise<any> {
   return apiRequest(`/leave-requests/${id}/cancel`, 'PATCH');
 }
 
-// ============================================================
 // ATTACHMENTS
-// ============================================================
 
 export async function uploadLeaveAttachment(requestId: string, file: File): Promise<any> {
   const formData = new FormData();
