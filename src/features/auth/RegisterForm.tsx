@@ -1,25 +1,27 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { registerApi } from '../../api/auth';
 import { registerSchema } from './authSchema';
-import '../../components/ui/ui.css';
+import '../../components/ui/auth.css';
 
 export function RegisterForm() {
   // state untuk menyimpan inputan user
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   // state untuk nomor telepon
   const [countryCode, setCountryCode] = useState('+62');
   const [phoneNumber, setPhoneNumber] = useState('');
-  
+
   const [gender, setGender] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // fungsi saat tombol register ditekan
   async function handleSubmit(e: React.FormEvent) {
@@ -32,13 +34,14 @@ export function RegisterForm() {
     const fullPhone = `${countryCode}${cleanPhone}`;
 
     // fungsi validasi dengan zod
-    const cek = registerSchema.safeParse({ 
-      full_name: fullName, 
-      email, 
-      password, 
-      phone: fullPhone, 
-      gender, 
-      terms_accepted: termsAccepted 
+    const cek = registerSchema.safeParse({
+      full_name: fullName,
+      email,
+      password,
+      confirmPassword,
+      phone: fullPhone,
+      gender,
+      terms_accepted: termsAccepted
     });
 
     if (!cek.success) {
@@ -49,17 +52,18 @@ export function RegisterForm() {
     setLoading(true);
 
     try {
-      // kirim data ke backend
-      await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
+      const response = await registerApi(fullName, email, password, fullPhone, gender, termsAccepted);
 
-      setSuccess('Registrasi berhasil! Silakan login.');
-      // kosongkan form setelah sukses
-      setFullName('');
-      setEmail('');
-      setPassword('');
-      setPhoneNumber('');
-      setGender('male');
-      setTermsAccepted(false);
+      if (response.data?.verification_required) {
+        navigate('/verify-email', {
+          state: { email: email }
+        });
+      } else {
+        // Fallback jika tidak perlu verifikasi (seharusnya tidak terjadi berdasar instruksi)
+        navigate('/login', {
+          state: { message: response.message || 'Registrasi berhasil! Akun Anda sedang menunggu persetujuan HR.' }
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Gagal terhubung ke server');
     } finally {
@@ -113,13 +117,26 @@ export function RegisterForm() {
             required
           />
 
+          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            className="input-field"
+            placeholder="Ulangi password di atas"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            minLength={8}
+            disabled={loading}
+            required
+          />
+
           <label className="input-label">Nomor Telepon</label>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <select 
-              className="input-field" 
-              style={{ width: '110px' }} 
-              value={countryCode} 
-              onChange={(e) => setCountryCode(e.target.value)} 
+            <select
+              className="input-field"
+              style={{ width: '110px' }}
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
               disabled={loading}
             >
               <option value="+62">+62 (ID)</option>
@@ -142,23 +159,23 @@ export function RegisterForm() {
           <label className="input-label">Jenis Kelamin</label>
           <div style={{ display: 'flex', gap: '20px', marginTop: '4px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-              <input 
-                type="radio" 
-                name="gender" 
-                value="male" 
-                checked={gender === 'male'} 
-                onChange={(e) => setGender(e.target.value)} 
+              <input
+                type="radio"
+                name="gender"
+                value="male"
+                checked={gender === 'male'}
+                onChange={(e) => setGender(e.target.value)}
                 disabled={loading}
               />
               Laki-laki
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-              <input 
-                type="radio" 
-                name="gender" 
-                value="female" 
-                checked={gender === 'female'} 
-                onChange={(e) => setGender(e.target.value)} 
+              <input
+                type="radio"
+                name="gender"
+                value="female"
+                checked={gender === 'female'}
+                onChange={(e) => setGender(e.target.value)}
                 disabled={loading}
               />
               Perempuan
@@ -166,11 +183,11 @@ export function RegisterForm() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-            <input 
-              type="checkbox" 
-              id="terms" 
-              checked={termsAccepted} 
-              onChange={(e) => setTermsAccepted(e.target.checked)} 
+            <input
+              type="checkbox"
+              id="terms"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
               disabled={loading}
             />
             <label htmlFor="terms" style={{ fontSize: '14px', color: '#334155', cursor: 'pointer' }}>

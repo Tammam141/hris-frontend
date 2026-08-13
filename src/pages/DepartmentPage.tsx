@@ -1,0 +1,211 @@
+import React, { useState, useEffect } from 'react';
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../api/department';
+import { Department } from '../types/employee';
+import { EditIcon } from '../components/icons/EditIcon';
+import { TrashIcon } from '../components/icons/TrashIcon';
+import '../components/ui/dashboard.css';
+import '../components/ui/employee.css';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AlertModal } from '../components/ui/AlertModal';
+
+export function DepartmentPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+  
+  // Form State
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+
+  // Delete & Alert State
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deptToDelete, setDeptToDelete] = useState<Department | null>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
+  async function loadDepartments() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await getDepartments();
+      if (res.success) {
+        setDepartments(res.data);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Gagal memuat data departemen');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openCreateModal() {
+    setModalMode('create');
+    setSelectedDept(null);
+    setCode('');
+    setName('');
+    setDescription('');
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(dept: Department) {
+    setModalMode('edit');
+    setSelectedDept(dept);
+    setCode(dept.code);
+    setName(dept.name);
+    setDescription(dept.description || '');
+    setIsModalOpen(true);
+  }
+
+  async function handleModalSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      if (modalMode === 'create') {
+        await createDepartment({ code, name, description });
+      } else if (selectedDept) {
+        await updateDepartment(selectedDept.id, { code, name, description });
+      }
+      setIsModalOpen(false);
+      loadDepartments();
+    } catch (err: any) {
+      setAlertMessage(err.message || 'Gagal menyimpan departemen');
+      setAlertOpen(true);
+    }
+  }
+
+  function handleDelete(dept: Department) {
+    setDeptToDelete(dept);
+    setIsDeleteConfirmOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (deptToDelete) {
+      try {
+        await deleteDepartment(deptToDelete.id);
+        setIsDeleteConfirmOpen(false);
+        setDeptToDelete(null);
+        loadDepartments();
+      } catch (err: any) {
+        setIsDeleteConfirmOpen(false);
+        if (err.details && (err.details as any).employee_count) {
+          setAlertMessage(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);
+        } else {
+          setAlertMessage(err.message || 'Gagal menghapus departemen');
+        }
+        setAlertOpen(true);
+      }
+    }
+  }
+
+  return (
+    <div className="dashboard-container" style={{ padding: '0', maxWidth: '100%' }}>
+      <div className="dashboard-card" style={{ padding: '32px', borderRadius: '0', border: 'none', boxShadow: 'none', minHeight: '100%' }}>
+        <div className="employee-header-actions">
+          <div>
+            <h1 className="dashboard-title">Master Departemen</h1>
+            <p className="dashboard-subtitle">Kelola data departemen perusahaan.</p>
+          </div>
+          <button className="btn btn-success" onClick={openCreateModal}>+ Tambah Departemen</button>
+        </div>
+
+        {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+
+        <div className="employee-table-wrapper">
+          <table className="employee-table">
+            <thead>
+              <tr>
+                <th>Kode</th>
+                <th>Nama Departemen</th>
+                <th>Deskripsi</th>
+                <th style={{ width: '100px' }}>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
+              ) : departments.length === 0 ? (
+                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
+              ) : (
+                departments.map(dept => (
+                  <tr key={dept.id}>
+                    <td className="employee-name">{dept.code}</td>
+                    <td>{dept.name}</td>
+                    <td className="employee-subtext">{dept.description || '-'}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                        <button className="btn-icon btn-delete" onClick={() => handleDelete(dept)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal Form Departemen */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Departemen Baru' : 'Ubah Data Departemen'}</h2>
+              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleModalSubmit}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Kode Departemen</label>
+                  <input type="text" className="input-field" value={code} onChange={e => setCode(e.target.value)} required placeholder="Contoh: IT" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nama Departemen</label>
+                  <input type="text" className="input-field" value={name} onChange={e => setName(e.target.value)} required placeholder="Contoh: Information Technology" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Deskripsi</label>
+                  <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Deskripsi opsional..." />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Batal</button>
+                <button type="submit" className="btn btn-primary">{modalMode === 'create' ? 'Simpan Data' : 'Perbarui Data'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm & Alert Modals */}
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Konfirmasi Hapus"
+        message={`Apakah kamu yakin ingin menghapus departemen ${deptToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        isDestructive={true}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setDeptToDelete(null);
+        }}
+      />
+
+      <AlertModal
+        isOpen={alertOpen}
+        title="Peringatan"
+        message={alertMessage}
+        onClose={() => setAlertOpen(false)}
+      />
+    </div>
+  );
+}
