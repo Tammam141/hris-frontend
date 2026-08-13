@@ -125,7 +125,14 @@ export async function adjustBalance(data: {
   amount: number;
   reason: string;
 }): Promise<{ success: boolean; message: string }> {
-  return apiRequest('/leave-balances/adjustments', 'POST', data);
+  const payload = {
+    employee_id: data.employee_id,
+    leave_type_id: data.leave_type_id,
+    period_year: data.period_year,
+    amount: data.amount,
+    note: data.reason
+  };
+  return apiRequest('/leave-balances/adjustments', 'POST', payload);
 }
 
 // ============================================================
