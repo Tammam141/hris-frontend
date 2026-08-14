@@ -187,10 +187,6 @@
   transform: scale(1.1);
 }
 
-/* ======================================= */
-/* Leave Detail Modal Styles               */
-/* ======================================= */
-
 .leave-detail-row {
   display: flex;
   padding: 12px 0;
@@ -256,7 +252,6 @@
   border-color: #93c5fd;
 }
 
-/* Kustomisasi Sedikit untuk React Datepicker (Library eksternal) */
 .react-datepicker-wrapper {
   width: 100%;
 }
@@ -275,10 +270,6 @@
 .custom-datepicker-input:focus {
   border-color: #1a78d7;
 }
-
-/* ------------------------------------- */
-/* Layout Halaman Utama (LeavePage.tsx)  */
-/* ------------------------------------- */
 
 .leave-page-container {
   padding: 0;
@@ -299,10 +290,6 @@
   gap: 32px;
   margin-top: 32px;
 }
-
-/* ======================================= */
-/* Leave Overlap Warning Styles            */
-/* ======================================= */
 
 .leave-overlap-warning {
   display: flex;
@@ -367,4 +354,41 @@
 .leave-overlap-status--pending {
   background-color: #fef3c7;
   color: #92400e;
+}
+
+@media (max-width: 768px) {
+  .leave-page-card {
+    padding: 24px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .leave-page-card {
+    padding: 16px !important;
+  }
+
+  .leave-container {
+    padding: 16px;
+  }
+
+  .leave-title {
+    font-size: 17px;
+  }
+
+  .leave-grid {
+    gap: 16px;
+  }
+
+  .leave-total-number {
+    font-size: 36px;
+  }
+
+  .leave-detail-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .leave-detail-label {
+    width: 100%;
+  }
 }

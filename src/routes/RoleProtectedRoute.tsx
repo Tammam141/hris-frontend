@@ -10,8 +10,6 @@ interface RoleProtectedRouteProps {
 export function RoleProtectedRoute({ rule, redirectPath = '/dashboard' }: RoleProtectedRouteProps) {
   const { user, isAuthenticated } = useAuth();
 
-  // Jika belum login, biarkan router mengarahkan ke halaman login.
-  // (Biasanya sudah ditangani oleh ProtectedRoute luar, tapi sebagai pengaman tambahan:)
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
@@ -25,10 +23,8 @@ export function RoleProtectedRoute({ rule, redirectPath = '/dashboard' }: RolePr
   );
 
   if (!isAllowed) {
-    // Jika tidak memiliki izin, arahkan kembali ke halaman yang aman
     return <Navigate to={redirectPath} replace />;
   }
 
-  // Jika memiliki izin, tampilkan rute anak-anaknya
   return <Outlet />;
 }

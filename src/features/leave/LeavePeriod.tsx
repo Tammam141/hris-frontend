@@ -8,7 +8,11 @@ import { getHolidays, Holiday } from '../../api/holiday';
 import { useAuth } from '../../hooks/useAuth';
 import '../../components/ui/leave.css';
 
-export function LeavePeriod() {
+interface LeavePeriodProps {
+  onSuccess?: () => void;
+}
+
+export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   // State rentang tanggal cuti
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
@@ -244,6 +248,7 @@ export function LeavePeriod() {
       setReason('');
       handleFileSelect(null);
       fetchInitialData();
+      if (onSuccess) onSuccess();
     } catch (err: any) {
       setAlertType('error');
       // Handle Specific Backend Errors

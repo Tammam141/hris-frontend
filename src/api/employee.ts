@@ -36,3 +36,12 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; me
   const response = await apiRequest(`/employees/${id}`, 'DELETE');
   return response as { success: boolean; message: string };
 }
+
+// Mock function for updating own profile since backend doesn't support PATCH /employees/me yet.
+export async function updateMyProfile(data: any): Promise<{ success: boolean; message: string }> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: 'Profil berhasil diperbarui (Mock)' });
+    }, 1000);
+  });
+}

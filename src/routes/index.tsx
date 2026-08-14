@@ -16,6 +16,7 @@ import { LeaveManagementPage } from '../pages/LeaveManagementPage';
 import { LeaveTypePage } from '../pages/LeaveTypePage';
 import { HolidayPage } from '../pages/HolidayPage';
 import { BalanceAdjustmentPage } from '../pages/BalanceAdjustmentPage';
+import { ProfileEditPage } from '../pages/ProfileEditPage';
 
 // RBAC
 import { RoleProtectedRoute } from './RoleProtectedRoute';
@@ -73,6 +74,10 @@ export function AppRoutes() {
 
           <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave']} />}>
             <Route path="/leave" element={<LeavePage />} />
+          </Route>
+
+          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/profile']} />}>
+            <Route path="/profile" element={<ProfileEditPage />} />
           </Route>
 
         </Route>

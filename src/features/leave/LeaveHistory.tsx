@@ -7,7 +7,11 @@ import { isBefore, startOfDay, parseISO } from 'date-fns';
 import '../../components/ui/employee.css';
 import '../../components/ui/leave.css';
 
-export function LeaveHistory() {
+interface LeaveHistoryProps {
+  refreshKey?: number;
+}
+
+export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -25,7 +29,7 @@ export function LeaveHistory() {
 
   useEffect(() => {
     loadRequests();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, refreshKey]);
 
   const loadRequests = () => {
     setIsLoading(true);
@@ -113,7 +117,7 @@ export function LeaveHistory() {
         ))}
       </div>
 
-      <div className="employee-table-container">
+      <div className="employee-table-wrapper">
         <table className="employee-table">
           <thead>
             <tr>

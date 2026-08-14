@@ -125,7 +125,7 @@ export function LeaveManagementPage() {
           ))}
         </div>
 
-        <div className="table-container">
+        <div className="employee-table-wrapper">
           <table className="employee-table">
             <thead>
               <tr>

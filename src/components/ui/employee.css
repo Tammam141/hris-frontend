@@ -196,3 +196,32 @@
     justify-content: center;
   }
 }
+
+/* Responsive Action Buttons inside tables */
+@media (max-width: 640px) {
+  .employee-header-actions {
+    flex-direction: column;
+  }
+
+  .employee-header-actions .btn {
+    width: 100%;
+  }
+
+  .action-buttons-group {
+    flex-wrap: wrap;
+  }
+}
+
+/* Responsive Modals */
+@media (max-width: 640px) {
+  .modal-content {
+    max-width: 95vw !important;
+    margin: 16px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-body .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
