@@ -4,6 +4,7 @@ import { LeaveDetailModal } from '../../components/ui/LeaveDetailModal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { AlertModal } from '../../components/ui/AlertModal';
 import { isBefore, startOfDay, parseISO } from 'date-fns';
+import { LeaveCalendar } from './LeaveCalendar';
 import '../../components/ui/employee.css';
 import '../../components/ui/leave.css';
 
@@ -12,33 +13,38 @@ interface LeaveHistoryProps {
 }
 
 export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
+  // State: Data
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('');
   
-  // Pagination
+  // State: UI & Filters
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
 
-  // Cancel state
+  // State: Modals
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [requestToCancel, setRequestToCancel] = useState<LeaveRequest | null>(null);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, type: 'success' as 'success' | 'error', message: '' });
 
+  // Effects
   useEffect(() => {
     loadRequests();
-  }, [page, statusFilter, refreshKey]);
+  }, [page, statusFilter, refreshKey, viewMode]);
 
+  // Handlers
   const loadRequests = () => {
     setIsLoading(true);
-    getMyLeaveRequests({ page, limit, status: statusFilter })
+    const currentLimit = viewMode === 'calendar' ? 500 : limit;
+    const currentPage = viewMode === 'calendar' ? 1 : page;
+
+    getMyLeaveRequests({ page: currentPage, limit: currentLimit, status: statusFilter })
       .then(res => {
         setRequests(res.data);
-        if (res.meta) {
-          setTotalPages(res.meta.total_pages || 1);
-        }
+        if (res.meta) setTotalPages(res.meta.total_pages || 1);
       })
       .catch(err => console.error(err))
       .finally(() => setIsLoading(false));
@@ -63,17 +69,20 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
     }
   };
 
+  // Helpers
   const getStatusBadge = (status: string) => {
-    switch(status) {
-      case 'approved':
-        return <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Disetujui</span>;
-      case 'rejected':
-        return <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Ditolak</span>;
-      case 'cancelled':
-        return <span style={{ backgroundColor: '#f1f5f9', color: '#475569', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Dibatalkan</span>;
-      default:
-        return <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Menunggu</span>;
-    }
+    const badges: Record<string, { bg: string, color: string, text: string }> = {
+      approved: { bg: '#dcfce7', color: '#166534', text: 'Disetujui' },
+      rejected: { bg: '#fee2e2', color: '#991b1b', text: 'Ditolak' },
+      cancelled: { bg: '#f1f5f9', color: '#475569', text: 'Dibatalkan' },
+      pending: { bg: '#fef3c7', color: '#92400e', text: 'Menunggu' },
+    };
+    const style = badges[status] || badges['pending'];
+    return (
+      <span style={{ backgroundColor: style.bg, color: style.color, padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>
+        {style.text}
+      </span>
+    );
   };
 
   const canCancel = (req: LeaveRequest) => {
@@ -86,115 +95,151 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
     return false;
   };
 
+  // Renderers
+  const renderFilterTabs = () => {
+    const tabs = [
+      { id: '', label: 'Semua' },
+      { id: 'pending', label: 'Menunggu' },
+      { id: 'approved', label: 'Disetujui' },
+      { id: 'rejected', label: 'Ditolak' },
+      { id: 'cancelled', label: 'Dibatalkan' },
+    ];
+
+    return (
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {tabs.map(tab => {
+          const isActive = statusFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => { setStatusFilter(tab.id); setPage(1); }}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 500,
+                border: isActive ? 'none' : '1px solid #cbd5e1',
+                backgroundColor: isActive ? '#1a78d7' : '#fff',
+                color: isActive ? '#fff' : '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderTableData = () => {
+    if (isLoading) {
+      return <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>Memuat data...</td></tr>;
+    }
+    if (requests.length === 0) {
+      return <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>Belum ada pengajuan cuti.</td></tr>;
+    }
+    return requests.map((req) => (
+      <tr key={req.id}>
+        <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.leave_type_name}</div></td>
+        <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
+        <td>{req.total_days} hari</td>
+        <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
+        <td>{getStatusBadge(req.status)}</td>
+        <td>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              className="btn-detail"
+              style={{ padding: '6px 14px', fontSize: '13px', fontWeight: 600, borderRadius: '20px', border: '1px solid #bfdbfe' }}
+              onClick={() => setSelectedRequest(req)}
+              title="Lihat Detail"
+            >
+              Detail
+            </button>
+            {canCancel(req) && (
+              <button 
+                className="btn-delete"
+                style={{ padding: '6px 14px', fontSize: '13px', fontWeight: 600, borderRadius: '20px', border: '1px solid #fca5a5' }}
+                onClick={() => handleCancelClick(req)}
+                title="Batalkan Cuti"
+              >
+                Batal
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    ));
+  };
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+        <button 
+          disabled={page === 1} 
+          onClick={() => setPage(p => p - 1)}
+          style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+        >
+          Prev
+        </button>
+        <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
+        <button 
+          disabled={page === totalPages} 
+          onClick={() => setPage(p => p + 1)}
+          style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+        >
+          Next
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0', height: '100%', boxSizing: 'border-box' }}>
-      <h2 className="leave-title">Riwayat Pengajuan Cuti</h2>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>Pantau status pengajuan cuti Anda di bawah ini.</p>
-
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {['', 'pending', 'approved', 'rejected', 'cancelled'].map(status => (
-          <button
-            key={status}
-            onClick={() => { setStatusFilter(status); setPage(1); }}
-            style={{
-              padding: '6px 16px',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: 500,
-              border: statusFilter === status ? 'none' : '1px solid #cbd5e1',
-              backgroundColor: statusFilter === status ? '#1a78d7' : '#fff',
-              color: statusFilter === status ? '#fff' : '#475569',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            {status === '' ? 'Semua' : 
-             status === 'pending' ? 'Menunggu' : 
-             status === 'approved' ? 'Disetujui' : 
-             status === 'rejected' ? 'Ditolak' : 'Dibatalkan'}
-          </button>
-        ))}
+      {/* Header & View Toggle */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h2 className="leave-title">Riwayat Pengajuan Cuti</h2>
+          <p style={{ color: '#64748b' }}>Pantau status pengajuan cuti Anda di bawah ini.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+           <button onClick={() => setViewMode('list')} style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', backgroundColor: viewMode === 'list' ? '#fff' : 'transparent', color: viewMode === 'list' ? '#0f172a' : '#64748b', fontWeight: 600, cursor: 'pointer', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}>Tabel</button>
+           <button onClick={() => setViewMode('calendar')} style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', backgroundColor: viewMode === 'calendar' ? '#fff' : 'transparent', color: viewMode === 'calendar' ? '#0f172a' : '#64748b', fontWeight: 600, cursor: 'pointer', boxShadow: viewMode === 'calendar' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}>Kalender</button>
+        </div>
       </div>
 
-      <div className="employee-table-wrapper">
-        <table className="employee-table">
-          <thead>
-            <tr>
-              <th>Jenis Cuti</th>
-              <th>Tanggal</th>
-              <th>Total Hari</th>
-              <th>Alasan</th>
-              <th>Status</th>
-              <th style={{ width: '150px' }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>Memuat data...</td>
-              </tr>
-            ) : requests.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>Belum ada pengajuan cuti.</td>
-              </tr>
-            ) : (
-              requests.map((req) => (
-                <tr key={req.id}>
-                  <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.leave_type_name}</div></td>
-                  <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
-                  <td>{req.total_days} hari</td>
-                  <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
-                  <td>{getStatusBadge(req.status)}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        className="btn-detail"
-                        onClick={() => setSelectedRequest(req)}
-                        title="Lihat Detail"
-                      >
-                        Detail
-                      </button>
-                      {canCancel(req) && (
-                        <button 
-                          className="btn-delete"
-                          style={{ padding: '4px 8px', fontSize: '12px' }}
-                          onClick={() => handleCancelClick(req)}
-                          title="Batalkan Cuti"
-                        >
-                          Batal
-                        </button>
-                      )}
-                    </div>
-                  </td>
+      {/* Main Content */}
+      {viewMode === 'list' ? (
+        <>
+          {renderFilterTabs()}
+          <div className="employee-table-wrapper">
+            <table className="employee-table">
+              <thead>
+                <tr>
+                  <th>Jenis Cuti</th>
+                  <th>Tanggal</th>
+                  <th>Total Hari</th>
+                  <th>Alasan</th>
+                  <th>Status</th>
+                  <th style={{ width: '150px' }}>Aksi</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-          <button 
-            disabled={page === 1} 
-            onClick={() => setPage(p => p - 1)}
-            style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-          >
-            Prev
-          </button>
-          <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
-          <button 
-            disabled={page === totalPages} 
-            onClick={() => setPage(p => p + 1)}
-            style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
-          >
-            Next
-          </button>
+              </thead>
+              <tbody>
+                {renderTableData()}
+              </tbody>
+            </table>
+          </div>
+          {renderPagination()}
+        </>
+      ) : (
+        <div style={{ marginTop: '24px' }}>
+          <LeaveCalendar requests={requests} onSelectEvent={setSelectedRequest} />
         </div>
       )}
 
+      {/* Modals */}
       <LeaveDetailModal
         isOpen={selectedRequest !== null}
         request={selectedRequest}

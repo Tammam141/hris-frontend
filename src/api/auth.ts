@@ -12,6 +12,11 @@ export async function getMeApi() {
   return apiRequest('/auth/me', 'GET');
 }
 
+export async function updateMeApi(data: { full_name?: string, phone?: string, birth_date?: string, address?: string }) {
+  return apiRequest('/auth/me', 'PATCH', data);
+}
+
+
 export async function changePasswordApi(current_password: string, new_password: string) {
   return apiRequest('/auth/password', 'PATCH', { current_password, new_password });
 }

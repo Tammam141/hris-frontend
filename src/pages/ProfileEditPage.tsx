@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { updateMyProfile } from '../api/employee';
+import { updateMeApi, getMeApi } from '../api/auth';
 import { AlertModal } from '../components/ui/AlertModal';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [fullName, setFullName] = useState(user?.full_name || '');
+  const [fullName, setFullName] = useState(user?.employee?.full_name || user?.full_name || '');
   const [phone, setPhone] = useState(user?.employee?.phone || '');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(user?.employee?.address || '');
   
   // Photo preview state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function ProfileEditPage() {
     setIsSubmitting(true);
 
     try {
-      // Mock API call to update profile
+      // Call the real API
       const dataToUpdate = {
         full_name: fullName,
         phone,
@@ -41,8 +41,19 @@ export function ProfileEditPage() {
         // (Photo would be uploaded here using FormData if supported)
       };
 
-      await updateMyProfile(dataToUpdate);
-      setAlertInfo({ open: true, title: 'Berhasil', message: 'Profil Anda berhasil diperbarui (Simulasi).', type: 'success' });
+      await updateMeApi(dataToUpdate);
+      
+      // Fetch the updated profile and update context
+      const res = await getMeApi();
+      if (res.success) {
+        const token = localStorage.getItem('token');
+        if (token) {
+          login(token, res.data);
+        }
+      }
+
+      // Langsung reload dan kembali ke dashboard
+      window.location.href = '/dashboard';
     } catch (error: any) {
       setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
     } finally {
@@ -181,7 +192,12 @@ export function ProfileEditPage() {
         title={alertInfo.title}
         type={alertInfo.type}
         message={alertInfo.message}
-        onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+        onClose={() => {
+          setAlertInfo(prev => ({ ...prev, open: false }));
+          if (alertInfo.type === 'success') {
+            navigate('/dashboard');
+          }
+        }}
       />
     </div>
   );
