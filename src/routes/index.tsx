@@ -17,9 +17,10 @@ import { LeaveTypePage } from '../pages/LeaveTypePage';
 import { HolidayPage } from '../pages/HolidayPage';
 import { BalanceAdjustmentPage } from '../pages/BalanceAdjustmentPage';
 import { ProfileEditPage } from '../pages/ProfileEditPage';
+import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 
-// RBAC
-import { RoleProtectedRoute } from './RoleProtectedRoute';
+// Feature-based AC
+import { FeatureProtectedRoute } from './FeatureProtectedRoute';
 import { ROUTE_PERMISSIONS } from '../config/permissions';
 
 export function AppRoutes() {
@@ -36,48 +37,52 @@ export function AppRoutes() {
         {/* Semua rute di bawah ini wajib login */}
         <Route element={<ProtectedRoute />}>
           
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
             <Route path="/dashboard" element={<DashboardPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
             <Route path="/employee" element={<EmployeePage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/department']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/department']} />}>
             <Route path="/department" element={<DepartmentPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/position']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/position']} />}>
             <Route path="/position" element={<PositionPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/approval']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/approval']} />}>
             <Route path="/approval" element={<ApprovalPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave-management']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave-management']} />}>
             <Route path="/leave-management" element={<LeaveManagementPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave-types']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave-types']} />}>
             <Route path="/leave-types" element={<LeaveTypePage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/holidays']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/holidays']} />}>
             <Route path="/holidays" element={<HolidayPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/balance-adjustments']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/balance-adjustments']} />}>
             <Route path="/balance-adjustments" element={<BalanceAdjustmentPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave']} />}>
             <Route path="/leave" element={<LeavePage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/profile']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/profile']} />}>
             <Route path="/profile" element={<ProfileEditPage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/features']} />}>
+            <Route path="/features" element={<FeatureManagementPage />} />
           </Route>
 
         </Route>

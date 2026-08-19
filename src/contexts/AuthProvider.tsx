@@ -27,6 +27,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
   }
 
+  function hasFeature(code: string): boolean {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return user.features?.includes(code) || false;
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -35,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: token !== null,
         login: login,
         logout: logout,
+        hasFeature: hasFeature,
       }}
     >
       {children}

@@ -11,6 +11,7 @@ export function ProfileEditPage() {
 
   const [fullName, setFullName] = useState(user?.employee?.full_name || user?.full_name || '');
   const [phone, setPhone] = useState(user?.employee?.phone || '');
+  const [birthDate, setBirthDate] = useState(user?.employee?.birth_date || '');
   const [address, setAddress] = useState(user?.employee?.address || '');
   
   // Photo preview state
@@ -37,6 +38,7 @@ export function ProfileEditPage() {
       const dataToUpdate = {
         full_name: fullName,
         phone,
+        birth_date: birthDate || undefined,
         address,
         // (Photo would be uploaded here using FormData if supported)
       };
@@ -124,6 +126,16 @@ export function ProfileEditPage() {
                 value={phone} 
                 onChange={e => setPhone(e.target.value)} 
                 required 
+              />
+            </div>
+
+            <div className="form-group form-group--span2">
+              <label className="form-label">Tanggal Lahir</label>
+              <input 
+                type="date" 
+                className="input-field" 
+                value={birthDate} 
+                onChange={e => setBirthDate(e.target.value)} 
               />
             </div>
 

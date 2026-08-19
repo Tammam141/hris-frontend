@@ -78,42 +78,42 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* sidebar */}
         <aside className={`app-sidebar ${isSidebarOpen ? 'open' : ''}`}>
           <nav className="sidebar-nav">
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/dashboard'].roles} allowedPositions={ROUTE_PERMISSIONS['/dashboard'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/dashboard'].features}>
               <NavLink to="/dashboard" className="sidebar-link" onClick={() => setIsSidebarOpen(false)}>Dashboard</NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/employee'].roles} allowedPositions={ROUTE_PERMISSIONS['/employee'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/employee'].features}>
               <NavLink to="/employee" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UsersIcon /> Employee
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/department'].roles} allowedPositions={ROUTE_PERMISSIONS['/department'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>
               <NavLink to="/department" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BuildingIcon /> Department
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/position'].roles} allowedPositions={ROUTE_PERMISSIONS['/position'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/position'].features}>
               <NavLink to="/position" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BriefcaseIcon /> Position
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/approval'].roles} allowedPositions={ROUTE_PERMISSIONS['/approval'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/approval'].features}>
               <NavLink to="/approval" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserCheckIcon /> Persetujuan Akun
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-management'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-management'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/leave-management'].features}>
               <NavLink to="/leave-management" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CalendarWeekIcon /> Persetujuan Cuti
               </NavLink>
             </ShowIf>
             
             {/* Master Data Cuti Dropdown - Kita asumsikan jika bisa lihat leave-types, maka bisa lihat dropdown ini */}
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-types'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-types'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/leave-types'].features}>
               <div className="sidebar-dropdown-container">
                 <button 
                   className="sidebar-link" 
@@ -125,13 +125,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
                 {isMasterLeaveOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-types'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-types'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/leave-types'].features}>
                       <NavLink to="/leave-types" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Jenis Cuti</NavLink>
                     </ShowIf>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/holidays'].roles} allowedPositions={ROUTE_PERMISSIONS['/holidays'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/holidays'].features}>
                       <NavLink to="/holidays" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Hari Libur</NavLink>
                     </ShowIf>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/balance-adjustments'].roles} allowedPositions={ROUTE_PERMISSIONS['/balance-adjustments'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/balance-adjustments'].features}>
                       <NavLink to="/balance-adjustments" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Penyesuaian Saldo</NavLink>
                     </ShowIf>
                   </div>
@@ -139,11 +139,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/leave'].features}>
               <NavLink to="/leave" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CalendarWeekIcon /> Cuti (Leave)
               </NavLink>
             </ShowIf>
+            
+            {/* Admin Only features */}
+            {user?.role === 'admin' && (
+              <NavLink to="/features" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheckIcon /> Matriks Fitur
+              </NavLink>
+            )}
           </nav>
         </aside>
 

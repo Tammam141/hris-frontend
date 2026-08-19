@@ -1,56 +1,31 @@
-import { User } from '../types/user';
-
-// Konstanta Roles
-export const ROLES = {
-  ADMIN: 'admin',
-  EMPLOYEE: 'employee',
-} as const;
-
-// Konstanta Positions
-export const POSITIONS = {
-  INTERN: 'Intern',
-  QA_ENG: 'Quality Assurance (QA) Engineer',
-  SWE: 'Software Engineer',
-  STAFF: 'Staff',
-  SENIOR: 'Senior Engineer',
-  LEAD: 'Team Lead',
-  MANAGER: 'Manager',
-  CHIEF: 'Chief of Product',
-} as const;
-
 export interface AccessRule {
-  roles?: string[];
-  positions?: string[];
+  features?: string[];
 }
 
-// Konfigurasi sentral per-rute
+// Konfigurasi sentral per-rute berbasis fitur
 export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
-  '/dashboard': { roles: [ROLES.ADMIN, ROLES.EMPLOYEE] },
-  '/employee': { roles: [ROLES.ADMIN] },
-  '/department': { roles: [ROLES.ADMIN] },
-  '/position': { roles: [ROLES.ADMIN] },
-  '/approval': { roles: [ROLES.ADMIN] },
-  '/leave-management': { roles: [ROLES.ADMIN], positions: [POSITIONS.LEAD, POSITIONS.MANAGER, POSITIONS.CHIEF] },
-  '/leave-types': { roles: [ROLES.ADMIN] },
-  '/holidays': { roles: [ROLES.ADMIN] },
-  '/balance-adjustments': { roles: [ROLES.ADMIN] },
-  '/leave': { roles: [ROLES.ADMIN, ROLES.EMPLOYEE] },
-  '/profile': { roles: [ROLES.ADMIN, ROLES.EMPLOYEE] },
+  '/dashboard': {}, // Semua bisa akses
+  '/employee': { features: ['employee.view_all'] },
+  '/department': { features: ['organization.manage'] },
+  '/position': { features: ['organization.manage'] },
+  '/approval': { features: ['employee.approve_user'] },
+  '/leave-management': { features: ['leave.view_all'] },
+  '/leave-types': { features: ['leave.manage_type'] },
+  '/holidays': { features: ['organization.holiday'] },
+  '/balance-adjustments': { features: ['leave.adjust_balance'] },
+  '/leave': {}, // Semua bisa akses cuti sendiri
+  '/profile': {}, // Semua bisa edit profil sendiri
+  '/features': {}, // Fitur pengaturan admin, dicek dengan is_admin nanti atau tidak butuh fitur eksplisit (admin only)
 };
 
-
-export function hasAccess(
-  userRole?: string,
-  userPosition?: string | null,
-  allowedRoles?: string[],
-  allowedPositions?: string[]
+export function hasRouteAccess(
+  hasFeature: (code: string) => boolean,
+  allowedFeatures?: string[]
 ): boolean {
-  if ((!allowedRoles || allowedRoles.length === 0) && (!allowedPositions || allowedPositions.length === 0)) {
+  if (!allowedFeatures || allowedFeatures.length === 0) {
     return true;
   }
 
-  const hasRoleAccess = allowedRoles && userRole ? allowedRoles.includes(userRole) : false;
-  const hasPositionAccess = allowedPositions && userPosition ? allowedPositions.includes(userPosition) : false;
-
-  return hasRoleAccess || hasPositionAccess;
+  // Jika butuh salah satu dari allowedFeatures (OR condition)
+  return allowedFeatures.some(code => hasFeature(code));
 }

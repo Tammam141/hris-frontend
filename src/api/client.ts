@@ -37,7 +37,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     
     const error: any = new Error(errorMsg);
     if (data?.details) error.details = data.details;
-    if (response.status === 429 && data?.code) error.code = data.code;
+    if (data?.code) error.code = data.code;
     throw error;
   }
 
