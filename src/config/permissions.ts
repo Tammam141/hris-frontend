@@ -16,6 +16,11 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/leave': {}, // Semua bisa akses cuti sendiri
   '/profile': {}, // Semua bisa edit profil sendiri
   '/features': {}, // Fitur pengaturan admin, dicek dengan is_admin nanti atau tidak butuh fitur eksplisit (admin only)
+  '/work-schedules': { features: ['organization.schedule'] },
+  '/attendance': {}, // Semua bisa akses
+  '/attendance/team': { features: ['attendance.view_team'] },
+  '/attendance/all': { features: ['attendance.view_all'] },
+  '/attendance/report': { features: ['attendance.report'] },
 };
 
 export function hasRouteAccess(

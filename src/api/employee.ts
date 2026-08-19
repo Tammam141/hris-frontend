@@ -37,3 +37,12 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; me
   return response as { success: boolean; message: string };
 }
 
+export async function uploadEmployeePhotoApi(id: string, data: FormData): Promise<{ success: boolean; message: string; data: any }> {
+  const response = await apiRequest(`/employees/${id}/photo`, 'POST', data);
+  return response as { success: boolean; message: string; data: any };
+}
+
+export async function deleteEmployeePhotoApi(id: string): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest(`/employees/${id}/photo`, 'DELETE');
+  return response as { success: boolean; message: string };
+}

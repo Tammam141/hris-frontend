@@ -7,6 +7,7 @@ import { EmployeeListItem, Department, Position, EmployeeDetail } from '../types
 import { EmployeeModal } from '../features/employee/EmployeeModal';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import { Avatar } from '../components/ui/Avatar';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -249,6 +250,7 @@ export function EmployeePage() {
           <table className="employee-table">
             <thead>
               <tr>
+                <th>FOTO</th>
                 <th>ID KARYAWAN</th>
                 <th>NAMA LENGKAP</th>
                 <th>EMAIL</th>
@@ -262,19 +264,27 @@ export function EmployeePage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="empty-table-cell">
+                  <td colSpan={9} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="empty-table-cell">
+                  <td colSpan={9} className="empty-table-cell">
                     Tidak ada data karyawan ditemukan.
                   </td>
                 </tr>
               ) : (
                 employees.map(emp => (
                   <tr key={emp.id}>
+                    <td>
+                      <Avatar 
+                        photoUrl={emp.photo_url} 
+                        name={emp.full_name} 
+                        size="40px" 
+                        fontSize="14px"
+                      />
+                    </td>
                     <td>{emp.employee_number}</td>
                     <td className="employee-name">{emp.full_name}</td>
                     <td className="employee-subtext">{emp.email || '-'}</td>

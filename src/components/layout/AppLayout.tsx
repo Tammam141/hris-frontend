@@ -8,8 +8,10 @@ import { CalendarWeekIcon } from '../icons/CalendarWeekIcon';
 import { BuildingIcon } from '../icons/BuildingIcon';
 import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
+import { ClockIcon } from '../icons/ClockIcon';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
+import { Avatar } from '../ui/Avatar';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, isAuthenticated } = useAuth();
@@ -19,6 +21,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   
   // State untuk dropdown master data
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
   useEffect(() => {
     if (user?.must_change_password) {
@@ -55,9 +58,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="navbar-brand">HRIS</div>
         </div>
         <div className="navbar-right">
-          <span className="navbar-user">
-            <strong>{user?.full_name}</strong>
-          </span>
+          <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>Halo, <strong>{user?.full_name}</strong></span>
+            <Avatar 
+              photoUrl={user?.employee?.photo_url} 
+              name={user?.full_name || ''} 
+              size="36px" 
+              fontSize="14px"
+            />
+          </div>
           <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
             Ganti Password
           </button>
@@ -138,6 +147,31 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 )}
               </div>
             </ShowIf>
+            
+            <ShowIf feature={ROUTE_PERMISSIONS['/work-schedules'].features}>
+              <NavLink to="/work-schedules" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClockIcon /> Jadwal Kerja
+              </NavLink>
+            </ShowIf>
+
+            {/* Attendance Module */}
+            <div className="sidebar-dropdown-container">
+              <button 
+                className="sidebar-link" 
+                onClick={() => setIsAttendanceOpen(!isAttendanceOpen)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', color: '#1e293b' }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ClockIcon /> Modul Absensi</span>
+                <span style={{ transform: isAttendanceOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '12px' }}>▼</span>
+              </button>
+              {isAttendanceOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+                  <ShowIf feature={ROUTE_PERMISSIONS['/attendance'].features}>
+                    <NavLink to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
+                  </ShowIf>
+                </div>
+              )}
+            </div>
 
             <ShowIf feature={ROUTE_PERMISSIONS['/leave'].features}>
               <NavLink to="/leave" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

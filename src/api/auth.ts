@@ -36,3 +36,11 @@ export async function forgotPasswordApi(email: string) {
 export async function resetPasswordApi(email: string, token: string, password: string, password_confirmation: string) {
   return apiRequest('/auth/reset-password', 'POST', { email, token, password, password_confirmation });
 }
+
+export async function uploadMyPhotoApi(data: FormData) {
+  return apiRequest('/auth/me/photo', 'POST', data);
+}
+
+export async function deleteMyPhotoApi() {
+  return apiRequest('/auth/me/photo', 'DELETE');
+}

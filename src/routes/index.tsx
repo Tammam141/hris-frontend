@@ -19,6 +19,10 @@ import { BalanceAdjustmentPage } from '../pages/BalanceAdjustmentPage';
 import { ProfileEditPage } from '../pages/ProfileEditPage';
 import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 
+// New Modules
+import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage';
+import { AttendancePage } from '../pages/AttendancePage';
+
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
 import { ROUTE_PERMISSIONS } from '../config/permissions';
@@ -83,6 +87,16 @@ export function AppRoutes() {
           
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/features']} />}>
             <Route path="/features" element={<FeatureManagementPage />} />
+          </Route>
+          
+          {/* Work Schedules */}
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/work-schedules']} />}>
+            <Route path="/work-schedules" element={<WorkScheduleManagementPage />} />
+          </Route>
+
+          {/* Attendance */}
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance']} />}>
+            <Route path="/attendance" element={<AttendancePage />} />
           </Route>
 
         </Route>

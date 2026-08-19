@@ -3,9 +3,11 @@ const API_URL = '/api/v1';
 export async function apiRequest(endpoint: string, method: string, body?: object) {
   const token = localStorage.getItem('token');
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+  
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = 'Bearer ' + token;
@@ -14,7 +16,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
   const response = await fetch(API_URL + endpoint, {
     method: method,
     headers: headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
   const data = await response.json();

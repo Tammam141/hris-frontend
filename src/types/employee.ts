@@ -24,6 +24,8 @@ export interface EmployeeListItem {
   manager_name: string | null;
   is_active: boolean;
   user_id?: string;
+  photo_path?: string | null;
+  photo_url?: string | null;
 }
 
 export interface EmployeeDetail extends EmployeeListItem {

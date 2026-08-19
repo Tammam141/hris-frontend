@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { updateMeApi, getMeApi } from '../api/auth';
+import { updateMeApi, getMeApi, uploadMyPhotoApi, deleteMyPhotoApi } from '../api/auth';
 import { AlertModal } from '../components/ui/AlertModal';
+import { Avatar } from '../components/ui/Avatar';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
@@ -11,21 +13,92 @@ export function ProfileEditPage() {
 
   const [fullName, setFullName] = useState(user?.employee?.full_name || user?.full_name || '');
   const [phone, setPhone] = useState(user?.employee?.phone || '');
-  const [birthDate, setBirthDate] = useState(user?.employee?.birth_date || '');
   const [address, setAddress] = useState(user?.employee?.address || '');
   
   // Photo preview state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [confirmDeletePhoto, setConfirmDeletePhoto] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
 
-  // Handle Photo Change
+  // Cleanup object URL
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
+  // Handle Photo Selection
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validasi ekstensi/tipe (frontend only initial check)
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setAlertInfo({ open: true, title: 'Gagal', message: 'Foto profil harus berupa gambar JPEG, PNG, atau WebP yang sah', type: 'error' });
+        return;
+      }
+
+      // Validasi ukuran
+      if (file.size > 5 * 1024 * 1024) {
+        setAlertInfo({ open: true, title: 'Gagal', message: 'Ukuran berkas maksimal 5 MB', type: 'error' });
+        return;
+      }
+
       const previewUrl = URL.createObjectURL(file);
       setPhotoPreview(previewUrl);
+      setPhotoFile(file);
+    }
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!photoFile) return;
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      
+      await uploadMyPhotoApi(formData);
+      
+      // Update context
+      const res = await getMeApi();
+      if (res.success) {
+        const token = localStorage.getItem('token');
+        if (token) login(token, res.data);
+      }
+      
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil diperbarui', type: 'success' });
+    } catch (error: any) {
+      setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal mengunggah foto.', type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    setConfirmDeletePhoto(false);
+    setIsUploadingPhoto(true);
+    try {
+      await deleteMyPhotoApi();
+      
+      // Update context
+      const res = await getMeApi();
+      if (res.success) {
+        const token = localStorage.getItem('token');
+        if (token) login(token, res.data);
+      }
+      
+      setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil dihapus', type: 'success' });
+    } catch (error: any) {
+      setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal menghapus foto.', type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -38,9 +111,7 @@ export function ProfileEditPage() {
       const dataToUpdate = {
         full_name: fullName,
         phone,
-        birth_date: birthDate || undefined,
         address,
-        // (Photo would be uploaded here using FormData if supported)
       };
 
       await updateMeApi(dataToUpdate);
@@ -54,7 +125,6 @@ export function ProfileEditPage() {
         }
       }
 
-      // Langsung reload dan kembali ke dashboard
       window.location.href = '/dashboard';
     } catch (error: any) {
       setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
@@ -80,28 +150,49 @@ export function ProfileEditPage() {
           
           {/* Section: Foto Profil */}
           <div className="profile-photo-section">
-            <div style={{ 
-              width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#cbd5e1', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-              flexShrink: 0
-            }}>
-              {photoPreview ? (
-                <img src={photoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ fontSize: '32px', color: '#fff' }}>
-                  {fullName ? fullName.charAt(0).toUpperCase() : '?'}
-                </span>
+            <Avatar 
+              photoUrl={photoPreview || user?.employee?.photo_url || null}
+              name={fullName || '?'}
+              size="100px"
+              fontSize="32px"
+            />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', margin: 0 }}>Foto Profil</h3>
+              
+              {!photoFile && (
+                <div>
+                  <input 
+                    type="file" 
+                    id="photoUpload"
+                    accept="image/jpeg,image/png,image/webp" 
+                    onChange={handlePhotoChange}
+                    style={{ display: 'none' }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <label htmlFor="photoUpload" className="btn btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', margin: 0, padding: '8px 16px' }}>
+                      Pilih Foto Baru
+                    </label>
+                    {user?.employee?.photo_url && (
+                      <button type="button" className="btn btn-secondary" style={{ width: 'auto', margin: 0, padding: '8px 16px', color: '#ef4444' }} onClick={() => setConfirmDeletePhoto(true)} disabled={isUploadingPhoto}>
+                        Hapus Foto
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Foto Profil</h3>
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handlePhotoChange}
-                style={{ fontSize: '14px' }}
-              />
-              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>Format: JPG, PNG. Maksimal 2MB.</p>
+
+              {photoFile && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button type="button" className="btn btn-primary" style={{ width: 'auto', margin: 0, padding: '8px 16px' }} onClick={handleUploadPhoto} disabled={isUploadingPhoto}>
+                    {isUploadingPhoto ? 'Mengunggah...' : 'Unggah Sekarang'}
+                  </button>
+                  <button type="button" className="btn btn-secondary" style={{ width: 'auto', margin: 0, padding: '8px 16px' }} onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} disabled={isUploadingPhoto}>
+                    Batal
+                  </button>
+                </div>
+              )}
+              
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Format: JPG, PNG, WebP. Maksimal 5 MB.</p>
             </div>
           </div>
 
@@ -126,16 +217,6 @@ export function ProfileEditPage() {
                 value={phone} 
                 onChange={e => setPhone(e.target.value)} 
                 required 
-              />
-            </div>
-
-            <div className="form-group form-group--span2">
-              <label className="form-label">Tanggal Lahir</label>
-              <input 
-                type="date" 
-                className="input-field" 
-                value={birthDate} 
-                onChange={e => setBirthDate(e.target.value)} 
               />
             </div>
 
@@ -204,12 +285,16 @@ export function ProfileEditPage() {
         title={alertInfo.title}
         type={alertInfo.type}
         message={alertInfo.message}
-        onClose={() => {
-          setAlertInfo(prev => ({ ...prev, open: false }));
-          if (alertInfo.type === 'success') {
-            navigate('/dashboard');
-          }
-        }}
+        onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+      />
+      
+      <ConfirmModal
+        isOpen={confirmDeletePhoto}
+        title="Hapus Foto Profil"
+        message="Apakah Anda yakin ingin menghapus foto profil? Foto akan dihapus secara permanen."
+        isDestructive={true}
+        onConfirm={handleDeletePhoto}
+        onCancel={() => setConfirmDeletePhoto(false)}
       />
     </div>
   );

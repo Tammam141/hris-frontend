@@ -25,5 +25,7 @@ export interface User {
     manager_id?: string | null;
     birth_date?: string | null;
     address?: string | null;
+    photo_path?: string | null;
+    photo_url?: string | null;
   } | null;
 }

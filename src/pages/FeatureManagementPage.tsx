@@ -126,17 +126,15 @@ export function FeatureManagementPage() {
                   const isLastInCategory = index === cat.features.length - 1;
                   return (
                     <th key={f.id} style={{ 
-                      writingMode: 'vertical-rl', 
-                      transform: 'rotate(180deg)', 
                       whiteSpace: 'nowrap', 
-                      padding: '16px 8px', 
-                      height: '160px', 
-                      fontWeight: 500, 
+                      padding: '16px 20px', 
+                      fontWeight: 600, 
                       fontSize: '13px', 
                       color: '#64748b',
-                      backgroundColor: '#fff',
+                      backgroundColor: '#f8fafc',
                       borderRight: isLastInCategory ? '1px solid #cbd5e1' : '1px dotted #e2e8f0',
-                      borderBottom: '1px solid #e2e8f0'
+                      borderBottom: '1px solid #e2e8f0',
+                      textAlign: 'center'
                     }}>
                       <span title={f.description || f.name} style={{ display: 'inline-block' }}>{f.name}</span>
                     </th>

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { CreateEmployeePayload, UpdateEmployeePayload, Department, Position, EmployeeListItem, EmployeeDetail } from '../../types/employee';
+import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
+import { useAuth } from '../../hooks/useAuth';
+import { Avatar } from '../../components/ui/Avatar';
 import './employee-modal.css';
 
 interface EmployeeModalProps {
@@ -34,6 +37,22 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
   const [joinDate, setJoinDate] = useState('');
   const [resignDate, setResignDate] = useState('');
 
+  // Photo state
+  const { hasFeature } = useAuth();
+  const canUpdatePhoto = hasFeature('employee.update');
+  const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
+  // Cleanup object URL
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
   // Reset form when modal opens or employee data changes
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +86,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         setEmploymentStatus(employeeData.employment_status as any || 'probation');
         setJoinDate(employeeData.join_date ? employeeData.join_date.split('T')[0] : '');
         setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
+        setCurrentPhotoUrl(employeeData.photo_url || null);
       } else {
         // Reset for create
         setFullName('');
@@ -84,7 +104,11 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         setEmploymentStatus('probation');
         setJoinDate('');
         setResignDate('');
+        setCurrentPhotoUrl(null);
       }
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      setPhotoMessage(null);
       setError('');
     }
   }, [isOpen, mode, employeeData, departments, positions, managers]);
@@ -132,6 +156,63 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
     }
   }
 
+  // Handle Photo specific actions
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhotoMessage(null);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setPhotoMessage({ text: 'Foto profil harus berupa gambar JPEG, PNG, atau WebP yang sah', type: 'error' });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setPhotoMessage({ text: 'Ukuran berkas maksimal 5 MB', type: 'error' });
+        return;
+      }
+      setPhotoPreview(URL.createObjectURL(file));
+      setPhotoFile(file);
+    }
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!photoFile || !employeeData) return;
+    setIsUploadingPhoto(true);
+    setPhotoMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      
+      const res = await uploadEmployeePhotoApi(employeeData.id, formData);
+      setCurrentPhotoUrl(res.data.photo_url);
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      setPhotoMessage({ text: 'Foto profil berhasil diperbarui', type: 'success' });
+      
+      // We don't call onSubmit here because it's a separate endpoint and we just updated the photo.
+      // But we might want the parent to refresh list. The parent will refresh when modal closes if needed.
+    } catch (err: any) {
+      setPhotoMessage({ text: err.message || 'Gagal mengunggah foto', type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!employeeData) return;
+    setIsUploadingPhoto(true);
+    setPhotoMessage(null);
+    try {
+      await deleteEmployeePhotoApi(employeeData.id);
+      setCurrentPhotoUrl(null);
+      setPhotoMessage({ text: 'Foto profil berhasil dihapus', type: 'success' });
+    } catch (err: any) {
+      setPhotoMessage({ text: err.message || 'Gagal menghapus foto', type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -145,6 +226,60 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         <div className="modal-body">
           {error && <div className="alert-error">{error}</div>}
           
+          {mode === 'edit' && canUpdatePhoto && (
+            <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', margin: '0 0 16px 0' }}>Foto Profil</h3>
+              
+              {photoMessage && (
+                <div style={{ padding: '8px 12px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px', backgroundColor: photoMessage.type === 'error' ? '#fee2e2' : '#dcfce7', color: photoMessage.type === 'error' ? '#991b1b' : '#166534' }}>
+                  {photoMessage.text}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <Avatar 
+                  photoUrl={photoPreview || currentPhotoUrl} 
+                  name={fullName || '?'} 
+                  size="64px" 
+                  fontSize="24px"
+                />
+                <div style={{ flex: 1 }}>
+                  {!photoFile ? (
+                    <div>
+                      <input 
+                        type="file" 
+                        id="empPhotoUpload"
+                        accept="image/jpeg,image/png,image/webp" 
+                        onChange={handlePhotoChange}
+                        style={{ display: 'none' }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <label htmlFor="empPhotoUpload" className="btn btn-secondary" style={{ width: 'auto', margin: 0, padding: '6px 12px', fontSize: '13px', cursor: 'pointer' }}>
+                          Pilih Foto
+                        </label>
+                        {currentPhotoUrl && (
+                          <button type="button" className="btn btn-secondary" style={{ width: 'auto', margin: 0, padding: '6px 12px', fontSize: '13px', color: '#ef4444' }} onClick={handleDeletePhoto} disabled={isUploadingPhoto}>
+                            Hapus
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" className="btn btn-primary" style={{ width: 'auto', margin: 0, padding: '6px 12px', fontSize: '13px' }} onClick={handleUploadPhoto} disabled={isUploadingPhoto}>
+                        {isUploadingPhoto ? 'Menyimpan...' : 'Unggah'}
+                      </button>
+                      <button type="button" className="btn btn-secondary" style={{ width: 'auto', margin: 0, padding: '6px 12px', fontSize: '13px' }} onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} disabled={isUploadingPhoto}>
+                        Batal
+                      </button>
+                    </div>
+                  )}
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: '8px 0 0 0' }}>Format: JPG, PNG, WebP. Maks 5MB. Foto langsung tersimpan.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form id="employeeForm" onSubmit={handleSubmit}>
             <div className="form-grid">
               
