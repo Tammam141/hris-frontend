@@ -22,6 +22,7 @@ import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 // New Modules
 import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage';
 import { AttendancePage } from '../pages/AttendancePage';
+import { AllAttendancesPage } from '../pages/AllAttendancesPage';
 
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
@@ -97,6 +98,10 @@ export function AppRoutes() {
           {/* Attendance */}
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance']} />}>
             <Route path="/attendance" element={<AttendancePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/all']} />}>
+            <Route path="/attendance/all" element={<AllAttendancesPage />} />
           </Route>
 
         </Route>

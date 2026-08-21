@@ -9,6 +9,9 @@ import {
 import { AttendanceTodayResponse, Attendance, AttendanceSummary } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../store';
+import { addOfflineAttendance, removeOfflineAttendance } from '../store/attendanceSlice';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
@@ -21,6 +24,9 @@ export function AttendancePage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
+
+  const dispatch = useDispatch();
+  const offlineQueue = useSelector((state: RootState) => state.attendance.offlineQueue);
 
   useEffect(() => {
     loadData();
@@ -47,34 +53,156 @@ export function AttendancePage() {
     }
   };
 
-  const handleCheckIn = async () => {
+  // Proses sinkronisasi otomatis saat internet kembali menyala
+  useEffect(() => {
+    const syncOfflineQueue = async () => {
+      if (offlineQueue.length === 0) return;
+      
+      let syncCount = 0;
+      for (const item of offlineQueue) {
+        try {
+          // --- MENGIRIM KE API SAAT ONLINE KEMBALI ---
+          if (item.type === 'check-in') {
+            await checkInApi(item.note, item.offline_time);
+          } else {
+            await checkOutApi(item.note, item.offline_time);
+          }
+          dispatch(removeOfflineAttendance(item.id));
+          syncCount++;
+        } catch (e: any) {
+          console.error('Failed to sync offline attendance', e);
+          
+          if (e.status === 409 && e.details?.attendance) {
+            // 409 Conflict: Hari ini sudah absen.
+            // Bandingkan apakah ini sebenarnya data kita yang sudah masuk?
+            const backendTimeStr = item.type === 'check-in' ? e.details.attendance.check_in_at : e.details.attendance.check_out_at;
+            
+            if (backendTimeStr) {
+              const backendTimeMs = new Date(backendTimeStr).getTime();
+              const localTimeMs = new Date(item.offline_time).getTime();
+              
+              if (backendTimeMs === localTimeMs) {
+                dispatch(removeOfflineAttendance(item.id));
+                syncCount++;
+              } else {
+                dispatch(removeOfflineAttendance(item.id));
+                setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya. Hubungi atasan jika ini keliru.', type: 'error' });
+              }
+            } else {
+              dispatch(removeOfflineAttendance(item.id));
+            }
+          } else if (e.status === 400 || e.code === 'VALIDATION_ERROR' || (e.message && e.message.includes('ditutup'))) {
+            dispatch(removeOfflineAttendance(item.id));
+            setAlertInfo({ open: true, title: 'Absen Ditolak', message: e.message || 'Data offline ditolak oleh sistem.', type: 'error' });
+          } else if (e.status === 401) {
+            break;
+          }
+        }
+      }
+
+      if (syncCount > 0) {
+        setAlertInfo({ open: true, title: 'Sinkronisasi Berhasil', message: `${syncCount} data absensi offline berhasil dikirim ke server!`, type: 'success' });
+        loadData();
+      }
+    };
+
+    const handleOnline = () => {
+      syncOfflineQueue();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    if (navigator.onLine && offlineQueue.length > 0) {
+      syncOfflineQueue();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [offlineQueue, dispatch]);
+
+  // Logika absen (menangani online & offline secara dinamis untuk masuk maupun pulang)
+  const handleAttendance = async (type: 'check-in' | 'check-out') => {
+    const label = type === 'check-in' ? 'masuk' : 'pulang';
+
+    if (!navigator.onLine) {
+      const now = new Date().toISOString();
+      
+      // MENYIMPAN KE LOKAL SAAT OFFLINE
+      dispatch(addOfflineAttendance({
+        id: `${type}-${Date.now()}`,
+        type,
+        offline_time: now
+      }));
+      
+      setAlertInfo({ open: true, title: 'Mode Offline', message: `Anda sedang offline. Absen ${label} disimpan di perangkat dan akan otomatis dikirim saat koneksi pulih.`, type: 'success' });
+      
+      setTodayData(prev => {
+        if (!prev) return prev;
+        const newAttendance = { ...prev.attendance };
+        if (type === 'check-in') {
+          (newAttendance as any).check_in_at = now;
+          return { ...prev, can_check_in: false, attendance: newAttendance as any };
+        } else {
+          (newAttendance as any).check_out_at = now;
+          return { ...prev, can_check_out: false, attendance: newAttendance as any };
+        }
+      });
+      return;
+    }
+
+    // JIKA ONLINE
     setIsSubmitting(true);
     try {
-      await checkInApi();
-      setAlertInfo({ open: true, title: 'Berhasil', message: 'Berhasil melakukan absensi masuk.', type: 'success' });
+      if (type === 'check-in') {
+        await checkInApi();
+      } else {
+        await checkOutApi();
+      }
+      setAlertInfo({ open: true, title: 'Berhasil', message: `Berhasil melakukan absensi ${label}.`, type: 'success' });
       loadData();
     } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || 'Gagal melakukan absensi masuk.', type: 'error' });
-      // If error provides the attendance row, maybe we just reload data so it reflects
+      setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || `Gagal melakukan absensi ${label}.`, type: 'error' });
       loadData(); 
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCheckOut = async () => {
-    setIsSubmitting(true);
-    try {
-      await checkOutApi();
-      setAlertInfo({ open: true, title: 'Berhasil', message: 'Berhasil melakukan absensi pulang.', type: 'success' });
-      loadData();
-    } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || 'Gagal melakukan absensi pulang.', type: 'error' });
-      loadData();
-    } finally {
-      setIsSubmitting(false);
-    }
+  const addMinutesToTimeStr = (timeStr: string, minutes: number) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m, 0, 0);
+    date.setMinutes(date.getMinutes() + minutes);
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
+
+  const renderScheduleRanges = () => {
+    if (!todayData?.schedule) return null;
+    const { start_time, late_tolerance_minutes, absent_cutoff_time } = todayData.schedule;
+    const start = start_time.substring(0, 5);
+    const presentEnd = addMinutesToTimeStr(start, late_tolerance_minutes);
+    const lateStart = addMinutesToTimeStr(start, late_tolerance_minutes + 1);
+    const cutoff = absent_cutoff_time.substring(0, 5);
+
+    return (
+      <div className="attendance-schedule-ranges" style={{ marginTop: '12px', fontSize: '13px', color: '#475569', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span style={{ fontWeight: 600, color: '#16a34a' }}>Hadir</span>
+          <span>{start} &ndash; {presentEnd}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <span style={{ fontWeight: 600, color: '#ca8a04' }}>Terlambat</span>
+          <span>{lateStart} &ndash; {cutoff}</span>
+        </div>
+        <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 500, textAlign: 'center', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+          Lewat {cutoff} dihitung tidak hadir
+        </div>
+      </div>
+    );
+  };
+
+
 
   const translateStatus = (status: string) => {
     switch (status) {
@@ -106,12 +234,21 @@ export function AttendancePage() {
             <h2 className="attendance-today-title">Absensi Hari Ini ({todayData?.date})</h2>
             
             <div className="attendance-today-content">
+              {offlineQueue.length > 0 && (
+                <div style={{ backgroundColor: '#fef9c3', color: '#854d0e', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fde047' }}>
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Ada {offlineQueue.length} data absensi tertunda di perangkat ini. Data akan dikirim otomatis setelah internet terhubung.
+                </div>
+              )}
+              
               <div className="attendance-schedule-info">
                 <p className="attendance-schedule-label">Jadwal Berlaku</p>
                 {todayData?.schedule ? (
                   <div>
                     <div className="attendance-schedule-name">{todayData.schedule.name} ({todayData.schedule.start_time.substring(0,5)} - {todayData.schedule.end_time.substring(0,5)})</div>
-                    <div className="attendance-schedule-tolerance">Toleransi: {todayData.schedule.late_tolerance_minutes} menit</div>
+                    {renderScheduleRanges()}
                   </div>
                 ) : (
                   <div className="attendance-no-schedule">Belum ada jadwal</div>
@@ -134,17 +271,17 @@ export function AttendancePage() {
 
               <div className="attendance-action-block">
                 {todayData?.can_check_in && (
-                  <button className="btn btn-primary btn-check-in" onClick={handleCheckIn} disabled={isSubmitting}>
+                  <button className="btn btn-primary btn-check-in" onClick={() => handleAttendance('check-in')} disabled={isSubmitting}>
                     {isSubmitting ? 'Memproses...' : 'Absen Masuk'}
                   </button>
                 )}
                 {todayData?.can_check_out && (
-                  <button className="btn btn-primary btn-check-out" onClick={handleCheckOut} disabled={isSubmitting}>
+                  <button className="btn btn-primary btn-check-out" onClick={() => handleAttendance('check-out')} disabled={isSubmitting}>
                     {isSubmitting ? 'Memproses...' : 'Absen Pulang'}
                   </button>
                 )}
                 {!todayData?.can_check_in && !todayData?.can_check_out && todayData?.blocked_reason && (
-                  <div className="attendance-blocked-msg">
+                  <div className="attendance-blocked-msg" style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '12px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: 500, textAlign: 'center', marginTop: '16px' }}>
                     {todayData.blocked_reason}
                   </div>
                 )}
@@ -209,7 +346,13 @@ export function AttendancePage() {
                       <td>{row.late_minutes > 0 ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{row.late_minutes} mnt</span> : <span style={{ color: '#94a3b8' }}>-</span>}</td>
                       <td>{row.work_minutes ? formatMinutesToDuration(row.work_minutes) : <span style={{ color: '#94a3b8' }}>-</span>}</td>
                       <td>
-                        {row.note && row.note.startsWith('[') ? (
+                        {row.note && row.note.startsWith('[Absen offline') ? (
+                          <div>
+                            <span style={{ fontSize: '10px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Offline</span>
+                            <br/>
+                            <span style={{ fontSize: '13px', color: '#475569' }}>{row.note}</span>
+                          </div>
+                        ) : row.note && row.note.startsWith('[') ? (
                           <div>
                             <span style={{ fontSize: '10px', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Dikoreksi</span>
                             <br/>

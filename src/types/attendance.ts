@@ -5,8 +5,8 @@ export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'holida
 export interface Attendance {
   id: string;
   employee_id: string;
-  attendance_date: string;     // YYYY-MM-DD
-  check_in_at: string | null;  // ISO timestamp
+  attendance_date: string;     
+  check_in_at: string | null;  
   check_out_at: string | null;
   status: AttendanceStatus;
   late_minutes: number;
@@ -16,7 +16,6 @@ export interface Attendance {
   created_at?: string;
   updated_at?: string;
   
-  // Extra fields when joined
   employee_name?: string;
   employee_number?: string;
   department_name?: string;

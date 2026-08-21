@@ -38,6 +38,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     }
     
     const error: any = new Error(errorMsg);
+    error.status = response.status;
     if (data?.details) error.details = data.details;
     if (data?.code) error.code = data.code;
     throw error;

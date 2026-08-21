@@ -3,6 +3,7 @@ import { WorkSchedule } from '../../types/schedule';
 import { createScheduleApi, updateScheduleApi } from '../../api/schedule';
 import { getDepartments } from '../../api/department';
 import { XIcon } from '../../components/icons/XIcon';
+import '../employee/employee-modal.css';
 
 interface ScheduleFormModalProps {
   isOpen: boolean;
@@ -104,11 +105,41 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     setIsSubmitting(true);
     setErrorMsg('');
 
+    // Frontend Time Validation
+    const timeToMinutes = (timeStr: string) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const startMin = timeToMinutes(formData.start_time);
+    const endMin = timeToMinutes(formData.end_time);
+    const cutoffMin = timeToMinutes(formData.absent_cutoff_time);
+    const tolMin = Number(formData.late_tolerance_minutes);
+
+    if (endMin <= startMin) {
+      setErrorMsg(`Jam pulang (${formData.end_time}) harus setelah jam masuk (${formData.start_time})`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (cutoffMin <= startMin + tolMin) {
+      const minCutoffStr = `${Math.floor((startMin + tolMin) / 60).toString().padStart(2, '0')}:${((startMin + tolMin) % 60).toString().padStart(2, '0')}`;
+      setErrorMsg(`Batas absen (${formData.absent_cutoff_time}) harus melewati akhir toleransi keterlambatan, yaitu ${tolMin} menit setelah jam masuk (setelah ${minCutoffStr})`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (cutoffMin > endMin) {
+      setErrorMsg(`Batas absen (${formData.absent_cutoff_time}) tidak boleh melewati jam pulang (${formData.end_time})`);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const payload: Partial<WorkSchedule> = {
         ...formData,
         department_id: formData.department_id || null, // convert empty string back to null
-        late_tolerance_minutes: Number(formData.late_tolerance_minutes),
+        late_tolerance_minutes: tolMin,
       };
 
       if (schedule?.id) {
@@ -131,20 +162,21 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: '600px' }}>
         <div className="modal-header">
-          <h2>{schedule ? 'Edit Jadwal Kerja' : 'Tambah Jadwal Kerja'}</h2>
-          <button className="modal-close" onClick={onClose}><XIcon /></button>
+          <h2 className="modal-title">{schedule ? 'Edit Jadwal Kerja' : 'Tambah Jadwal Kerja'}</h2>
+          <button type="button" className="modal-close-btn" onClick={onClose}><XIcon /></button>
         </div>
         
-        {errorMsg && (
-          <div style={{ padding: '12px 16px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '6px', marginBottom: '16px', fontSize: '14px' }}>
-            {errorMsg}
-          </div>
-        )}
+        <div className="modal-body">
+          {errorMsg && (
+            <div className="alert-error" style={{ marginBottom: '24px' }}>
+              {errorMsg}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           <div className="form-group">
-            <label className="form-label">Nama Jadwal</label>
+            <label className="input-label">Nama Jadwal</label>
             <input 
               type="text" 
               name="name"
@@ -156,7 +188,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           </div>
 
           <div className="form-group">
-            <label className="form-label">Departemen</label>
+            <label className="input-label">Departemen</label>
             <select 
               name="department_id"
               className="input-field" 
@@ -174,7 +206,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
-              <label className="form-label">Jam Masuk (Start Time)</label>
+              <label className="input-label">Jam Masuk (Start Time)</label>
               <input 
                 type="time" 
                 name="start_time"
@@ -186,7 +218,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
             
             <div className="form-group">
-              <label className="form-label">Jam Pulang (End Time)</label>
+              <label className="input-label">Jam Pulang (End Time)</label>
               <input 
                 type="time" 
                 name="end_time"
@@ -198,7 +230,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
 
             <div className="form-group">
-              <label className="form-label">Toleransi Terlambat (Menit)</label>
+              <label className="input-label">Toleransi Terlambat (Menit)</label>
               <input 
                 type="number" 
                 name="late_tolerance_minutes"
@@ -211,7 +243,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
 
             <div className="form-group">
-              <label className="form-label">Batas Waktu Dianggap Alpa</label>
+              <label className="input-label">Batas Absen Masuk</label>
               <input 
                 type="time" 
                 name="absent_cutoff_time"
@@ -220,11 +252,12 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
                 onChange={handleChange} 
                 required 
               />
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Datang setelah jam ini dihitung tidak hadir.</p>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Hari Kerja</label>
+            <label className="input-label">Hari Kerja</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               {[
                 { name: 'works_monday', label: 'Senin' },
@@ -265,13 +298,14 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             {isDefaultSchedule && <span style={{ fontSize: '12px', color: '#64748b', marginLeft: 'auto' }}>*Jadwal bawaan selalu aktif</span>}
           </div>
 
-          <div className="modal-footer" style={{ marginTop: '24px' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>Batal</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          </div>
-        </form>
+            <div className="modal-footer" style={{ marginTop: '24px' }}>
+              <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>Batal</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

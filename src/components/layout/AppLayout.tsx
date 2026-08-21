@@ -169,6 +169,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance'].features}>
                     <NavLink to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
                   </ShowIf>
+                  <ShowIf feature={ROUTE_PERMISSIONS['/attendance/all'].features}>
+                    <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>
+                  </ShowIf>
                 </div>
               )}
             </div>
