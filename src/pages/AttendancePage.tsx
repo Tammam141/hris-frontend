@@ -154,10 +154,13 @@ export function AttendancePage() {
     // JIKA ONLINE
     setIsSubmitting(true);
     try {
+      // Merekam waktu presisi saat tombol ditekan
+      const exactTimePressed = new Date().toISOString();
+
       if (type === 'check-in') {
-        await checkInApi();
+        await checkInApi(undefined, exactTimePressed);
       } else {
-        await checkOutApi();
+        await checkOutApi(undefined, exactTimePressed);
       }
       setAlertInfo({ open: true, title: 'Berhasil', message: `Berhasil melakukan absensi ${label}.`, type: 'success' });
       loadData();
