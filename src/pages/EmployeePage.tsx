@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getEmployees, deleteEmployee, getEmployeeDetail, createEmployee, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
@@ -20,6 +21,7 @@ export function EmployeePage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   // state filter
   const [search, setSearch] = useState('');
@@ -33,7 +35,6 @@ export function EmployeePage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
 
   // Delete State
@@ -101,18 +102,11 @@ export function EmployeePage() {
     loadEmployees();
   }
 
-  function openCreateModal() {
-    setModalMode('create');
-    setSelectedEmployee(null);
-    setIsModalOpen(true);
-  }
-
   async function openEditModal(emp: EmployeeListItem) {
     try {
       setLoading(true);
       const res = await getEmployeeDetail(emp.id);
       if (res.success) {
-        setModalMode('edit');
         setSelectedEmployee(res.data);
         setIsModalOpen(true);
       }
@@ -124,9 +118,7 @@ export function EmployeePage() {
   }
 
   async function handleModalSubmit(data: any) {
-    if (modalMode === 'create') {
-      await createEmployee(data);
-    } else if (modalMode === 'edit' && selectedEmployee) {
+    if (selectedEmployee) {
       await updateEmployee(selectedEmployee.id, data);
     }
     setIsModalOpen(false);
@@ -239,7 +231,7 @@ export function EmployeePage() {
           <button 
             type="button" 
             className="btn btn-primary btn-success" 
-            onClick={openCreateModal}
+            onClick={() => navigate('/employee/create')}
           >
             + Tambah Karyawan
           </button>
@@ -348,7 +340,6 @@ export function EmployeePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
-        mode={modalMode}
         employeeData={selectedEmployee}
         departments={departments}
         positions={positions}

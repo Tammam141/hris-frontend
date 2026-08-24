@@ -8,6 +8,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 import { EmployeePage } from '../pages/EmployeePage';
+import { EmployeeCreatePage } from '../pages/EmployeeCreatePage';
 import { LeavePage } from '../pages/LeavePage';
 import { DepartmentPage } from '../pages/DepartmentPage';
 import { PositionPage } from '../pages/PositionPage';
@@ -48,6 +49,7 @@ export function AppRoutes() {
 
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
             <Route path="/employee" element={<EmployeePage />} />
+            <Route path="/employee/create" element={<EmployeeCreatePage />} />
           </Route>
 
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/department']} />}>

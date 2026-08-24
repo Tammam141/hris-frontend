@@ -8,15 +8,14 @@ import './employee-modal.css';
 interface EmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateEmployeePayload | UpdateEmployeePayload) => Promise<void>;
-  mode: 'create' | 'edit';
+  onSubmit: (data: UpdateEmployeePayload) => Promise<void>;
   employeeData?: EmployeeDetail | null;
   departments: Department[];
   positions: Position[];
   managers: EmployeeListItem[];
 }
 
-export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, departments, positions, managers }: EmployeeModalProps) {
+export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departments, positions, managers }: EmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -25,9 +24,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
   const [countryCode, setCountryCode] = useState('+62');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'employee' | 'hr' | 'admin'>('employee');
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
   const [managerId, setManagerId] = useState('');
@@ -53,10 +49,9 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
     };
   }, [photoPreview]);
 
-  // Reset form when modal opens or employee data changes
   useEffect(() => {
     if (isOpen) {
-      if (mode === 'edit' && employeeData) {
+      if (employeeData) {
         setFullName(employeeData.full_name || '');
         
         let phone = employeeData.phone || '';
@@ -88,14 +83,11 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
         setCurrentPhotoUrl(employeeData.photo_url || null);
       } else {
-        // Reset for create
+        // Fallback jika anehnya employeeData kosong
         setFullName('');
         setCountryCode('+62');
         setPhoneNumber('');
         setGender('male');
-        setEmail('');
-        setPassword('');
-        setRole('employee');
         setDepartmentId('');
         setPositionId('');
         setManagerId('');
@@ -111,7 +103,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
       setPhotoMessage(null);
       setError('');
     }
-  }, [isOpen, mode, employeeData, departments, positions, managers]);
+  }, [isOpen, employeeData, departments, positions, managers]);
 
   if (!isOpen) return null;
 
@@ -134,14 +126,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
       if (birthDate) payload.birth_date = birthDate;
       if (address) payload.address = address;
       if (joinDate) payload.join_date = joinDate;
-
-      if (mode === 'create') {
-        payload.email = email;
-        payload.password = password;
-        payload.role = role;
-      } else {
-        if (resignDate) payload.resign_date = resignDate;
-      }
+      if (resignDate) payload.resign_date = resignDate;
 
       if (departmentId) payload.department_id = departmentId;
       if (positionId) payload.position_id = positionId;
@@ -218,7 +203,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">
-            {mode === 'create' ? 'Tambah Karyawan Baru' : 'Ubah Data Karyawan'}
+            Ubah Data Karyawan
           </h2>
           <button className="modal-close-btn" onClick={onClose}>&times;</button>
         </div>
@@ -226,7 +211,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
         <div className="modal-body">
           {error && <div className="alert-error">{error}</div>}
           
-          {mode === 'edit' && canUpdatePhoto && (
+          {canUpdatePhoto && (
             <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', margin: '0 0 16px 0' }}>Foto Profil</h3>
               
@@ -294,34 +279,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                 />
               </div>
 
-              {mode === 'create' && (
-                <>
-                  <div className="form-group">
-                    <label className="input-label">Email Akun</label>
-                    <input 
-                      type="email" 
-                      className="input-field" 
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="email@perusahaan.com"
-                      required={mode === 'create'}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="input-label">Password Sementara</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="Min. 8 karakter"
-                      minLength={8}
-                      required={mode === 'create'}
-                    />
-                  </div>
-                </>
-              )}
-
               <div className="form-group">
                 <label className="input-label">Nomor Telepon</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -342,7 +299,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                     value={phoneNumber}
                     onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                     placeholder="812345678"
-                    required={mode === 'create'}
                   />
                 </div>
               </div>
@@ -378,21 +334,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                   rows={2}
                 />
               </div>
-
-              {mode === 'create' && (
-                <div className="form-group">
-                  <label className="input-label">Hak Akses (Role)</label>
-                  <select 
-                    className="input-field" 
-                    value={role}
-                    onChange={e => setRole(e.target.value as any)}
-                  >
-                    <option value="employee">Karyawan Biasa</option>
-                    <option value="hr">HR</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              )}
 
               <div className="form-group">
                 <label className="input-label">Departemen</label>
@@ -430,7 +371,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                   onChange={e => setManagerId(e.target.value)}
                 >
                   <option value="">- Pilih Manajer -</option>
-                  {managers.filter(m => mode === 'create' || m.id !== employeeData?.id).map(m => (
+                  {managers.filter(m => m.id !== employeeData?.id).map(m => (
                     <option key={m.id} value={m.id}>{m.full_name}</option>
                   ))}
                 </select>
@@ -461,17 +402,15 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, mode, employeeData, d
                 />
               </div>
 
-              {mode === 'edit' && (
-                <div className="form-group">
-                  <label className="input-label">Tanggal Resign</label>
-                  <input 
-                    type="date" 
-                    className="input-field" 
-                    value={resignDate}
-                    onChange={e => setResignDate(e.target.value)}
-                  />
-                </div>
-              )}
+              <div className="form-group">
+                <label className="input-label">Tanggal Resign</label>
+                <input 
+                  type="date" 
+                  className="input-field" 
+                  value={resignDate}
+                  onChange={e => setResignDate(e.target.value)}
+                />
+              </div>
 
             </div>
           </form>
