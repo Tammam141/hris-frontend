@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
-import { Department, Position, EmployeeListItem } from '../types/employee';
+import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
 import { AlertModal } from '../components/ui/AlertModal';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
@@ -43,7 +43,7 @@ const createEmptyForm = (): EmployeeFormState => ({
 export function EmployeeCreatePage() {
   const navigate = useNavigate();
 
-  // array untuk form nya
+  // ini array untuk form nya
   const [forms, setForms] = useState<EmployeeFormState[]>([createEmptyForm()]);
   
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -53,6 +53,11 @@ export function EmployeeCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' });
+
+  // State untuk menyimpan error dari backend. 
+  // Format key field error: `${rowIndex}-${fieldName}`
+  // Format key row error: `${rowIndex}-row`
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadReferences() {
@@ -76,6 +81,7 @@ export function EmployeeCreatePage() {
   }, []);
 
   const addForm = () => {
+    // Membatasi penambahan baris maksimal hanya 4 form
     if (forms.length < 4) {
       setForms([...forms, createEmptyForm()]);
     }
@@ -84,6 +90,7 @@ export function EmployeeCreatePage() {
   const removeForm = (id: string) => {
     if (forms.length > 1) {
       setForms(forms.filter(f => f.id !== id));
+      // Menghapus error lama mungkin ribet indeksnya, biarkan saja kita reset saat submit
     }
   };
 
@@ -93,79 +100,135 @@ export function EmployeeCreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationErrors({}); // Reset error sebelumnya
     
-    // Validasi basic
+    let localErrors = 0;
+    const newErrors: Record<string, string> = {};
+
+    // Validasi basic frontend
     for (let i = 0; i < forms.length; i++) {
       const f = forms[i];
       if (!f.full_name || !f.email || !f.password || !f.phone_number) {
-        setAlertInfo({ open: true, title: 'Validasi Gagal', message: `Harap lengkapi semua field wajib pada Karyawan #${i + 1}`, type: 'error' });
-        return;
+        newErrors[`${i}-row`] = 'Harap lengkapi semua field wajib';
+        localErrors++;
+      } else if (f.password.length < 8) {
+        newErrors[`${i}-password`] = 'Minimal 8 karakter';
+        localErrors++;
       }
-      if (f.password.length < 8) {
-        setAlertInfo({ open: true, title: 'Validasi Gagal', message: `Kata sandi Karyawan #${i + 1} minimal 8 karakter`, type: 'error' });
-        return;
+      
+      // Cek email duplikat di dalam satu form
+      for (let j = i + 1; j < forms.length; j++) {
+        if (forms[j].email && forms[j].email === f.email) {
+          newErrors[`${j}-email`] = 'Email ini sudah dipakai di baris atasnya';
+          localErrors++;
+        }
       }
+    }
+
+    if (localErrors > 0) {
+      setValidationErrors(newErrors);
+      setAlertInfo({ open: true, title: 'Validasi Gagal', message: 'Terdapat beberapa kesalahan. Silakan periksa tanda merah pada form.', type: 'error' });
+      return;
     }
 
     setIsSubmitting(true);
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
 
-    // ini untuk tembak create employee ke be
-    for (let i = 0; i < forms.length; i++) {
-      const f = forms[i];
-      try {
-        const payload = {
-          full_name: f.full_name,
-          email: f.email,
-          password: f.password,
-          phone: `${f.country_code}${f.phone_number}`,
-          gender: f.gender,
-          role: f.role,
-          department_id: f.department_id || undefined,
-          position_id: f.position_id || undefined,
-          manager_id: f.manager_id || undefined,
-        };
-        await createEmployee(payload);
-        successCount++;
-      } catch (err: any) {
-        failCount++;
-        errors.push(`Karyawan #${i + 1} (${f.full_name}): ${err.message || 'Gagal menyimpan'}`);
-      }
-    }
+    try {
+      // ini array dari state form
+      const payloadEmployees: CreateEmployeePayload[] = forms.map(f => ({
+        full_name: f.full_name,
+        email: f.email,
+        password: f.password,
+        phone: `${f.country_code}${f.phone_number}`,
+        gender: f.gender,
+        role: f.role,
+        department_id: f.department_id || undefined,
+        position_id: f.position_id || undefined,
+        manager_id: f.manager_id || undefined,
+      }));
 
-    setIsSubmitting(false);
+      // Jika cuma 1 karyawan, kirim sebagai Object (Single). Jika > 1, kirim sebagai Array (Multiple).
+      const finalPayload = payloadEmployees.length === 1 ? payloadEmployees[0] : payloadEmployees;
 
-    if (failCount === 0) {
+      // Mengirimkan payload ke Backend
+      const res = await createEmployee(finalPayload);
+      
+      // Pastikan res.data diubah jadi array untuk keperluan map (karena jika Single, BE mengembalikan Object)
+      const dataArray = Array.isArray(res.data) ? res.data : [res.data];
+
+      // Jika berhasil, tampilkan informasi akun yang terbuat
       setAlertInfo({ 
         open: true, 
         title: 'Berhasil', 
-        message: `${successCount} Karyawan berhasil ditambahkan.`, 
-        type: 'success' 
-      });
-      // Redirect back after a short delay
-      setTimeout(() => navigate('/employee'), 1500);
-    } else {
-      setAlertInfo({
-        open: true,
-        title: 'Selesai dengan Catatan',
         message: (
           <div>
-            <p>Berhasil: {successCount}, Gagal: {failCount}</p>
-            <ul style={{ color: '#dc2626', marginTop: '8px', paddingLeft: '16px', fontSize: '13px' }}>
-              {errors.map((e, idx) => <li key={idx}>{e}</li>)}
-            </ul>
-            <p style={{ marginTop: '8px', fontSize: '13px' }}>Anda bisa mengabaikan yang sudah berhasil dan memperbaiki data yang gagal, atau kembali.</p>
+            <p style={{ marginBottom: '12px' }}>{res.message || `${dataArray.length} karyawan berhasil ditambahkan.`}</p>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
+              {dataArray.map((d: any, idx: number) => (
+                <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
+                  <strong>{d.employee.full_name}</strong> (NIK: {d.employee.employee_number})<br/>
+                  Email: {d.account.email}
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: '12px', fontSize: '13px', color: '#475569' }}>Catat/bagikan informasi ini. Karyawan akan diminta mengubah password saat login pertama kali.</p>
           </div>
-        ),
-        type: 'error'
+        ), 
+        type: 'success' 
       });
+
+      // Redirect setelah sukses (bisa menunggu user tutup modal, tapi kita redirect setelah beberapa detik atau biarkan user melihat dulu).
+      // Lebih baik form dikosongkan jika user mau nambah lagi, atau arahkan kembali.
+      setForms([createEmptyForm()]);
       
-      // Hapus form yang berhasil saja agar sisanya bisa diperbaiki
-      // (Untuk MVP kita biarkan saja formnya, user bisa kembali manual)
+    } catch (err: any) {
+      let errorParsed = false;
+      const parsedErrors: Record<string, string> = {};
+
+      if (err.code === 'VALIDATION_ERROR' && err.errors && Array.isArray(err.errors)) {
+        err.errors.forEach((e: any) => {
+          // Format e.field: "employees.0.email"
+          if (e.field && e.field.startsWith('employees.')) {
+            const parts = e.field.split('.');
+            if (parts.length >= 3) {
+              const index = parts[1];
+              const fieldName = parts.slice(2).join('.');
+              parsedErrors[`${index}-${fieldName}`] = e.message;
+            }
+          }
+        });
+        errorParsed = true;
+      } else if (err.code === 'BAD_REQUEST' && err.details?.failed_rows && Array.isArray(err.details.failed_rows)) {
+        err.details.failed_rows.forEach((row: any) => {
+          parsedErrors[`${row.index}-row`] = row.message;
+        });
+        errorParsed = true;
+      }
+
+      if (errorParsed) {
+        setValidationErrors(parsedErrors);
+        setAlertInfo({
+          open: true,
+          title: 'Selesai dengan Catatan',
+          message: err.message || 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.',
+          type: 'error'
+        });
+      } else {
+        // Fallback error biasa
+        setAlertInfo({
+          open: true,
+          title: 'Error',
+          message: err.message || 'Terjadi kesalahan saat memproses data',
+          type: 'error'
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const getError = (index: number, field: string) => validationErrors[`${index}-${field}`];
+  const getRowError = (index: number) => validationErrors[`${index}-row`];
 
   return (
     <div className="dashboard-container">
@@ -175,7 +238,7 @@ export function EmployeeCreatePage() {
             ← Kembali ke Daftar Karyawan
           </button>
           <h1 className="dashboard-title">Tambah Karyawan Baru</h1>
-          <p className="dashboard-subtitle">Anda dapat menambahkan hingga 4 karyawan sekaligus.</p>
+          <p className="dashboard-subtitle">Anda dapat menambahkan banyak karyawan sekaligus.</p>
         </div>
         <div className="create-employee-actions">
           <button 
@@ -193,7 +256,7 @@ export function EmployeeCreatePage() {
             onClick={handleSubmit}
             disabled={isSubmitting || loading}
           >
-            {isSubmitting ? 'Menyimpan...' : 'Simpan Semua'}
+            {isSubmitting ? 'Memproses (Mohon Tunggu)...' : 'Simpan Semua'}
           </button>
         </div>
       </div>
@@ -202,93 +265,108 @@ export function EmployeeCreatePage() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Memuat referensi...</div>
       ) : (
         <form onSubmit={handleSubmit} className="create-employee-form-container">
-          {forms.map((form, index) => (
-            <div key={form.id} className="create-employee-card">
-              <div className="create-employee-card-header">
-                <h3 className="create-employee-card-title">
-                  <span className="create-employee-card-badge">
-                    {index + 1}
-                  </span>
-                  Data Karyawan
-                </h3>
-                {forms.length > 1 && (
-                  <button 
-                    type="button" 
-                    onClick={() => removeForm(form.id)}
-                    className="create-employee-remove-btn"
-                  >
-                    <TrashIcon /> Hapus Baris Ini
-                  </button>
-                )}
-              </div>
+          {forms.map((form, index) => {
+            const rowError = getRowError(index);
+            const isRowError = !!rowError || Object.keys(validationErrors).some(k => k.startsWith(`${index}-`));
 
-              <div className="create-employee-grid">
-                
-                {/* Informasi Dasar */}
-                <div>
-                  <label className="form-label">Nama Lengkap *</label>
-                  <input type="text" className="input-field" required placeholder="John Doe" value={form.full_name} onChange={e => updateForm(form.id, 'full_name', e.target.value)} />
+            return (
+              <div key={form.id} className="create-employee-card" style={{ borderColor: isRowError ? '#f87171' : '#e2e8f0', borderWidth: isRowError ? '2px' : '1px' }}>
+                <div className="create-employee-card-header">
+                  <h3 className="create-employee-card-title">
+                    <span className="create-employee-card-badge" style={{ backgroundColor: isRowError ? '#dc2626' : '#2563eb' }}>
+                      {index + 1}
+                    </span>
+                    Data Karyawan
+                  </h3>
+                  {forms.length > 1 && (
+                    <button 
+                      type="button" 
+                      onClick={() => removeForm(form.id)}
+                      className="create-employee-remove-btn"
+                    >
+                      <TrashIcon /> Hapus Baris Ini
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label className="form-label">Email Karyawan *</label>
-                  <input type="email" className="input-field" required placeholder="john@company.com" value={form.email} onChange={e => updateForm(form.id, 'email', e.target.value)} />
-                </div>
-                <div>
-                  <label className="form-label">Nomor Telepon *</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <select className="input-field" style={{ width: '90px' }} value={form.country_code} onChange={e => updateForm(form.id, 'country_code', e.target.value)}>
-                      <option value="+62">+62</option>
-                      <option value="+1">+1</option>
-                      <option value="+44">+44</option>
-                    </select>
-                    <input type="tel" className="input-field" required placeholder="8123456789" style={{ flex: 1 }} value={form.phone_number} onChange={e => updateForm(form.id, 'phone_number', e.target.value.replace(/\D/g, ''))} />
+
+                {rowError && (
+                  <div style={{ padding: '12px', backgroundColor: '#fef2f2', color: '#b91c1c', borderRadius: '8px', marginBottom: '20px', fontSize: '13px', fontWeight: 500 }}>
+                    {rowError}
                   </div>
-                </div>
-                <div>
-                  <label className="form-label">Kata Sandi Akun *</label>
-                  <input type="password" className="input-field" required placeholder="Min. 8 karakter" minLength={8} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
-                </div>
-                <div>
-                  <label className="form-label">Jenis Kelamin</label>
-                  <select className="input-field" value={form.gender} onChange={e => updateForm(form.id, 'gender', e.target.value)}>
-                    <option value="male">Laki-laki</option>
-                    <option value="female">Perempuan</option>
-                  </select>
-                </div>
-                
-                {/* Organisasi & Peran */}
-                <div>
-                  <label className="form-label">Role Akses *</label>
-                  <select className="input-field" value={form.role} onChange={e => updateForm(form.id, 'role', e.target.value)}>
-                    <option value="employee">Employee</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Departemen</label>
-                  <select className="input-field" value={form.department_id} onChange={e => updateForm(form.id, 'department_id', e.target.value)}>
-                    <option value="">-- Pilih Departemen --</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Posisi / Jabatan</label>
-                  <select className="input-field" value={form.position_id} onChange={e => updateForm(form.id, 'position_id', e.target.value)}>
-                    <option value="">-- Pilih Jabatan --</option>
-                    {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Manajer Atasan (Opsional)</label>
-                  <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
-                    <option value="">-- Pilih Manajer --</option>
-                    {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
-                  </select>
-                </div>
+                )}
 
+                <div className="create-employee-grid">
+                  
+                  {/* Informasi Dasar */}
+                  <div>
+                    <label className="form-label">Nama Lengkap *</label>
+                    <input type="text" className={`input-field ${getError(index, 'full_name') ? 'error-border' : ''}`} style={getError(index, 'full_name') ? { borderColor: '#ef4444' } : {}} required placeholder="John Doe" value={form.full_name} onChange={e => updateForm(form.id, 'full_name', e.target.value)} />
+                    {getError(index, 'full_name') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'full_name')}</span>}
+                  </div>
+                  <div>
+                    <label className="form-label">Email Karyawan *</label>
+                    <input type="email" className={`input-field ${getError(index, 'email') ? 'error-border' : ''}`} style={getError(index, 'email') ? { borderColor: '#ef4444' } : {}} required placeholder="john@company.com" value={form.email} onChange={e => updateForm(form.id, 'email', e.target.value)} />
+                    {getError(index, 'email') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'email')}</span>}
+                  </div>
+                  <div>
+                    <label className="form-label">Nomor Telepon *</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select className="input-field" style={{ width: '90px', borderColor: getError(index, 'phone') ? '#ef4444' : undefined }} value={form.country_code} onChange={e => updateForm(form.id, 'country_code', e.target.value)}>
+                        <option value="+62">+62</option>
+                        <option value="+1">+1</option>
+                        <option value="+44">+44</option>
+                      </select>
+                      <input type="tel" className="input-field" required placeholder="8123456789" style={{ flex: 1, borderColor: getError(index, 'phone') ? '#ef4444' : undefined }} value={form.phone_number} onChange={e => updateForm(form.id, 'phone_number', e.target.value.replace(/\D/g, ''))} />
+                    </div>
+                    {getError(index, 'phone') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'phone')}</span>}
+                  </div>
+                  <div>
+                    <label className="form-label">Kata Sandi Akun *</label>
+                    <input type="password" className="input-field" style={getError(index, 'password') ? { borderColor: '#ef4444' } : {}} required placeholder="Min. 8 karakter" minLength={8} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
+                    {getError(index, 'password') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'password')}</span>}
+                  </div>
+                  <div>
+                    <label className="form-label">Jenis Kelamin</label>
+                    <select className="input-field" value={form.gender} onChange={e => updateForm(form.id, 'gender', e.target.value)}>
+                      <option value="male">Laki-laki</option>
+                      <option value="female">Perempuan</option>
+                    </select>
+                  </div>
+                  
+                  {/* Organisasi & Peran */}
+                  <div>
+                    <label className="form-label">Role Akses *</label>
+                    <select className="input-field" value={form.role} onChange={e => updateForm(form.id, 'role', e.target.value)}>
+                      <option value="employee">Employee</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Departemen</label>
+                    <select className="input-field" value={form.department_id} onChange={e => updateForm(form.id, 'department_id', e.target.value)}>
+                      <option value="">-- Pilih Departemen --</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Posisi / Jabatan</label>
+                    <select className="input-field" value={form.position_id} onChange={e => updateForm(form.id, 'position_id', e.target.value)}>
+                      <option value="">-- Pilih Jabatan --</option>
+                      {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Manajer Atasan (Opsional)</label>
+                    <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
+                      <option value="">-- Pilih Manajer --</option>
+                      {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
+                    </select>
+                  </div>
+
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </form>
       )}
 

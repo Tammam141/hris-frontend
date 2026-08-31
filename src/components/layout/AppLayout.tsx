@@ -1,5 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import '../ui/layout.css';
 import { useAuth } from '../../hooks/useAuth';
 import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal';
@@ -34,8 +34,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
     navigate('/login');
   }
 
-  // layout polos untuk guest
-  if (!isAuthenticated) {
+  const location = useLocation();
+
+  // layout polos untuk guest atau force change password
+  if (!isAuthenticated || location.pathname === '/force-change-password') {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
         <main>{children}</main>
@@ -171,6 +173,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </ShowIf>
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance/all'].features}>
                     <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>
+                  </ShowIf>
+                  <ShowIf feature={['attendance.report']}>
+                    <NavLink to="/attendance/events" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Log Mentah Absensi</NavLink>
                   </ShowIf>
                 </div>
               )}

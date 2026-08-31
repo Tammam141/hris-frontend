@@ -56,3 +56,40 @@ export interface MonthlyReportRow {
   total_late_minutes: number;
   total_work_minutes: number;
 }
+
+export interface AttendanceEvent {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_number: string;
+  kind: 'check_in' | 'check_out';
+  occurred_at: string;
+  received_at: string;
+  source: 'online' | 'offline_sync' | 'system' | 'correction';
+  attendance_id: string | null;
+  rejection_reason: string | null;
+  delay_seconds: number;
+  note: string | null;
+}
+
+export interface GetAttendanceEventsParams {
+  employee_id?: string;
+  kind?: 'check_in' | 'check_out';
+  source?: 'online' | 'offline_sync' | 'system' | 'correction';
+  only_rejected?: boolean;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetAttendanceEventsResponse {
+  success: boolean;
+  data: AttendanceEvent[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}

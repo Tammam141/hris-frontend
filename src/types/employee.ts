@@ -80,3 +80,22 @@ export interface UpdateEmployeePayload extends Partial<CreateEmployeePayload> {
   is_active?: boolean;
   resign_date?: string;
 }
+
+export type CreateEmployeesBulkPayload = CreateEmployeePayload[];
+
+export interface BulkCreateEmployeesResponse {
+  success: boolean;
+  message: string;
+  data: {
+    employee: EmployeeListItem;
+    account: {
+      id: string;
+      email: string;
+      role: string;
+      must_change_password: boolean;
+    };
+  }[];
+  meta: {
+    created: number;
+  };
+}

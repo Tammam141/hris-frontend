@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { Attendance, AttendanceSummary, AttendanceTodayResponse, MonthlyReportRow } from '../types/attendance';
+import { Attendance, AttendanceSummary, AttendanceTodayResponse, MonthlyReportRow, GetAttendanceEventsParams, GetAttendanceEventsResponse } from '../types/attendance';
 
 // Fungsi menembak API absensi masuk (mendukung parameter offline_time jika baru online)
 export async function checkInApi(note?: string, offline_time?: string): Promise<{ success: boolean; message?: string }> {
@@ -14,6 +14,25 @@ export async function checkOutApi(note?: string, offline_time?: string): Promise
 // Mengambil data dashboard hari ini (jadwal, status absen, dll)
 export async function getTodayAttendanceApi(): Promise<{ success: boolean; data: AttendanceTodayResponse }> {
   return apiRequest('/attendances/today', 'GET');
+}
+
+export async function getAttendanceEvents(params: GetAttendanceEventsParams): Promise<GetAttendanceEventsResponse> {
+  const queryParams = new URLSearchParams();
+  
+  if (params.employee_id) queryParams.append('employee_id', params.employee_id);
+  if (params.kind) queryParams.append('kind', params.kind);
+  if (params.source) queryParams.append('source', params.source);
+  if (params.only_rejected !== undefined) queryParams.append('only_rejected', String(params.only_rejected));
+  if (params.start_date) queryParams.append('start_date', params.start_date);
+  if (params.end_date) queryParams.append('end_date', params.end_date);
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.limit) queryParams.append('limit', params.limit.toString());
+  
+  const queryString = queryParams.toString();
+  const url = queryString ? `/attendances/events?${queryString}` : '/attendances/events';
+  
+  const response = await apiRequest(url, 'GET');
+  return response as GetAttendanceEventsResponse;
 }
 
 export interface AttendanceListResponse {

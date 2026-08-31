@@ -5,6 +5,7 @@ import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { ForceChangePasswordPage } from '../pages/ForceChangePasswordPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 import { EmployeePage } from '../pages/EmployeePage';
@@ -24,6 +25,7 @@ import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage';
 import { AttendancePage } from '../pages/AttendancePage';
 import { AllAttendancesPage } from '../pages/AllAttendancesPage';
+import { AttendanceEventsLogPage } from '../pages/AttendanceEventsLogPage';
 
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
@@ -43,6 +45,8 @@ export function AppRoutes() {
         {/* Semua rute di bawah ini wajib login */}
         <Route element={<ProtectedRoute />}>
           
+          <Route path="/force-change-password" element={<ForceChangePasswordPage />} />
+
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
             <Route path="/dashboard" element={<DashboardPage />} />
           </Route>
@@ -104,6 +108,10 @@ export function AppRoutes() {
           
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/all']} />}>
             <Route path="/attendance/all" element={<AllAttendancesPage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={{ required: true, features: ['attendance.report'] }} />}>
+            <Route path="/attendance/events" element={<AttendanceEventsLogPage />} />
           </Route>
 
         </Route>

@@ -4,9 +4,10 @@ import {
   getTodayAttendanceApi, 
   checkInApi, 
   checkOutApi, 
-  getMyAttendancesApi 
+  getMyAttendancesApi,
+  getAttendanceEvents
 } from '../api/attendance';
-import { AttendanceTodayResponse, Attendance, AttendanceSummary } from '../types/attendance';
+import { AttendanceTodayResponse, Attendance, AttendanceSummary, AttendanceEvent } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useDispatch, useSelector } from 'react-redux';
@@ -19,6 +20,7 @@ export function AttendancePage() {
   const { user } = useAuth();
   const [todayData, setTodayData] = useState<AttendanceTodayResponse | null>(null);
   const [history, setHistory] = useState<Attendance[]>([]);
+  const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -46,6 +48,19 @@ export function AttendancePage() {
         setHistory(historyRes.data);
         if (historyRes.summary) setSummary(historyRes.summary);
       }
+
+      // Fetch log absensi mentah secara terpisah agar tidak merusak halaman jika API 404 (belum siap)
+      try {
+        const eventsRes = await getAttendanceEvents({ 
+          employee_id: user?.employee?.id, 
+          limit: 10 // Ambil 10 log terakhir saja
+        });
+        if (eventsRes.success) setEvents(eventsRes.data);
+      } catch (err) {
+        // Abaikan error log agar halaman utama tetap bisa dibuka (misal API belum ada)
+        console.warn('Gagal memuat log mentah absensi:', err);
+      }
+
     } catch (e: any) {
       setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi.', type: 'error' });
     } finally {
@@ -370,6 +385,66 @@ export function AttendancePage() {
                   {history.length === 0 && (
                     <tr>
                       <td colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>Tidak ada data absensi di bulan ini.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* Riwayat Log Mentah Absensi Saya */}
+          <div className="attendance-history-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 className="attendance-history-title" style={{ marginBottom: '4px' }}>Log Aktivitas Tombol Absensi</h2>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Jejak rekaman penekanan tombol absensi (10 aktivitas terakhir)</p>
+              </div>
+            </div>
+            
+            <div style={{ overflowX: 'auto' }}>
+              <table className="attendance-table employee-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Jenis</th>
+                    <th>Waktu Ditekan</th>
+                    <th>Sumber</th>
+                    <th>Status / Alasan Ditolak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map(evt => (
+                    <tr key={evt.id} style={{ backgroundColor: evt.rejection_reason ? '#fef2f2' : 'transparent' }}>
+                      <td>
+                        <span style={{ 
+                          padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                          backgroundColor: evt.kind === 'check_in' ? '#dcfce7' : '#f1f5f9',
+                          color: evt.kind === 'check_in' ? '#166534' : '#475569'
+                        }}>
+                          {evt.kind === 'check_in' ? 'Check-In' : 'Check-Out'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '13px' }}>
+                        {new Date(evt.occurred_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                      </td>
+                      <td style={{ fontSize: '12px', textTransform: 'capitalize', color: '#64748b' }}>
+                        {evt.source.replace('_', ' ')}
+                      </td>
+                      <td>
+                        {evt.rejection_reason ? (
+                          <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 500 }}>
+                            DITOLAK: {evt.rejection_reason}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 500 }}>Diterima</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {events.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '24px', fontSize: '13px', color: '#94a3b8' }}>
+                        Belum ada jejak aktivitas atau API log belum tersedia.
+                      </td>
                     </tr>
                   )}
                 </tbody>
