@@ -64,7 +64,7 @@ export interface CreateEmployeePayload {
   full_name: string;
   email: string;
   password?: string;
-  role?: 'employee' | 'hr' | 'admin';
+  role?: 'employee' | 'admin';
   phone: string;
   gender: 'male' | 'female';
   birth_date?: string;
