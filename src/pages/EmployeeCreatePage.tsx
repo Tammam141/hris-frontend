@@ -186,31 +186,43 @@ export function EmployeeCreatePage() {
       const parsedErrors: Record<string, string> = {};
 
       if (err.code === 'VALIDATION_ERROR' && err.errors && Array.isArray(err.errors)) {
+        // Objek tunggal: field = "email" dll
         err.errors.forEach((e: any) => {
-          // Format e.field: "employees.0.email"
-          if (e.field && e.field.startsWith('employees.')) {
-            const parts = e.field.split('.');
-            if (parts.length >= 3) {
-              const index = parts[1];
-              const fieldName = parts.slice(2).join('.');
-              parsedErrors[`${index}-${fieldName}`] = e.message;
-            }
+          if (e.field) {
+            // Karena ini single object, indexnya selalu 0
+            parsedErrors[`0-${e.field}`] = e.message;
           }
         });
         errorParsed = true;
       } else if (err.code === 'BAD_REQUEST' && err.details?.failed_rows && Array.isArray(err.details.failed_rows)) {
+        // Array payload:
         err.details.failed_rows.forEach((row: any) => {
           parsedErrors[`${row.index}-row`] = row.message;
+          if (row.errors && Array.isArray(row.errors)) {
+            row.errors.forEach((e: any) => {
+              parsedErrors[`${row.index}-${e.field}`] = e.message;
+            });
+          }
         });
+        errorParsed = true;
+      } else if (err.code === 'CONFLICT') {
+        // Objek tunggal conflict, fallback to single form error
+        parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
         errorParsed = true;
       }
 
       if (errorParsed) {
         setValidationErrors(parsedErrors);
+        
+        let summaryMessage = err.message || 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.';
+        if (err.details && err.details.total !== undefined) {
+          summaryMessage = `${err.details.invalid} baris perlu diperbaiki, belum ada yang ditambahkan (Total: ${err.details.total}).`;
+        }
+
         setAlertInfo({
           open: true,
-          title: 'Selesai dengan Catatan',
-          message: err.message || 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.',
+          title: 'Validasi Gagal',
+          message: summaryMessage,
           type: 'error'
         });
       } else {
