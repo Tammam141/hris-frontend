@@ -225,3 +225,136 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================
+   CSV Import Page Styles
+   ======================================== */
+
+/* Template bar (bagian atas download template) */
+.csv-template-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 24px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.csv-template-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.csv-download-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  width: auto;
+  margin: 0;
+}
+
+/* Layout utama: upload kiri, panduan kanan */
+.csv-main-content {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.csv-upload-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.csv-guide-panel {
+  width: 320px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* Dropzone area (untuk upload file) */
+.csv-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  background-color: #f8fafc;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.csv-dropzone:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
+}
+
+/* Tabel review setelah parsing */
+.csv-review-table-wrapper {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.csv-sticky-header {
+  position: sticky;
+  top: 0;
+  background-color: #f1f5f9 !important;
+  z-index: 1;
+}
+
+/* ========================================
+   Responsive: Tablet (max-width 900px)
+   ======================================== */
+@media (max-width: 900px) {
+  /* Layout utama: stack vertikal */
+  .csv-main-content {
+    flex-direction: column;
+  }
+
+  /* Panduan menjadi full-width */
+  .csv-guide-panel {
+    width: 100%;
+  }
+}
+
+/* ========================================
+   Responsive: Mobile (max-width 640px)
+   ======================================== */
+@media (max-width: 640px) {
+  /* Template bar: stack vertikal */
+  .csv-template-bar {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .csv-template-info {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .csv-download-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Dropzone: lebih compact */
+  .csv-dropzone {
+    padding: 32px 16px;
+  }
+
+  /* Review table: lebih bisa di scroll */
+  .csv-review-table-wrapper {
+    max-height: 300px;
+  }
+}

@@ -228,6 +228,17 @@ export function EmployeePage() {
             Cari
           </button>
         </form>
+        </div>
+
+        {/* Tombol Aksi: Upload CSV & Tambah Karyawan (di bawah form pencarian) */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => navigate('/employee/import-csv')}
+          >
+            Upload Karyawan by CSV
+          </button>
           <button 
             type="button" 
             className="btn btn-primary btn-success" 
