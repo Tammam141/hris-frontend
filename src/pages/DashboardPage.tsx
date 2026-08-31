@@ -111,9 +111,16 @@ export function DashboardPage() {
                       <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500, textTransform: 'capitalize' }}>{profile.employee.gender || '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Alamat</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.address || '-'}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Tanggal Lahir</div>
+                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>
+                        {profile.employee.birth_date ? new Date(profile.employee.birth_date).toLocaleDateString('id-ID') : '-'}
+                      </div>
                     </div>
+                  </div>
+                  
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Alamat</div>
+                    <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.address || '-'}</div>
                   </div>
 
                   <div className="info-grid-2">
