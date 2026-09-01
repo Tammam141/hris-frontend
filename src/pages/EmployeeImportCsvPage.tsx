@@ -4,6 +4,7 @@ import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
 import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
+import { validateEmployeeDates } from '../utils/dateValidation';
 import { AlertModal } from '../components/ui/AlertModal';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
@@ -17,6 +18,8 @@ interface CsvRow {
   role: string;
   birth_date: string;
   address: string;
+  join_date: string;
+  employment_status: string;
   // Kolom original dari file CSV
   department: string;
   position: string;
@@ -68,13 +71,13 @@ export function EmployeeImportCsvPage() {
   }, []);
 
   const handleDownloadTemplate = () => {
-    const headers = "full_name,email,phone,password,gender,role,birth_date,address,department,position,manager";
+    const headers = "full_name,email,phone,password,gender,role,birth_date,address,join_date,employment_status,department,position,manager";
     const rows = [
-      "John Doe,john@company.com,+628123456789,12345678,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,Engineering,Frontend Developer,",
-      "Jane Smith,jane@company.com,+628123456790,12345678,female,employee,1998-07-22,Jl. Sudirman No. 5 Bandung,Marketing,Marketing Staff,",
-      "Ahmad Fauzi,ahmad@company.com,+628123456791,12345678,male,employee,1990-01-10,Jl. Gatot Subroto No. 8 Surabaya,HRD,HR Manager,",
-      "Siti Nurhaliza,siti@company.com,+628123456792,12345678,female,employee,1997-11-30,Jl. Diponegoro No. 3 Yogyakarta,Finance,Accountant,Ahmad Fauzi",
-      "Rudi Hartono,rudi@company.com,+628123456793,12345678,male,employee,1993-05-18,Jl. Ahmad Yani No. 12 Semarang,Engineering,Backend Developer,John Doe"
+      "John Doe,john@company.com,+628123456789,12345678,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,2022-01-10,permanent,Engineering,Frontend Developer,",
+      "Jane Smith,jane@company.com,+628123456790,12345678,female,employee,1998-07-22,Jl. Sudirman No. 5 Bandung,2023-05-15,contract,Marketing,Marketing Staff,",
+      "Ahmad Fauzi,ahmad@company.com,+628123456791,12345678,male,employee,1990-01-10,Jl. Gatot Subroto No. 8 Surabaya,2020-03-01,permanent,HRD,HR Manager,",
+      "Siti Nurhaliza,siti@company.com,+628123456792,12345678,female,employee,1997-11-30,Jl. Diponegoro No. 3 Yogyakarta,2023-08-01,probation,Finance,Accountant,Ahmad Fauzi",
+      "Rudi Hartono,rudi@company.com,+628123456793,12345678,male,employee,1993-05-18,Jl. Ahmad Yani No. 12 Semarang,2021-11-12,permanent,Engineering,Backend Developer,John Doe"
     ];
     const csvContent = [headers, ...rows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -150,6 +153,11 @@ export function EmployeeImportCsvPage() {
         alert('File CSV kosong atau tidak memiliki data selain header.');
         return;
       }
+      
+      if (lines.length - 1 > 500) {
+        alert('Maksimal 500 karyawan dalam satu permintaan. Silakan pecah file CSV Anda.');
+        return;
+      }
 
       const headers = lines[0].split(',').map(h => h.trim());
       const rows: CsvRow[] = [];
@@ -209,10 +217,23 @@ export function EmployeeImportCsvPage() {
   const handleSubmitToBackend = async () => {
     // 1. Validasi: Cegah submit jika ada UUID yang belum terselesaikan
     let hasUnresolvedFields = false;
-    parsedRows.forEach(row => {
+    let missingPositionCount = 0;
+    const newErrors: Record<string, string> = {};
+    let localErrors = 0;
+
+    parsedRows.forEach((row, idx) => {
       if (row.department && !row.department_id) hasUnresolvedFields = true;
       if (row.position && !row.position_id) hasUnresolvedFields = true;
       if (row.manager && !row.manager_id) hasUnresolvedFields = true;
+      
+      if (!row.position_id) missingPositionCount++;
+
+      // Validasi Tanggal
+      const dateErrors = validateEmployeeDates(row.birth_date, row.join_date);
+      dateErrors.forEach(err => {
+        newErrors[`${idx}-${err.field}`] = err.message;
+        localErrors++;
+      });
     });
 
     if (hasUnresolvedFields) {
@@ -223,6 +244,22 @@ export function EmployeeImportCsvPage() {
         type: 'error'
       });
       return;
+    }
+
+    if (localErrors > 0) {
+      setValidationErrors(newErrors);
+      setAlertInfo({
+        open: true,
+        title: 'Validasi Tanggal Gagal',
+        message: 'Terdapat kesalahan pada tanggal lahir atau tanggal bergabung. Silakan perbaiki baris yang ditandai merah.',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (missingPositionCount > 0) {
+      const confirmProceed = window.confirm(`${missingPositionCount} baris belum punya jabatan, mereka tidak akan melihat menu apa pun sampai jabatannya diisi. Tetap lanjutkan?`);
+      if (!confirmProceed) return;
     }
 
     setValidationErrors({});
@@ -238,22 +275,43 @@ export function EmployeeImportCsvPage() {
       role: row.role as any || 'employee',
       birth_date: row.birth_date || undefined,
       address: row.address || undefined,
+      join_date: row.join_date || undefined,
+      employment_status: row.employment_status as any,
       department_id: row.department_id || undefined,
       position_id: row.position_id || undefined,
       manager_id: row.manager_id || undefined
     }));
 
-    // Ubah Array menjadi Object dengan key index ("0", "1", dst) agar log BE lebih mudah
+    // Ubah Array menjadi Object dengan key index
     const payloadObject = Object.assign({}, payloadArray);
 
     try {
       // 3. Kirim object ber-index ke API backend
       const res = await createEmployee(payloadObject);
       
+      // Pastikan res.data diubah jadi array untuk mapping
+      const dataArray = Array.isArray(res.data) ? res.data : Object.values(res.data || {});
+      
       setAlertInfo({
         open: true,
         title: 'Berhasil',
-        message: res.message || `${payloadArray.length} karyawan berhasil ditambahkan.`,
+        message: (
+          <div>
+            <p style={{ marginBottom: '12px' }}>{res.message || `${payloadArray.length} karyawan berhasil ditambahkan.`}</p>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
+              {dataArray.map((d: any, idx: number) => {
+                const rowIndex = d.index !== undefined ? d.index : idx;
+                return (
+                  <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
+                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee?.full_name || '-'}</strong> (NIK: {d.employee?.employee_number || '-'})<br/>
+                    Email: {d.account?.email || '-'}
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ marginTop: '12px', fontSize: '13px', color: '#475569' }}>Karyawan dapat login menggunakan password default yang Anda tentukan.</p>
+          </div>
+        ),
         type: 'success'
       });
       
@@ -406,6 +464,8 @@ export function EmployeeImportCsvPage() {
                       <th className="csv-sticky-header">Gender</th>
                       <th className="csv-sticky-header">Role</th>
                       <th className="csv-sticky-header">Tanggal Lahir</th>
+                      <th className="csv-sticky-header">Tgl Gabung</th>
+                      <th className="csv-sticky-header">Status</th>
                       <th className="csv-sticky-header">Departemen</th>
                       <th className="csv-sticky-header">Posisi</th>
                       <th className="csv-sticky-header">Manajer</th>
@@ -459,7 +519,24 @@ export function EmployeeImportCsvPage() {
                           </td>
                           <td>
                             <div style={{ color: getError(idx, 'birth_date') ? '#ef4444' : undefined }}>{row.birth_date || '-'}</div>
-                            {getError(idx, 'birth_date') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{getError(idx, 'birth_date')}</div>}
+                            {getError(idx, 'birth_date') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px', maxWidth: '120px' }}>{getError(idx, 'birth_date')}</div>}
+                          </td>
+                          <td>
+                            <div style={{ color: getError(idx, 'join_date') ? '#ef4444' : undefined }}>{row.join_date || '-'}</div>
+                            {getError(idx, 'join_date') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px', maxWidth: '120px' }}>{getError(idx, 'join_date')}</div>}
+                          </td>
+                          <td>
+                            <select 
+                              value={row.employment_status || 'probation'} 
+                              onChange={(e) => updateRowField(idx, 'employment_status', e.target.value)}
+                              className="input-field"
+                              style={{ width: '120px', padding: '6px', fontSize: '13px' }}
+                            >
+                              <option value="probation">Probation</option>
+                              <option value="contract">Contract</option>
+                              <option value="permanent">Permanent</option>
+                              <option value="intern">Intern</option>
+                            </select>
                           </td>
                           <td>
                             <select 
@@ -533,6 +610,8 @@ export function EmployeeImportCsvPage() {
               <li><strong>role</strong> — employee / admin <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>birth_date</strong> — Format YYYY-MM-DD</li>
               <li><strong>address</strong> — Alamat lengkap</li>
+              <li><strong>join_date</strong> — Format YYYY-MM-DD</li>
+              <li><strong>employment_status</strong> — probation / contract / permanent / intern</li>
               <li><strong>department</strong> — Nama/Kode departemen</li>
               <li><strong>position</strong> — Nama/Kode jabatan</li>
               <li><strong>manager</strong> — Nama/NIK manajer</li>

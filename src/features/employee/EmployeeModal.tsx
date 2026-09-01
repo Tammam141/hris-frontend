@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CreateEmployeePayload, UpdateEmployeePayload, Department, Position, EmployeeListItem, EmployeeDetail } from '../../types/employee';
 import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
 import { useAuth } from '../../hooks/useAuth';
+import { validateEmployeeDates } from '../../utils/dateValidation';
 import { Avatar } from '../../components/ui/Avatar';
 import './employee-modal.css';
 
@@ -113,6 +114,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     setError('');
 
     try {
+      const dateErrors = validateEmployeeDates(birthDate, joinDate);
+      if (dateErrors.length > 0) {
+        setError(dateErrors[0].message);
+        setLoading(false);
+        return;
+      }
+
       const cleanPhone = phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
       const fullPhone = phoneNumber ? `${countryCode}${cleanPhone}` : '';
 

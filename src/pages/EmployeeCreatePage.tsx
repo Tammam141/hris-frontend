@@ -4,6 +4,7 @@ import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
 import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
+import { validateEmployeeDates } from '../utils/dateValidation';
 import { AlertModal } from '../components/ui/AlertModal';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
@@ -22,6 +23,10 @@ interface EmployeeFormState {
   department_id: string;
   position_id: string;
   manager_id: string;
+  birth_date: string;
+  address: string;
+  employment_status: 'probation' | 'contract' | 'permanent' | 'intern' | 'resigned';
+  join_date: string;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -38,6 +43,10 @@ const createEmptyForm = (): EmployeeFormState => ({
   department_id: '',
   position_id: '',
   manager_id: '',
+  birth_date: '',
+  address: '',
+  employment_status: 'probation',
+  join_date: '',
 });
 
 export function EmployeeCreatePage() {
@@ -123,6 +132,13 @@ export function EmployeeCreatePage() {
           localErrors++;
         }
       }
+
+      // Validasi Tanggal
+      const dateErrors = validateEmployeeDates(f.birth_date, f.join_date);
+      dateErrors.forEach(err => {
+        newErrors[`${i}-${err.field}`] = err.message;
+        localErrors++;
+      });
     }
 
     if (localErrors > 0) {
@@ -145,6 +161,10 @@ export function EmployeeCreatePage() {
         department_id: f.department_id || undefined,
         position_id: f.position_id || undefined,
         manager_id: f.manager_id || undefined,
+        birth_date: f.birth_date || undefined,
+        address: f.address || undefined,
+        employment_status: f.employment_status as any,
+        join_date: f.join_date || undefined,
       }));
 
       // Jika cuma 1 karyawan, kirim sebagai Object (Single). Jika > 1, kirim sebagai Array (Multiple).
@@ -164,12 +184,15 @@ export function EmployeeCreatePage() {
           <div>
             <p style={{ marginBottom: '12px' }}>{res.message || `${dataArray.length} karyawan berhasil ditambahkan.`}</p>
             <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
-              {dataArray.map((d: any, idx: number) => (
-                <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
-                  <strong>{d.employee.full_name}</strong> (NIK: {d.employee.employee_number})<br/>
-                  Email: {d.account.email}
-                </div>
-              ))}
+              {dataArray.map((d: any, idx: number) => {
+                const rowIndex = d.index !== undefined ? d.index : idx;
+                return (
+                  <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
+                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee.full_name}</strong> (NIK: {d.employee.employee_number})<br/>
+                    Email: {d.account.email}
+                  </div>
+                );
+              })}
             </div>
             <p style={{ marginTop: '12px', fontSize: '13px', color: '#475569' }}>Catat/bagikan informasi ini. Karyawan akan diminta mengubah password saat login pertama kali.</p>
           </div>
@@ -373,6 +396,29 @@ export function EmployeeCreatePage() {
                       <option value="">-- Pilih Manajer --</option>
                       {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Status Kepegawaian</label>
+                    <select className="input-field" value={form.employment_status} onChange={e => updateForm(form.id, 'employment_status', e.target.value as any)}>
+                      <option value="probation">Probation</option>
+                      <option value="contract">Contract</option>
+                      <option value="permanent">Permanent</option>
+                      <option value="intern">Intern</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Tanggal Bergabung</label>
+                    <input type="date" className={`input-field ${getError(index, 'join_date') ? 'error-border' : ''}`} style={getError(index, 'join_date') ? { borderColor: '#ef4444' } : {}} value={form.join_date} onChange={e => updateForm(form.id, 'join_date', e.target.value)} />
+                    {getError(index, 'join_date') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'join_date')}</span>}
+                  </div>
+                  <div>
+                    <label className="form-label">Tanggal Lahir</label>
+                    <input type="date" className={`input-field ${getError(index, 'birth_date') ? 'error-border' : ''}`} style={getError(index, 'birth_date') ? { borderColor: '#ef4444' } : {}} value={form.birth_date} onChange={e => updateForm(form.id, 'birth_date', e.target.value)} />
+                    {getError(index, 'birth_date') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'birth_date')}</span>}
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Alamat Lengkap</label>
+                    <textarea className="input-field" rows={2} value={form.address} onChange={e => updateForm(form.id, 'address', e.target.value)} />
                   </div>
 
                 </div>
