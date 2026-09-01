@@ -23,10 +23,10 @@ export async function getEmployeeDetail(id: string): Promise<{ success: boolean;
 
 
 export async function createEmployee(
-  data: CreateEmployeePayload | CreateEmployeePayload[]
+  data: CreateEmployeePayload | CreateEmployeePayload[] | Record<string, CreateEmployeePayload>
 ): Promise<any> {
-  // 1. FE Validasi: Apakah data ini Single atau Multiple 
-  const isMultiple = Array.isArray(data);
+  // 1. FE Validasi: Apakah data ini Single atau Multiple (Array atau Object ber-index "0")
+  const isMultiple = Array.isArray(data) || (typeof data === 'object' && data !== null && '0' in data);
 
   // 2. Tentukan pengaturan berdasarkan hasil validasi
   const config = isMultiple ? { timeout: 30000 } : undefined;
