@@ -61,15 +61,19 @@ const getEventStyle = (status: string) => {
 export function LeaveCalendar({ requests, onSelectEvent }: LeaveCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const parsePlainDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    return new Date(dateStr.split('T')[0] + 'T00:00:00');
+  };
 
   const events = useMemo(() => requests.map(req => {
-    const end = new Date(req.end_date);
+    const end = parsePlainDate(req.end_date);
     end.setHours(23, 59, 59);
 
     return {
       id: req.id,
       title: `${req.employee_name} - ${req.leave_type_name}`,
-      start: new Date(req.start_date),
+      start: parsePlainDate(req.start_date),
       end,
       allDay: true,
       resource: req,

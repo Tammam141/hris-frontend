@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getMeApi } from '../api/auth';
+import { formatPlainDate } from '../utils/dateFormatter';
 import '../components/ui/dashboard.css';
 
 export function DashboardPage() {
@@ -31,6 +32,15 @@ export function DashboardPage() {
     }
     fetchProfile();
   }, []);
+
+  const formatDateIndo = (dateStr: string | undefined | null) => {
+    const plain = formatPlainDate(dateStr);
+    if (plain === '-') return '-';
+    const [y, m, d] = plain.split('-');
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    if (!y || !m || !d) return plain;
+    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+  };
 
   return (
     <div className="dashboard-container">
@@ -113,7 +123,7 @@ export function DashboardPage() {
                     <div>
                       <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Tanggal Lahir</div>
                       <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>
-                        {profile.employee.birth_date ? new Date(profile.employee.birth_date).toLocaleDateString('id-ID') : '-'}
+                        {formatDateIndo(profile.employee.birth_date)}
                       </div>
                     </div>
                   </div>
@@ -142,7 +152,7 @@ export function DashboardPage() {
                     <div>
                       <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Tanggal Bergabung</div>
                       <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>
-                        {profile.employee.join_date ? new Date(profile.employee.join_date).toLocaleDateString('id-ID') : '-'}
+                        {formatDateIndo(profile.employee.join_date)}
                       </div>
                     </div>
                   </div>
