@@ -9,19 +9,26 @@ import { BuildingIcon } from '../icons/BuildingIcon';
 import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
 import { ClockIcon } from '../icons/ClockIcon';
+import { BellIcon } from '../icons/BellIcon';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
+import '../ui/notification.css';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [showEmptyPopup, setShowEmptyPopup] = useState(false);
   
   // State untuk dropdown master data
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+
+  // Notifikasi — nanti diisi dari WebSocket backend
+  const notifications: any[] = [];
+  const unreadCount = 0;
 
   useEffect(() => {
     if (user?.must_change_password) {
@@ -60,8 +67,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="navbar-brand">HRIS</div>
         </div>
         <div className="navbar-right">
+          {/* Tombol Lonceng Notifikasi */}
+          <div className="notif-bell-wrapper">
+            <button 
+              className="notif-bell-btn" 
+              onClick={() => {
+                if (notifications.length === 0) {
+                  setShowEmptyPopup(true);
+                  setTimeout(() => setShowEmptyPopup(false), 2500);
+                } else {
+                  navigate('/notifications');
+                }
+              }}
+              title="Notifikasi"
+            >
+              <BellIcon size={22} />
+              {unreadCount > 0 && (
+                <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
+            {showEmptyPopup && (
+              <div className="notif-empty-popup">Belum ada notifikasi</div>
+            )}
+          </div>
+
           <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span>Halo, <strong>{user?.full_name}</strong></span>
+            <span>Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
             <Avatar 
               photoUrl={user?.employee?.photo_url} 
               name={user?.full_name || ''} 

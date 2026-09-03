@@ -27,6 +27,7 @@ import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage'
 import { AttendancePage } from '../pages/AttendancePage';
 import { AllAttendancesPage } from '../pages/AllAttendancesPage';
 import { AttendanceEventsLogPage } from '../pages/AttendanceEventsLogPage';
+import { NotificationPage } from '../pages/NotificationPage';
 
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
@@ -47,6 +48,7 @@ export function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           
           <Route path="/force-change-password" element={<ForceChangePasswordPage />} />
+          <Route path="/notifications" element={<NotificationPage />} />
 
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
             <Route path="/dashboard" element={<DashboardPage />} />
