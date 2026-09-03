@@ -179,10 +179,10 @@ export function EmployeeImportCsvPage() {
           const positionIds = positionKey ? (positionLookup.get(positionKey) || []) : [];
           const managerIds = managerKey ? (managerLookup.get(managerKey) || []) : [];
 
-          // 4. Kosongkan ID jika pencarian gagal atau ambigu (> 1 hasil)
-          row.department_id = deptIds.length === 1 ? deptIds[0] : '';
-          row.position_id = positionIds.length === 1 ? positionIds[0] : '';
-          row.manager_id = managerIds.length === 1 ? managerIds[0] : '';
+          // 4. Ambil ID pertama jika pencarian berhasil (meskipun ada duplikat/ambigu di database)
+          row.department_id = deptIds.length > 0 ? deptIds[0] : '';
+          row.position_id = positionIds.length > 0 ? positionIds[0] : '';
+          row.manager_id = managerIds.length > 0 ? managerIds[0] : '';
 
           rows.push(row as CsvRow);
         }
