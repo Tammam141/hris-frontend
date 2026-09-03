@@ -24,13 +24,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   const [fullName, setFullName] = useState('');
   const [countryCode, setCountryCode] = useState('+62');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
   const [managerId, setManagerId] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [address, setAddress] = useState('');
-  const [employmentStatus, setEmploymentStatus] = useState<'probation' | 'contract' | 'permanent' | 'intern' | 'resigned'>('probation');
+  const [employmentStatus, setEmploymentStatus] = useState<'probation' | 'contract' | 'permanent' | 'intern' | 'resigned' | ''>('');
   const [joinDate, setJoinDate] = useState('');
   const [resignDate, setResignDate] = useState('');
 
@@ -66,7 +66,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
           setPhoneNumber(phone);
         }
 
-        setGender(employeeData.gender || 'male'); 
+        setGender(employeeData.gender || ''); 
         
         const matchedDept = departments.find(d => d.name === employeeData.department_name);
         setDepartmentId(employeeData.department_id || (matchedDept ? matchedDept.id : ''));
@@ -79,7 +79,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         
         setBirthDate(employeeData.birth_date ? employeeData.birth_date.split('T')[0] : '');
         setAddress(employeeData.address || '');
-        setEmploymentStatus(employeeData.employment_status as any || 'probation');
+        setEmploymentStatus(employeeData.employment_status as any || '');
         setJoinDate(employeeData.join_date ? employeeData.join_date.split('T')[0] : '');
         setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
         setCurrentPhotoUrl(employeeData.photo_url || null);
@@ -88,13 +88,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setFullName('');
         setCountryCode('+62');
         setPhoneNumber('');
-        setGender('male');
+        setGender('');
         setDepartmentId('');
         setPositionId('');
         setManagerId('');
         setBirthDate('');
         setAddress('');
-        setEmploymentStatus('probation');
+        setEmploymentStatus('');
         setJoinDate('');
         setResignDate('');
         setCurrentPhotoUrl(null);
@@ -126,10 +126,11 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
 
       const payload: any = {
         full_name: fullName,
-        phone: fullPhone || '+62800000000', // Default if missing
-        gender,
-        employment_status: employmentStatus,
       };
+
+      if (fullPhone) payload.phone = fullPhone;
+      if (gender) payload.gender = gender;
+      if (employmentStatus) payload.employment_status = employmentStatus;
 
       if (birthDate) payload.birth_date = birthDate;
       if (address) payload.address = address;
@@ -316,8 +317,9 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <select 
                   className="input-field" 
                   value={gender}
-                  onChange={e => setGender(e.target.value as 'male' | 'female')}
+                  onChange={e => setGender(e.target.value as any)}
                 >
+                  <option value="" disabled>-- Pilih --</option>
                   <option value="male">Laki-laki</option>
                   <option value="female">Perempuan</option>
                 </select>
@@ -392,6 +394,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                   value={employmentStatus}
                   onChange={e => setEmploymentStatus(e.target.value as any)}
                 >
+                  <option value="" disabled>-- Pilih --</option>
                   <option value="probation">Probation</option>
                   <option value="contract">Contract</option>
                   <option value="permanent">Permanent</option>

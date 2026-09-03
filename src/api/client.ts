@@ -37,33 +37,42 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     
     if (timeoutId) clearTimeout(timeoutId);
 
-    const data = await response.json();
-
-  if (response.status === 401 && endpoint !== '/auth/login') {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-    // Throw error anyway to stop execution chain
-    throw new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali');
-  }
-
-  if (!response.ok || !data.success) {
-    let errorMsg = data?.message || 'Terjadi kesalahan pada server';
-    
-    // Parse array errors if available
-    if (data?.errors && Array.isArray(data.errors)) {
-      errorMsg = data.errors.map((e: any) => e.message).join(', ');
+    let data;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      if (!response.ok) {
+        throw new Error(`Terjadi kesalahan pada server (Status: ${response.status}). Respons bukan JSON yang valid.`);
+      }
+      throw new Error('Gagal memproses respons dari server');
     }
-    
-    const error: any = new Error(errorMsg);
-    error.status = response.status;
-    if (data?.details) error.details = data.details;
-    if (data?.code) error.code = data.code;
-    if (data?.errors) error.errors = data.errors; // Store raw errors for specific handling
-    throw error;
-  }
 
-  return data;
+    if (response.status === 401 && endpoint !== '/auth/login') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      // Throw error anyway to stop execution chain
+      throw new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali');
+    }
+
+    if (!response.ok || (data.success !== undefined && !data.success)) {
+      let errorMsg = data?.message || 'Terjadi kesalahan pada server';
+      
+      // Parse array errors if available
+      if (data?.errors && Array.isArray(data.errors)) {
+        errorMsg = data.errors.map((e: any) => e.message).join(', ');
+      }
+      
+      const error: any = new Error(errorMsg);
+      error.status = response.status;
+      if (data?.details) error.details = data.details;
+      if (data?.code) error.code = data.code;
+      if (data?.errors) error.errors = data.errors; // Store raw errors for specific handling
+      throw error;
+    }
+
+    return data;
 
   } catch (err: any) {
     if (timeoutId) clearTimeout(timeoutId);

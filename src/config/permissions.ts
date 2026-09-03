@@ -6,6 +6,7 @@ export interface AccessRule {
 export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/dashboard': {}, // Semua bisa akses
   '/employee': { features: ['employee.view_all'] },
+  '/employee/create': { features: ['employee.create'] },
   '/department': { features: ['organization.manage'] },
   '/position': { features: ['organization.manage'] },
   '/approval': { features: ['employee.approve_user'] },

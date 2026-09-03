@@ -56,6 +56,9 @@ export function AppRoutes() {
 
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
             <Route path="/employee" element={<EmployeePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee/create']} />}>
             <Route path="/employee/create" element={<EmployeeCreatePage />} />
             <Route path="/employee/import-csv" element={<EmployeeImportCsvPage />} />
           </Route>
@@ -114,7 +117,7 @@ export function AppRoutes() {
             <Route path="/attendance/all" element={<AllAttendancesPage />} />
           </Route>
           
-          <Route element={<FeatureProtectedRoute rule={{ required: true, features: ['attendance.report'] }} />}>
+          <Route element={<FeatureProtectedRoute rule={{ features: ['attendance.report'] }} />}>
             <Route path="/attendance/events" element={<AttendanceEventsLogPage />} />
           </Route>
 

@@ -21,7 +21,6 @@ export function DepartmentPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -53,7 +52,6 @@ export function DepartmentPage() {
     setSelectedDept(null);
     setCode('');
     setName('');
-    setDescription('');
     setIsModalOpen(true);
   }
 
@@ -62,7 +60,6 @@ export function DepartmentPage() {
     setSelectedDept(dept);
     setCode(dept.code);
     setName(dept.name);
-    setDescription(dept.description || '');
     setIsModalOpen(true);
   }
 
@@ -70,9 +67,9 @@ export function DepartmentPage() {
     e.preventDefault();
     try {
       if (modalMode === 'create') {
-        await createDepartment({ code, name, description });
+        await createDepartment({ code, name });
       } else if (selectedDept) {
-        await updateDepartment(selectedDept.id, { code, name, description });
+        await updateDepartment(selectedDept.id, { code, name });
       }
       setIsModalOpen(false);
       loadDepartments();
@@ -125,21 +122,19 @@ export function DepartmentPage() {
               <tr>
                 <th>Kode</th>
                 <th>Nama Departemen</th>
-                <th>Deskripsi</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
+                <tr><td colSpan={3} className="text-center empty-table-cell">Memuat data...</td></tr>
               ) : departments.length === 0 ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
+                <tr><td colSpan={3} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
               ) : (
                 departments.map(dept => (
                   <tr key={dept.id}>
                     <td className="employee-name">{dept.code}</td>
                     <td>{dept.name}</td>
-                    <td className="employee-subtext">{dept.description || '-'}</td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
@@ -171,10 +166,6 @@ export function DepartmentPage() {
                 <div className="form-group">
                   <label className="form-label">Nama Departemen</label>
                   <input type="text" className="input-field" value={name} onChange={e => setName(e.target.value)} required placeholder="Contoh: Information Technology" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Deskripsi</label>
-                  <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Deskripsi opsional..." />
                 </div>
               </div>
               <div className="modal-footer">

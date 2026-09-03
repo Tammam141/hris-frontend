@@ -1,30 +1,28 @@
-import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types/notification';
 import { BellIcon } from '../components/icons/BellIcon';
+import { markAsRead, markAllAsRead } from '../store/notificationSlice';
 import '../components/ui/notification.css';
 import '../components/ui/dashboard.css';
 
 export function NotificationPage() {
   const navigate = useNavigate();
 
-  // State notifikasi kosong — nanti diisi dari WebSocket backend
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const dispatch = useDispatch();
+  const notifications = useSelector((state: any) => state.notification.items);
+  const unreadCount = useSelector((state: any) => state.notification.unreadCount);
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, is_read: true } : n)
-    );
+  const handleMarkAsRead = (id: string) => {
+    dispatch(markAsRead(id));
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  const handleMarkAllAsRead = () => {
+    dispatch(markAllAsRead());
   };
 
   const handleClickItem = (notif: Notification) => {
-    markAsRead(notif.id);
+    handleMarkAsRead(notif.id);
     navigate(notif.link);
   };
 
@@ -68,6 +66,12 @@ export function NotificationPage() {
             </svg>
           </div>
         );
+      default:
+        return (
+          <div className="notification-icon" style={{ backgroundColor: '#f1f5f9', color: '#64748b' }}>
+            <BellIcon size={20} />
+          </div>
+        );
     }
   };
 
@@ -83,7 +87,7 @@ export function NotificationPage() {
           )}
         </div>
         {notifications.length > 0 && unreadCount > 0 && (
-          <button className="notification-mark-all-btn" onClick={markAllAsRead}>
+          <button className="notification-mark-all-btn" onClick={handleMarkAllAsRead}>
             Tandai Semua Dibaca
           </button>
         )}
@@ -101,7 +105,7 @@ export function NotificationPage() {
         </div>
       ) : (
         <div className="notification-list">
-          {notifications.map(notif => (
+          {notifications.map((notif: Notification) => (
             <div
               key={notif.id}
               className={`notification-item ${notif.is_read ? 'read' : 'unread'}`}

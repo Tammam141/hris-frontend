@@ -2,6 +2,7 @@ import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER, WebStorage } from 'redux-persist';
 
 import attendanceReducer from './attendanceSlice';
+import notificationReducer from './notificationSlice';
 
 // membuat penyambung LocalStorage
 const storage: WebStorage = {
@@ -19,13 +20,14 @@ const storage: WebStorage = {
 // 1. Menggabungkan semua reducer (slice)
 const rootReducer = combineReducers({
   attendance: attendanceReducer,
+  notification: notificationReducer,
 });
 
 // 2. Konfigurasi Redux Persist
 const persistConfig = {
   key: 'root', 
   storage,     
-  whitelist: ['attendance'], 
+  whitelist: ['attendance', 'notification'], 
 };
 
 // 3. Membungkus rootReducer dengan fungsi persist

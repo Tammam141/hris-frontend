@@ -97,6 +97,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     const dates: Date[] = [];
     existingLeaves.forEach(leave => {
       try {
+        if (!leave.start_date || !leave.end_date) return;
         const start = parseISO(leave.start_date.substring(0, 10));
         const end = parseISO(leave.end_date.substring(0, 10));
         const days = eachDayOfInterval({ start, end });
@@ -108,7 +109,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   // Set tanggal libur nasional
   const holidayDates = useMemo(() => {
-    return holidays.map(h => format(parseISO(h.date), 'yyyy-MM-dd'));
+    return holidays.filter(h => h && h.date).map(h => format(parseISO(h.date), 'yyyy-MM-dd'));
   }, [holidays]);
 
   // Blokir hari Sabtu (6), Minggu (0), libur nasional, dan tanggal cuti yang sudah ada

@@ -10,6 +10,8 @@ import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 import { BellIcon } from '../icons/BellIcon';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
@@ -26,9 +28,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
-  // Notifikasi — nanti diisi dari WebSocket backend
-  const notifications: any[] = [];
-  const unreadCount = 0;
+  // Notifikasi dari Redux
+  const notifications = useSelector((state: RootState) => state.notification.items);
+  const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
+
+  // Clear timeout untuk popup
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (showEmptyPopup) {
+      timeoutId = setTimeout(() => setShowEmptyPopup(false), 2500);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [showEmptyPopup]);
 
   useEffect(() => {
     if (user?.must_change_password) {
@@ -74,7 +87,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               onClick={() => {
                 if (notifications.length === 0) {
                   setShowEmptyPopup(true);
-                  setTimeout(() => setShowEmptyPopup(false), 2500);
                 } else {
                   navigate('/notifications');
                 }

@@ -13,6 +13,8 @@ export interface Attendance {
   work_minutes: number | null;
   leave_request_id: string | null;
   note: string | null;
+  check_in_source?: 'online' | 'offline_sync' | 'system' | 'correction';
+  check_out_source?: 'online' | 'offline_sync' | 'system' | 'correction';
   created_at?: string;
   updated_at?: string;
   

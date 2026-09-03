@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Papa from 'papaparse';
 import { useNavigate } from 'react-router-dom';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
@@ -53,14 +54,32 @@ export function EmployeeImportCsvPage() {
     async function loadReferences() {
       setIsLoadingRefs(true);
       try {
-        const [depRes, posRes, empRes] = await Promise.all([
+        const [depRes, posRes] = await Promise.all([
           getDepartments(),
           getPositions(),
-          getEmployees({ limit: 100 }) 
         ]);
         if (depRes.success) setDepartmentList(depRes.data);
         if (posRes.success) setPositionList(posRes.data);
-        if (empRes.success) setManagerList(empRes.data);
+
+        // Fetch all employees for manager list
+        let allEmployees: EmployeeListItem[] = [];
+        let currentPage = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const empRes = await getEmployees({ limit: 100, page: currentPage });
+          if (empRes.success && empRes.data.length > 0) {
+            allEmployees = [...allEmployees, ...empRes.data];
+            // Asumsi jika data yang dikembalikan kurang dari limit, maka itu halaman terakhir
+            if (empRes.data.length < 100) {
+              hasMore = false;
+            } else {
+              currentPage++;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        setManagerList(allEmployees);
       } catch (err: any) {
         console.error('Gagal memuat referensi data:', err);
       } finally {
@@ -154,47 +173,61 @@ export function EmployeeImportCsvPage() {
         return;
       }
       
-      if (lines.length - 1 > 500) {
-        alert('Maksimal 500 karyawan dalam satu permintaan. Silakan pecah file CSV Anda.');
+      if (lines.length - 1 > 20) {
+        alert('Maksimal 20 karyawan dalam satu permintaan (sesuai batasan sistem). Silakan pecah file CSV Anda menjadi beberapa file.');
         return;
       }
 
-      const headers = lines[0].split(',').map(h => h.trim());
-      const rows: CsvRow[] = [];
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows: CsvRow[] = [];
+          const errors: string[] = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());// Memotong teks berdasarkan koma
-        if (values.length >= headers.length) {
-          const row: any = {};
-          headers.forEach((header, idx) => {
-            row[header] = values[idx] || '';
+          results.data.forEach((row: any, index: number) => {
+            // Validasi jumlah kolom jika diperlukan (PapaParse akan otomatis mengisi dengan string kosong, tapi 
+            // setidaknya struktur dasarnya bisa diperiksa). PapaParse punya fields dari header.
+            
+            // Cocokkan teks CSV dengan data referensi (UUID)
+            const deptKey = row.department?.toLowerCase().trim();
+            const positionKey = row.position?.toLowerCase().trim();
+            const managerKey = row.manager?.toLowerCase().trim();
+
+            const deptIds = deptKey ? (deptLookup.get(deptKey) || []) : [];
+            const positionIds = positionKey ? (positionLookup.get(positionKey) || []) : [];
+            const managerIds = managerKey ? (managerLookup.get(managerKey) || []) : [];
+
+            // Ambil ID pertama jika pencarian EXACTLY 1 (mencegah ambigu masuk diam-diam)
+            row.department_id = deptIds.length === 1 ? deptIds[0] : '';
+            row.position_id = positionIds.length === 1 ? positionIds[0] : '';
+            row.manager_id = managerIds.length === 1 ? managerIds[0] : '';
+
+            // Note: Jika length > 1, maka id akan kosong, sehingga dianggap belum diselesaikan 
+            // (unresolved) dan user harus memilih manual lewat UI.
+
+            rows.push(row as CsvRow);
           });
 
-          // 3. Cocokkan teks CSV dengan data referensi (UUID)
-          const deptKey = row.department?.toLowerCase().trim();
-          const positionKey = row.position?.toLowerCase().trim();
-          const managerKey = row.manager?.toLowerCase().trim();
+          if (results.errors && results.errors.length > 0) {
+            // Error parsing PapaParse (seperti tanda kutip yang tidak tertutup atau jumlah kolom salah di baris tertentu)
+            const errorMessages = results.errors.map(err => `Baris ${err.row ? err.row + 2 : '-'}: ${err.message}`).join('\n');
+            alert(`Terdapat kesalahan format CSV:\n${errorMessages}`);
+            return;
+          }
 
-          const deptIds = deptKey ? (deptLookup.get(deptKey) || []) : [];
-          const positionIds = positionKey ? (positionLookup.get(positionKey) || []) : [];
-          const managerIds = managerKey ? (managerLookup.get(managerKey) || []) : [];
+          if (rows.length === 0) {
+            alert('Tidak ditemukan data karyawan yang valid di dalam file CSV.');
+            return;
+          }
 
-          // 4. Ambil ID pertama jika pencarian berhasil (meskipun ada duplikat/ambigu di database)
-          row.department_id = deptIds.length > 0 ? deptIds[0] : '';
-          row.position_id = positionIds.length > 0 ? positionIds[0] : '';
-          row.manager_id = managerIds.length > 0 ? managerIds[0] : '';
-
-          rows.push(row as CsvRow);
+          setParsedRows(rows);
+          setIsReviewing(true);
+        },
+        error: (error: any) => {
+          alert(`Gagal mem-parsing CSV: ${error.message}`);
         }
-      }
-
-      if (rows.length === 0) {
-        alert('Tidak ditemukan data karyawan yang valid di dalam file CSV.');
-        return;
-      }
-
-      setParsedRows(rows);
-      setIsReviewing(true);
+      });
     };
     reader.readAsText(file);
   };
@@ -616,16 +649,18 @@ export function EmployeeImportCsvPage() {
               <li><strong>position</strong> — Nama/Kode jabatan</li>
               <li><strong>manager</strong> — Nama/NIK manajer</li>
             </ul>
+
             <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}><span style={{ color: '#dc2626' }}>*</span> = wajib diisi</p>
           </div>
 
           <div style={{ backgroundColor: '#fefce8', padding: '16px', borderRadius: '8px', fontSize: '13px', color: '#854d0e', marginTop: '12px', lineHeight: '1.6' }}>
             <strong>Perhatian:</strong>
-            <ul style={{ paddingLeft: '20px', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <li>Gunakan pemisah <strong>koma (,)</strong></li>
-              <li>Jangan ada koma di dalam isi data</li>
-              <li>Baris pertama harus berisi header kolom</li>
-            </ul>
+                  <ul style={{ paddingLeft: '16px', margin: 0 }}>
+                    <li>Baris pertama harus berisi judul kolom.</li>
+                    <li>Pastikan tidak ada data yang kosong pada kolom wajib.</li>
+                    <li>Untuk kolom tanggal gunakan format YYYY-MM-DD.</li>
+                    <li>Data dibatasi hingga 20 baris per file/permintaan.</li>
+                  </ul>
           </div>
 
           <div style={{ backgroundColor: '#f0fdf4', padding: '16px', borderRadius: '8px', fontSize: '13px', color: '#166534', marginTop: '12px', lineHeight: '1.6' }}>

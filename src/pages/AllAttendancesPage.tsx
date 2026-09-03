@@ -83,17 +83,17 @@ export function AllAttendancesPage() {
                     <td>{row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '-'}</td>
                     <td>{translateStatus(row.status)}</td>
                     <td>
-                      {row.note && row.note.startsWith('[Absen offline') ? (
+                      {row.check_in_source === 'offline_sync' || row.check_out_source === 'offline_sync' ? (
                         <div>
                           <span style={{ fontSize: '10px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Offline</span>
                           <br/>
-                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note}</span>
+                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || '-'}</span>
                         </div>
-                      ) : row.note && row.note.startsWith('[') ? (
+                      ) : row.check_in_source === 'correction' || row.check_out_source === 'correction' ? (
                         <div>
                           <span style={{ fontSize: '10px', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Dikoreksi</span>
                           <br/>
-                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note}</span>
+                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || '-'}</span>
                         </div>
                       ) : (
                         <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || <span style={{ color: '#cbd5e1' }}>-</span>}</span>
