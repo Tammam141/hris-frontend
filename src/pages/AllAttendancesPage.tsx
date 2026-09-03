@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getAllAttendancesApi } from '../api/attendance';
 import { Attendance } from '../types/attendance';
-import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
+import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';

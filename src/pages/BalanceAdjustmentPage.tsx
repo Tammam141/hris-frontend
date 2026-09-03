@@ -178,8 +178,8 @@ export function BalanceAdjustmentPage() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>
-              Simpan Penyesuaian
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }} disabled={isSubmitting}>
+              {isSubmitting ? 'Menyimpan...' : 'Simpan Penyesuaian'}
             </button>
           </form>
         </div>

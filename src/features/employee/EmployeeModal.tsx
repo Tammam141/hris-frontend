@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreateEmployeePayload, UpdateEmployeePayload, Department, Position, EmployeeListItem, EmployeeDetail } from '../../types/employee';
+import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail } from '../../types/employee';
 import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';

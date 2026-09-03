@@ -3,7 +3,8 @@ import { RootState } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types/notification';
 import { BellIcon } from '../components/icons/BellIcon';
-import { markAsRead, markAllAsRead } from '../store/notificationSlice';
+import { updateNotification, markAllAsReadLocal, setUnreadCount } from '../store/notificationSlice';
+import { markNotificationRead, markAllNotificationsRead } from '../api/notification';
 import '../components/ui/notification.css';
 import '../components/ui/dashboard.css';
 
@@ -14,16 +15,44 @@ export function NotificationPage() {
   const notifications = useSelector((state: RootState) => state.notification.items);
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
 
-  const handleMarkAsRead = (id: string) => {
-    dispatch(markAsRead(id));
+  const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    // Jangan lakukan apapun jika sudah dibaca, tapi karena kita mau ubah state, 
+    // kita bisa optimis atau panggil API lalu update.
+    const notif = notifications.find(n => n.id === id);
+    if (notif?.is_read) return;
+
+    try {
+      const res = await markNotificationRead(id);
+      if (res.success && res.data) {
+        dispatch(updateNotification(res.data));
+        dispatch(setUnreadCount(res.meta.unread));
+      }
+    } catch {
+      // 404 akan masuk ke catch (biasanya jika sudah dibaca/tidak ada), bisa trigger refresh nantinya
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    dispatch(markAllAsRead());
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+    try {
+      const res = await markAllNotificationsRead();
+      if (res.success) {
+        dispatch(markAllAsReadLocal());
+        dispatch(setUnreadCount(res.meta.unread));
+      }
+    } catch {
+      // Abaikan
+    }
   };
 
   const handleClickItem = (notif: Notification) => {
-    handleMarkAsRead(notif.id);
+    if (!notif.is_read) {
+      handleMarkAsRead(notif.id);
+    }
     navigate(notif.link);
   };
 

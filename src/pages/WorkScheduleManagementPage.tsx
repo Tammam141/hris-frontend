@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { WorkSchedule } from '../types/schedule';
 import { getSchedulesApi, deleteScheduleApi } from '../api/schedule';
 import { ScheduleFormModal } from '../features/schedule/ScheduleFormModal';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useAuth } from '../hooks/useAuth';
-import { ClockIcon } from '../components/icons/ClockIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';

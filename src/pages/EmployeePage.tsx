@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmployees, deleteEmployee, getEmployeeDetail, createEmployee, updateEmployee } from '../api/employee';
+import { getEmployees, deleteEmployee, getEmployeeDetail, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { setUserActive } from '../api/user';
@@ -40,7 +40,6 @@ export function EmployeePage() {
   // Delete State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
-  const [subordinatesList, setSubordinatesList] = useState<any[]>([]);
 
   // Status Toggle State
   const [isStatusConfirmOpen, setIsStatusConfirmOpen] = useState(false);
@@ -147,7 +146,6 @@ export function EmployeePage() {
 
   function handleDelete(emp: EmployeeListItem) {
     setEmployeeToDelete(emp);
-    setSubordinatesList([]);
     setIsDeleteConfirmOpen(true);
   }
 
@@ -161,7 +159,6 @@ export function EmployeePage() {
       } catch (err: any) {
         setIsDeleteConfirmOpen(false);
         if (err.details && err.details.subordinates) {
-          setSubordinatesList(err.details.subordinates);
           setAlertMessage(
             <>
               <div style={{ marginBottom: '16px' }}>{err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.'}</div>

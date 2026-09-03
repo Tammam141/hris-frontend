@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, Department, Position, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail, CreateEmployeesBulkPayload, BulkCreateEmployeesResponse } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();

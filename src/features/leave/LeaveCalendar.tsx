@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, Views, ToolbarProps, Navigate } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/id';

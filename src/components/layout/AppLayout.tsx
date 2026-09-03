@@ -10,8 +10,10 @@ import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 import { BellIcon } from '../icons/BellIcon';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { setNotifications } from '../../store/notificationSlice';
+import { getNotifications } from '../../api/notification';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
@@ -22,26 +24,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [showEmptyPopup, setShowEmptyPopup] = useState(false);
   
   // State untuk dropdown master data
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
   // Notifikasi dari Redux
-  const notifications = useSelector((state: RootState) => state.notification.items);
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
+  const dispatch = useDispatch();
 
-  // Clear timeout untuk popup
+  // Polling Notifikasi
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    if (showEmptyPopup) {
-      timeoutId = setTimeout(() => setShowEmptyPopup(false), 2500);
-    }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+    if (!isAuthenticated) return;
+    const load = async () => {
+      try {
+        const res = await getNotifications({ limit: 20 });
+        if (res.success && res.data) {
+          dispatch(setNotifications({ items: res.data, unreadCount: res.meta.unread }));
+        }
+      } catch {
+        // Abaikan jika error agar tidak mengganggu UI pengguna
+      }
     };
-  }, [showEmptyPopup]);
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, [isAuthenticated, dispatch]);
 
   useEffect(() => {
     if (user?.must_change_password) {
@@ -84,13 +92,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="notif-bell-wrapper">
             <button 
               className="notif-bell-btn" 
-              onClick={() => {
-                if (notifications.length === 0) {
-                  setShowEmptyPopup(true);
-                } else {
-                  navigate('/notifications');
-                }
-              }}
+              onClick={() => navigate('/notifications')}
               title="Notifikasi"
             >
               <BellIcon size={22} />
@@ -98,9 +100,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
             </button>
-            {showEmptyPopup && (
-              <div className="notif-empty-popup">Belum ada notifikasi</div>
-            )}
           </div>
 
           <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

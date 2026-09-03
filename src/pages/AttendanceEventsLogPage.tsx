@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getAttendanceEvents } from '../api/attendance';
 import { AttendanceEvent, GetAttendanceEventsParams } from '../types/attendance';
 import '../components/ui/dashboard.css';

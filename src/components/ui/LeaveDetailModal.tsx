@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getLeaveRequestDetail, getAttachmentSignedUrl, LeaveRequest } from '../../api/leave';
 import '../../features/employee/employee-modal.css';
 import '../ui/leave.css';

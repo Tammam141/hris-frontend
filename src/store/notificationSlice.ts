@@ -15,23 +15,25 @@ const notificationSlice = createSlice({
   name: 'notification',
   initialState,
   reducers: {
-    setNotifications: (state, action: PayloadAction<Notification[]>) => {
-      state.items = action.payload;
-      state.unreadCount = action.payload.filter(n => !n.is_read).length;
+    setNotifications: (state, action: PayloadAction<{ items: Notification[]; unreadCount: number }>) => {
+      state.items = action.payload.items;
+      state.unreadCount = action.payload.unreadCount;
     },
-    markAsRead: (state, action: PayloadAction<string>) => {
-      const notif = state.items.find(n => n.id === action.payload);
-      if (notif && !notif.is_read) {
-        notif.is_read = true;
-        state.unreadCount = Math.max(0, state.unreadCount - 1);
+    setUnreadCount: (state, action: PayloadAction<number>) => {
+      state.unreadCount = action.payload;
+    },
+    updateNotification: (state, action: PayloadAction<Notification>) => {
+      const index = state.items.findIndex(n => n.id === action.payload.id);
+      if (index !== -1) {
+        state.items[index] = action.payload;
       }
     },
-    markAllAsRead: (state) => {
+    markAllAsReadLocal: (state) => {
       state.items.forEach(n => { n.is_read = true; });
       state.unreadCount = 0;
     },
   },
 });
 
-export const { setNotifications, markAsRead, markAllAsRead } = notificationSlice.actions;
+export const { setNotifications, setUnreadCount, updateNotification, markAllAsReadLocal } = notificationSlice.actions;
 export default notificationSlice.reducer;

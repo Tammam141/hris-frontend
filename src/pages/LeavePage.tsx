@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LeavePeriod } from '../features/leave/LeavePeriod';
 import { LeaveHistory } from '../features/leave/LeaveHistory';
 import { getMyLeaveBalances, LeaveBalance } from '../api/leave';
