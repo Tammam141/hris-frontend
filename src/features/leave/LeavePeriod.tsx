@@ -307,7 +307,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                   setDateRange([startDate, startDate]);
                 }
               }}
-              onChangeRaw={(e) => e.preventDefault()} 
+              onChangeRaw={(e) => { if (e) e.preventDefault(); }}
             />
             <svg 
               xmlns="http://www.w3.org/2000/svg" 

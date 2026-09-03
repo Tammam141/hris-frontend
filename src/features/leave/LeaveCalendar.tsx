@@ -109,14 +109,14 @@ export function LeaveCalendar({ requests, onSelectEvent }: LeaveCalendarProps) {
         startAccessor="start"
         endAccessor="end"
         style={{ height: '100%' }}
-        onSelectEvent={(e) => onSelectEvent(e.resource)}
+        onSelectEvent={(e: any) => onSelectEvent(e.resource)}
         eventPropGetter={eventStyleGetter}
         components={{ toolbar: CustomToolbar }}
         views={[Views.MONTH]}
         defaultView={Views.MONTH}
         messages={{
           noEventsInRange: "Tidak ada pengajuan cuti.",
-          showMore: total => `+ ${total} lagi`
+          showMore: (total: number) => `+ ${total} lagi`
         }}
       />
     </div>

@@ -1,4 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types/notification';
 import { BellIcon } from '../components/icons/BellIcon';
@@ -10,8 +11,8 @@ export function NotificationPage() {
   const navigate = useNavigate();
 
   const dispatch = useDispatch();
-  const notifications = useSelector((state: any) => state.notification.items);
-  const unreadCount = useSelector((state: any) => state.notification.unreadCount);
+  const notifications = useSelector((state: RootState) => state.notification.items);
+  const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
 
   const handleMarkAsRead = (id: string) => {
     dispatch(markAsRead(id));

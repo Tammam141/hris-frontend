@@ -14,7 +14,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
   }
 
   let signal: AbortSignal | undefined;
-  let timeoutId: NodeJS.Timeout | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   // Mekanisme Timeout:
   // Jika options.timeout diisi (misal: saat bulk request), kita buat AbortController

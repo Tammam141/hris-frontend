@@ -275,18 +275,18 @@ export function LeaveTypePage() {
                 {requiresAttachment && (
                   <div className="form-group" style={{ paddingLeft: '24px' }}>
                     <label className="form-label">Wajib Jika Durasi Lebih Dari (Hari)</label>
-                    <input type="number" min={0} className="input-field" value={attachmentRequiredAfter} onChange={e => setAttachmentRequiredAfter(e.target.value)} placeholder="Kosongkan jika selalu wajib" />
+                    <input type="number" min={0} className="input-field" value={attachmentRequiredAfter} onChange={e => setAttachmentRequiredAfter(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Kosongkan jika selalu wajib" />
                   </div>
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">
                     <label className="form-label">Maks. Hari per Pengajuan</label>
-                    <input type="number" min={1} className="input-field" value={maxDaysPerRequest} onChange={e => setMaxDaysPerRequest(e.target.value)} placeholder="Tidak ada batas" />
+                    <input type="number" min={1} className="input-field" value={maxDaysPerRequest} onChange={e => setMaxDaysPerRequest(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Tidak ada batas" />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Min. Notice (H-x)</label>
-                    <input type="number" min={0} className="input-field" value={minNoticeDays} onChange={e => setMinNoticeDays(e.target.value)} placeholder="Bisa diajukan kapan saja" />
+                    <input type="number" min={0} className="input-field" value={minNoticeDays} onChange={e => setMinNoticeDays(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Bisa diajukan kapan saja" />
                   </div>
                 </div>
 

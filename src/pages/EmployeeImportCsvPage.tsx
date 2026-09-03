@@ -61,25 +61,25 @@ export function EmployeeImportCsvPage() {
         if (depRes.success) setDepartmentList(depRes.data);
         if (posRes.success) setPositionList(posRes.data);
 
-        // Fetch all employees for manager list
-        let allEmployees: EmployeeListItem[] = [];
-        let currentPage = 1;
-        let hasMore = true;
-        while (hasMore) {
-          const empRes = await getEmployees({ limit: 100, page: currentPage });
-          if (empRes.success && empRes.data.length > 0) {
-            allEmployees = [...allEmployees, ...empRes.data];
-            // Asumsi jika data yang dikembalikan kurang dari limit, maka itu halaman terakhir
-            if (empRes.data.length < 100) {
-              hasMore = false;
-            } else {
-              currentPage++;
-            }
-          } else {
-            hasMore = false;
+        // Fetch all employees for manager list concurrently
+        const firstPageRes = await getEmployees({ limit: 100, page: 1 });
+        if (firstPageRes.success) {
+          let allEmployees = [...firstPageRes.data];
+          const totalPages = firstPageRes.meta.total_pages || 1;
+          
+          if (totalPages > 1) {
+            const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) => 
+              getEmployees({ limit: 100, page: i + 2 })
+            );
+            const otherPagesRes = await Promise.all(pagePromises);
+            otherPagesRes.forEach(res => {
+              if (res.success) {
+                allEmployees = [...allEmployees, ...res.data];
+              }
+            });
           }
+          setManagerList(allEmployees);
         }
-        setManagerList(allEmployees);
       } catch (err: any) {
         console.error('Gagal memuat referensi data:', err);
       } finally {
@@ -166,15 +166,8 @@ export function EmployeeImportCsvPage() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-      
-      if (lines.length < 2) {
-        alert('File CSV kosong atau tidak memiliki data selain header.');
-        return;
-      }
-      
-      if (lines.length - 1 > 20) {
-        alert('Maksimal 20 karyawan dalam satu permintaan (sesuai batasan sistem). Silakan pecah file CSV Anda menjadi beberapa file.');
+      if (text.trim() === '') {
+        alert('File CSV kosong.');
         return;
       }
 
@@ -182,10 +175,27 @@ export function EmployeeImportCsvPage() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const rows: CsvRow[] = [];
-          const errors: string[] = [];
+          if (results.data.length === 0) {
+            alert('Tidak ditemukan data karyawan yang valid di dalam file CSV.');
+            return;
+          }
+          
+          if (results.data.length > 20) {
+            alert(`File berisi ${results.data.length} baris data. Maksimal 20 karyawan dalam satu permintaan (sesuai batasan sistem). Silakan pecah file CSV Anda.`);
+            return;
+          }
 
-          results.data.forEach((row: any, index: number) => {
+          const requiredHeaders = ['full_name', 'email', 'phone'];
+          const headers = results.meta.fields || [];
+          const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+          if (missingHeaders.length > 0) {
+            alert(`File CSV tidak memiliki header wajib: ${missingHeaders.join(', ')}`);
+            return;
+          }
+
+          const rows: CsvRow[] = [];
+
+          results.data.forEach((row: any) => {
             // Validasi jumlah kolom jika diperlukan (PapaParse akan otomatis mengisi dengan string kosong, tapi 
             // setidaknya struktur dasarnya bisa diperiksa). PapaParse punya fields dari header.
             
@@ -211,13 +221,8 @@ export function EmployeeImportCsvPage() {
 
           if (results.errors && results.errors.length > 0) {
             // Error parsing PapaParse (seperti tanda kutip yang tidak tertutup atau jumlah kolom salah di baris tertentu)
-            const errorMessages = results.errors.map(err => `Baris ${err.row ? err.row + 2 : '-'}: ${err.message}`).join('\n');
+            const errorMessages = results.errors.map(err => `Baris ${err.row !== undefined ? err.row + 2 : '-'}: ${err.message}`).join('\n');
             alert(`Terdapat kesalahan format CSV:\n${errorMessages}`);
-            return;
-          }
-
-          if (rows.length === 0) {
-            alert('Tidak ditemukan data karyawan yang valid di dalam file CSV.');
             return;
           }
 

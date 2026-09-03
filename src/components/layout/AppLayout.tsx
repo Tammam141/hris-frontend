@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   // Clear timeout untuk popup
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     if (showEmptyPopup) {
       timeoutId = setTimeout(() => setShowEmptyPopup(false), 2500);
     }
