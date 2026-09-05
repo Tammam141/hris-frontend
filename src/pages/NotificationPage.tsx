@@ -15,13 +15,12 @@ export function NotificationPage() {
   const notifications = useSelector((state: RootState) => state.notification.items);
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
 
+  // Memanggil API tandai dibaca saat klik tombol centang
   const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
     
-    // Jangan lakukan apapun jika sudah dibaca, tapi karena kita mau ubah state, 
-    // kita bisa optimis atau panggil API lalu update.
     const notif = notifications.find(n => n.id === id);
     if (notif?.is_read) return;
 
@@ -36,6 +35,7 @@ export function NotificationPage() {
     }
   };
 
+  // Memanggil API bulk mark-all-read saat klik "Tandai Semua Dibaca"
   const handleMarkAllAsRead = async () => {
     if (unreadCount === 0) return;
     try {
@@ -49,6 +49,7 @@ export function NotificationPage() {
     }
   };
 
+  // Menangani aksi klik notifikasi: tandai dibaca lalu redirect
   const handleClickItem = (notif: Notification) => {
     if (!notif.is_read) {
       handleMarkAsRead(notif.id);

@@ -19,6 +19,7 @@ export interface GetNotificationsResponse {
   };
 }
 
+// Menarik data notifikasi dari backend (dipakai di UI dan polling)
 export async function getNotifications(params?: GetNotificationsParams): Promise<GetNotificationsResponse> {
   const query = new URLSearchParams();
   if (params?.only_unread !== undefined) query.append('only_unread', String(params.only_unread));
@@ -32,11 +33,13 @@ export async function getNotifications(params?: GetNotificationsParams): Promise
   return response as GetNotificationsResponse;
 }
 
+// Menandai satu notifikasi telah dibaca ke backend
 export async function markNotificationRead(id: string): Promise<{ success: boolean; data: Notification; meta: { unread: number } }> {
   const response = await apiRequest(`/notifications/${id}/read`, 'PATCH');
   return response as { success: boolean; data: Notification; meta: { unread: number } };
 }
 
+// Menandai seluruh notifikasi menjadi telah dibaca ke backend
 export async function markAllNotificationsRead(): Promise<{ success: boolean; meta: { unread: number; updated: number } }> {
   const response = await apiRequest(`/notifications/read-all`, 'PATCH');
   return response as { success: boolean; meta: { unread: number; updated: number } };
