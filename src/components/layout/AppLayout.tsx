@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode, useRef } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import '../ui/layout.css';
 import { useAuth } from '../../hooks/useAuth';
@@ -38,8 +38,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { isConnected } = useNotificationSocket(isAuthenticated);
 
   // Polling Notifikasi (sebagai jaring pengaman)
+  const hasLoaded = useRef(false);
+
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      hasLoaded.current = false; // Reset jika logout
+      return;
+    }
     const load = async () => {
       try {
         const res = await getNotifications({ limit: 20 });
@@ -50,7 +55,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
         // Abaikan jika error agar tidak mengganggu UI pengguna
       }
     };
-    load();
+    
+    // Hanya tarik data 1x di awal, tidak ditarik ulang hanya karena status socket berubah
+    if (!hasLoaded.current) {
+      load();
+      hasLoaded.current = true;
+    }
+
     const pollingInterval = isConnected ? 300000 : 60000;
     const id = setInterval(load, pollingInterval);
     return () => clearInterval(id);

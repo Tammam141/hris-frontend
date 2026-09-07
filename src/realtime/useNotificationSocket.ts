@@ -17,10 +17,15 @@ export function useNotificationSocket(isAuthenticated: boolean) {
   
   // Penanda apakah koneksi memang sengaja ditutup (misal saat user logout)
   const isIntentionalCloseRef = useRef(false);
+  
+  // Ref untuk menyimpan ID timer agar bisa dibatalkan jika komponen unmount
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Kalau belum login, jangan buka koneksi socket sama sekali
     if (!isAuthenticated) return;
+    
+    isIntentionalCloseRef.current = false;
 
     let socket: WebSocket;
     
@@ -29,17 +34,19 @@ export function useNotificationSocket(isAuthenticated: boolean) {
       const url = window.location.origin.replace(/^http/, 'ws') + '/ws';
       socket = new WebSocket(url);
       socketRef.current = socket;
-      isIntentionalCloseRef.current = false;
 
       // Event 1: Ketika pipa akhirnya berhasil tersambung
       socket.onopen = () => {
+        console.log('[WebSocket] Terhubung ke server');
         setIsConnected(true);
         // Karena berhasil nyambung, kita kembalikan jeda reconnect ke 1 detik lagi
         reconnectDelayRef.current = 1000;
         
+        // Begitu nyambung, hal pertama yang harus dilakukan adalah "Kenalan"
         // Kita kirim token rahasia kita ke server agar server tahu ini siapa
         const token = localStorage.getItem('token');
         if (token) {
+          console.log('[WebSocket] Mengirim token autentikasi...');
           socket.send(JSON.stringify({ action: 'auth', token }));
         }
       };
@@ -49,24 +56,24 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         try {
           // Pesan dari server bentuknya teks murni, kita ubah jadi objek (JSON)
           const msg = JSON.parse(event.data);
+          console.log('[WebSocket] Pesan diterima:', msg);
           
           if (msg.event === 'ready') {
-            // Server bilang: "Oke kenalan berhasil! Oh ya, kamu punya sekian pesan belum dibaca."
             dispatch(setUnreadCount(msg.unread));
           } else if (msg.event === 'notification.created' && msg.data) {
-            // Server bilang: "Hei, ada notif baru nih, langsung tambahin ke layarmu ya!"
             dispatch(addNotification(msg.data));
           } else if (msg.event === 'notification.cleared' && Array.isArray(msg.ids)) {
-            // Server bilang: "Pesan-pesan dengan ID ini udah basi/diselesaikan, tolong hapus dari layarmu."
             dispatch(removeNotifications(msg.ids));
           }
         } catch (err) {
           // Abaikan jika pesan yang dikirim server berantakan (bukan JSON valid)
+          console.warn('[WebSocket] Pesan masuk gagal di-parse:', event.data);
         }
       };
 
       // Event 3: Ketika pipa tiba-tiba terputus
       socket.onclose = (event) => {
+        console.log(`[WebSocket] Terputus (Code: ${event.code})`);
         setIsConnected(false);
         socketRef.current = null;
 
@@ -80,7 +87,7 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         }
 
         // Percobaan 1: tunggu 1 dtk, Percobaan 2: tunggu 2 dtk, Percobaan 3: 4 dtk, dst.
-        setTimeout(() => {
+        reconnectTimerRef.current = setTimeout(() => {
           connect();
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
         }, reconnectDelayRef.current);
@@ -99,6 +106,10 @@ export function useNotificationSocket(isAuthenticated: boolean) {
     // atau komponen ini dimatikan.
     return () => {
       isIntentionalCloseRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (socketRef.current) {
         socketRef.current.close();
       }
