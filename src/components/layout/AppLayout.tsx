@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode, useRef } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import '../ui/layout.css';
 import { useAuth } from '../../hooks/useAuth';
@@ -14,7 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
 import { getNotifications } from '../../api/notification';
-import { useNotificationSocket } from '../../realtime/useNotificationSocket';
+import { useNotificationChannel } from '../../realtime/useNotificationChannel';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
@@ -34,17 +34,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
   const dispatch = useDispatch();
 
-  // Socket
-  const { isConnected } = useNotificationSocket(isAuthenticated);
+  // Supabase Realtime Channel
+  const { isConnected } = useNotificationChannel(user?.notification_channel ?? null);
 
   // Polling Notifikasi (sebagai jaring pengaman)
-  const hasLoaded = useRef(false);
-
   useEffect(() => {
-    if (!isAuthenticated) {
-      hasLoaded.current = false; // Reset jika logout
-      return;
-    }
+    if (!isAuthenticated) return;
     const load = async () => {
       try {
         const res = await getNotifications({ limit: 20 });
@@ -56,11 +51,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       }
     };
     
-    // Hanya tarik data 1x di awal, tidak ditarik ulang hanya karena status socket berubah
-    if (!hasLoaded.current) {
-      load();
-      hasLoaded.current = true;
-    }
+    // Ambil data setiap kali komponen dipasang ATAU status koneksi berubah
+    load();
 
     const pollingInterval = isConnected ? 300000 : 60000;
     const id = setInterval(load, pollingInterval);

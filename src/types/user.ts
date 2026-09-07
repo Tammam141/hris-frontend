@@ -3,6 +3,7 @@ export interface User {
   email: string;
   full_name: string;
   role: 'employee' | 'admin';
+  notification_channel?: string | null;
   features?: string[];
   must_change_password?: boolean;
   employee_id?: string;
