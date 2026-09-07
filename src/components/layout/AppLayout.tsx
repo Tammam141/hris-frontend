@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
 import { getNotifications } from '../../api/notification';
+import { useNotificationSocket } from '../../realtime/useNotificationSocket';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
@@ -33,7 +34,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
   const dispatch = useDispatch();
 
-  // Polling Notifikasi
+  // Socket
+  const { isConnected } = useNotificationSocket(isAuthenticated);
+
+  // Polling Notifikasi (sebagai jaring pengaman)
   useEffect(() => {
     if (!isAuthenticated) return;
     const load = async () => {
@@ -47,9 +51,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
       }
     };
     load();
-    const id = setInterval(load, 60000);
+    const pollingInterval = isConnected ? 300000 : 60000;
+    const id = setInterval(load, pollingInterval);
     return () => clearInterval(id);
-  }, [isAuthenticated, dispatch]);
+  }, [isAuthenticated, dispatch, isConnected]);
 
   useEffect(() => {
     if (user?.must_change_password) {

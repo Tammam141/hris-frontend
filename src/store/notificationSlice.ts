@@ -36,8 +36,30 @@ const notificationSlice = createSlice({
       state.items.forEach(n => { n.is_read = true; });
       state.unreadCount = 0;
     },
+    // Tambah notifikasi dari socket ke daftar teratas
+    addNotification: (state, action: PayloadAction<Notification>) => {
+      if (state.items.some(n => n.id === action.payload.id)) return;
+      state.items.unshift(action.payload);
+      if (!action.payload.is_read) {
+        state.unreadCount += 1;
+      }
+    },
+    // Hapus notifikasi yang ditarik/usang dari server
+    removeNotifications: (state, action: PayloadAction<string[]>) => {
+      const ids = new Set(action.payload);
+      const belumDibaca = state.items.filter(n => ids.has(n.id) && !n.is_read).length;
+      state.items = state.items.filter(n => !ids.has(n.id));
+      state.unreadCount = Math.max(0, state.unreadCount - belumDibaca);
+    },
   },
 });
 
-export const { setNotifications, setUnreadCount, updateNotification, markAllAsReadLocal } = notificationSlice.actions;
+export const { 
+  setNotifications, 
+  setUnreadCount, 
+  updateNotification, 
+  markAllAsReadLocal,
+  addNotification,
+  removeNotifications
+} = notificationSlice.actions;
 export default notificationSlice.reducer;

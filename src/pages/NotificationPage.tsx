@@ -3,8 +3,8 @@ import { RootState } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types/notification';
 import { BellIcon } from '../components/icons/BellIcon';
-import { updateNotification, markAllAsReadLocal, setUnreadCount } from '../store/notificationSlice';
-import { markNotificationRead, markAllNotificationsRead } from '../api/notification';
+import { updateNotification, markAllAsReadLocal, setUnreadCount, setNotifications } from '../store/notificationSlice';
+import { markNotificationRead, markAllNotificationsRead, getNotifications } from '../api/notification';
 import '../components/ui/notification.css';
 import '../components/ui/dashboard.css';
 
@@ -31,7 +31,15 @@ export function NotificationPage() {
         dispatch(setUnreadCount(res.meta.unread));
       }
     } catch {
-      // 404 akan masuk ke catch (biasanya jika sudah dibaca/tidak ada), bisa trigger refresh nantinya
+      // 404 akan masuk ke catch (biasanya jika sudah dibaca/ditindak oleh orang lain), trigger refresh
+      try {
+        const refreshRes = await getNotifications({ limit: 20 });
+        if (refreshRes.success && refreshRes.data) {
+          dispatch(setNotifications({ items: refreshRes.data, unreadCount: refreshRes.meta.unread }));
+        }
+      } catch {
+        // Abaikan error saat refresh
+      }
     }
   };
 
