@@ -34,8 +34,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
   const dispatch = useDispatch();
 
-  // Supabase Realtime Channel
-  const { isConnected } = useNotificationChannel(user?.notification_channel ?? null);
+  // Supabase Realtime Channel (Authenticated)
+  const { isConnected } = useNotificationChannel(isAuthenticated);
 
   // Polling Notifikasi (sebagai jaring pengaman)
   useEffect(() => {
@@ -47,7 +47,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           dispatch(setNotifications({ items: res.data, unreadCount: res.meta.unread }));
         }
       } catch {
-        // Abaikan jika error agar tidak mengganggu UI pengguna
+        // Abaikan jika error
       }
     };
     

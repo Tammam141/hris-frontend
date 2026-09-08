@@ -14,18 +14,13 @@ export function useNotificationSocket(isAuthenticated: boolean) {
   // Ref untuk mengatur jeda waktu sebelum mencoba menyambung ulang (dimulai dari 1 detik)
   const reconnectDelayRef = useRef(1000);
   const maxReconnectDelay = 30000; // Maksimal jeda adalah 30 detik
-  
-  // Penanda apakah koneksi memang sengaja ditutup (misal saat user logout)
-  const isIntentionalCloseRef = useRef(false);
-  
-  // Ref untuk menyimpan ID timer agar bisa dibatalkan jika komponen unmount
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Kalau belum login, jangan buka koneksi socket sama sekali
     if (!isAuthenticated) return;
     
-    isIntentionalCloseRef.current = false;
+    let dibatalkan = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     let socket: WebSocket;
     
@@ -75,10 +70,10 @@ export function useNotificationSocket(isAuthenticated: boolean) {
       socket.onclose = (event) => {
         console.log(`[WebSocket] Terputus (Code: ${event.code})`);
         setIsConnected(false);
-        socketRef.current = null;
+        if (socketRef.current === socket) socketRef.current = null;
 
-        // Kalau memang disengaja (user logout/pindah halaman), jangan berusaha nyambung lagi
-        if (isIntentionalCloseRef.current) return;
+        // Kalau komponen unmount/dibatalkan, jangan berusaha nyambung lagi
+        if (dibatalkan) return;
 
         // Kode 4001: Token salah (User pembohong)
         // Kode 4002: Telat kirim token dalam 10 detik
@@ -87,7 +82,7 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         }
 
         // Percobaan 1: tunggu 1 dtk, Percobaan 2: tunggu 2 dtk, Percobaan 3: 4 dtk, dst.
-        reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimer = setTimeout(() => {
           connect();
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
         }, reconnectDelayRef.current);
@@ -105,14 +100,9 @@ export function useNotificationSocket(isAuthenticated: boolean) {
     // Fungsi bersih-bersih: Dijalankan otomatis oleh React saat user Logout 
     // atau komponen ini dimatikan.
     return () => {
-      isIntentionalCloseRef.current = true;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      dibatalkan = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (socketRef.current) socketRef.current.close();
     };
   }, [isAuthenticated, dispatch]);
 

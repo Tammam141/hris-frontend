@@ -19,6 +19,18 @@ export interface GetNotificationsResponse {
   };
 }
 
+export interface RealtimeConfigResponse {
+  success: boolean;
+  data: {
+    enabled: boolean;
+    url?: string;
+    anon_key?: string;
+    topic?: string;
+    token?: string;
+    expires_in?: number;
+  };
+}
+
 // Menarik data notifikasi dari backend (dipakai di UI dan polling)
 export async function getNotifications(params?: GetNotificationsParams): Promise<GetNotificationsResponse> {
   const query = new URLSearchParams();
@@ -43,4 +55,10 @@ export async function markNotificationRead(id: string): Promise<{ success: boole
 export async function markAllNotificationsRead(): Promise<{ success: boolean; meta: { unread: number; updated: number } }> {
   const response = await apiRequest(`/notifications/read-all`, 'PATCH');
   return response as { success: boolean; meta: { unread: number; updated: number } };
+}
+
+// Menarik konfigurasi Supabase dari backend
+export async function getRealtimeConfig(): Promise<RealtimeConfigResponse> {
+  const response = await apiRequest('/notifications/realtime', 'GET');
+  return response as RealtimeConfigResponse;
 }
