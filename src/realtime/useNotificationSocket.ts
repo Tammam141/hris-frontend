@@ -59,7 +59,7 @@ export function useNotificationSocket(isAuthenticated: boolean) {
           }
         } catch (err) {
           // Abaikan jika pesan yang dikirim server berantakan (bukan JSON valid)
-          console.warn('[WebSocket] Pesan masuk gagal di-parse:', event.data);
+          console.warn('[WebSocket] Pesan masuk gagal di-parse, panjang:', String(event.data).length);
         }
       };
 
