@@ -32,7 +32,6 @@ export function useNotificationSocket(isAuthenticated: boolean) {
 
       // Event 1: Ketika pipa akhirnya berhasil tersambung
       socket.onopen = () => {
-        console.log('[WebSocket] Terhubung ke server');
         setIsConnected(true);
         // Karena berhasil nyambung, kita kembalikan jeda reconnect ke 1 detik lagi
         reconnectDelayRef.current = 1000;
@@ -41,7 +40,6 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         // Kita kirim token rahasia kita ke server agar server tahu ini siapa
         const token = localStorage.getItem('token');
         if (token) {
-          console.log('[WebSocket] Mengirim token autentikasi...');
           socket.send(JSON.stringify({ action: 'auth', token }));
         }
       };
@@ -51,7 +49,6 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         try {
           // Pesan dari server bentuknya teks murni, kita ubah jadi objek (JSON)
           const msg = JSON.parse(event.data);
-          console.log('[WebSocket] Pesan diterima:', msg);
           
           if (msg.event === 'ready') {
             dispatch(setUnreadCount(msg.unread));
@@ -68,7 +65,6 @@ export function useNotificationSocket(isAuthenticated: boolean) {
 
       // Event 3: Ketika pipa tiba-tiba terputus
       socket.onclose = (event) => {
-        console.log(`[WebSocket] Terputus (Code: ${event.code})`);
         setIsConnected(false);
         if (socketRef.current === socket) socketRef.current = null;
 
@@ -77,7 +73,8 @@ export function useNotificationSocket(isAuthenticated: boolean) {
 
         // Kode 4001: Token salah (User pembohong)
         // Kode 4002: Telat kirim token dalam 10 detik
-        if (event.code === 4001 || event.code === 4002) {
+        // Kode 4003: Terlalu banyak koneksi (melebihi limit tab per pengguna)
+        if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
           return;
         }
 

@@ -14,7 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
 import { getNotifications } from '../../api/notification';
-import { useNotificationChannel } from '../../realtime/useNotificationChannel';
+import { useNotificationSocket } from '../../realtime/useNotificationSocket';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
@@ -34,8 +34,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
   const dispatch = useDispatch();
 
-  // Supabase Realtime Channel (Authenticated)
-  const { isConnected } = useNotificationChannel(isAuthenticated);
+  // WebSocket
+  const { isConnected } = useNotificationSocket(isAuthenticated);
 
   // Polling Notifikasi (sebagai jaring pengaman)
   useEffect(() => {
