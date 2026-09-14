@@ -68,7 +68,8 @@ export function HolidayPage() {
     setModalMode('edit');
     setSelectedHoliday(holiday);
     setName(holiday.name);
-    setDate(holiday.date.substring(0, 10));
+    const dateStr = holiday.date || (holiday as any).holiday_date || '';
+    setDate(dateStr.substring(0, 10));
     setIsCollectiveLeave(holiday.is_collective_leave);
     setIsModalOpen(true);
   }
@@ -161,7 +162,13 @@ export function HolidayPage() {
               ) : (
                 holidays.map(holiday => (
                   <tr key={holiday.id}>
-                    <td><div style={{ fontWeight: 600 }}>{format(parseISO(holiday.date), 'dd MMMM yyyy')}</div></td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>
+                        {holiday.date || (holiday as any).holiday_date 
+                          ? format(parseISO(holiday.date || (holiday as any).holiday_date), 'dd MMMM yyyy') 
+                          : '-'}
+                      </div>
+                    </td>
                     <td>{holiday.name}</td>
                     <td>
                       {holiday.is_collective_leave ? (

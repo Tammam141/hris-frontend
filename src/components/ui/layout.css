@@ -157,19 +157,37 @@
 }
 
 @media (max-width: 480px) {
-
   /* Mobile Phones */
   .app-navbar {
-    flex-direction: row;
-    /* keep it row to show hamburger and brand */
-    justify-content: space-between;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     padding: 16px;
-    gap: 12px;
+    gap: 16px;
+  }
+
+  .app-navbar > div:first-child {
+    width: 100%;
+    /* Keep hamburger and brand together on the left */
   }
 
   .navbar-right {
     width: 100%;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .navbar-user {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .notif-bell-wrapper {
+    align-self: flex-end;
+    margin-top: -54px; /* Pull bell up to the top row next to brand */
+  }
+
+  .btn-logout {
+    width: 100%;
   }
 }
