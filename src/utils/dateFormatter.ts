@@ -47,7 +47,7 @@ export function formatToJakartaTimeOnly(timestamp: string | null | undefined): s
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
-  } catch (error) {
+  } catch {
     return timestamp;
   }
 }

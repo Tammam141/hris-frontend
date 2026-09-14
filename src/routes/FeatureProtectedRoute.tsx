@@ -15,10 +15,14 @@ export function FeatureProtectedRoute({ rule, redirectPath = '/dashboard' }: Fea
   }
 
   // Cek akses menggunakan fungsi bantuan berbasis fitur
-  const isAllowed = hasRouteAccess(
+  let isAllowed = hasRouteAccess(
     hasFeature, 
     rule.features
   );
+
+  if (rule.adminOnly && user.role !== 'admin') {
+    isAllowed = false;
+  }
 
   if (!isAllowed) {
     return <Navigate to={redirectPath} replace />;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMyLeaveRequests, cancelLeaveRequest, LeaveRequest } from '../../api/leave';
 import { LeaveDetailModal } from '../../components/ui/LeaveDetailModal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
@@ -30,25 +30,39 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, type: 'success' as 'success' | 'error', message: '' });
 
+
+
+  // Handlers
+  const loadRequests = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (viewMode === 'list') {
+        const res = await getMyLeaveRequests({ page, limit, status: statusFilter });
+        setRequests(res.data);
+        if (res.meta) setTotalPages(res.meta.total_pages || 1);
+      } else {
+        let allRequests: LeaveRequest[] = [];
+        let currentPage = 1;
+        let totalPagesCalendar = 1;
+        do {
+          const res = await getMyLeaveRequests({ page: currentPage, limit: 100, status: statusFilter });
+          allRequests = [...allRequests, ...res.data];
+          totalPagesCalendar = res.meta?.total_pages || 1;
+          currentPage++;
+        } while (currentPage <= totalPagesCalendar);
+        setRequests(allRequests);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, statusFilter, viewMode, limit]);
+
   // Effects
   useEffect(() => {
     loadRequests();
-  }, [page, statusFilter, refreshKey, viewMode]);
-
-  // Handlers
-  const loadRequests = () => {
-    setIsLoading(true);
-    const currentLimit = viewMode === 'calendar' ? 500 : limit;
-    const currentPage = viewMode === 'calendar' ? 1 : page;
-
-    getMyLeaveRequests({ page: currentPage, limit: currentLimit, status: statusFilter })
-      .then(res => {
-        setRequests(res.data);
-        if (res.meta) setTotalPages(res.meta.total_pages || 1);
-      })
-      .catch(err => console.error(err))
-      .finally(() => setIsLoading(false));
-  };
+  }, [loadRequests, refreshKey]);
 
   const handleCancelClick = (req: LeaveRequest) => {
     setRequestToCancel(req);

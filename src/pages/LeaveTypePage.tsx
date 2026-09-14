@@ -132,7 +132,7 @@ export function LeaveTypePage() {
         loadTypes();
       } catch (err: any) {
         setIsDeleteConfirmOpen(false);
-        if (err.code === 400 && err.details?.leave_request_count) {
+        if (err.status === 400 && err.details?.leave_request_count) {
           setAlertMessage(`Jenis cuti "${typeToDelete.name}" tidak bisa dihapus karena sudah dipakai di ${err.details.leave_request_count} pengajuan cuti. Anda bisa menonaktifkannya agar tidak bisa dipilih lagi.`);
           setSuggestDeactivateOpen(true);
         } else {

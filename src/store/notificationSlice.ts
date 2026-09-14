@@ -51,6 +51,11 @@ const notificationSlice = createSlice({
       state.items = state.items.filter(n => !ids.has(n.id));
       state.unreadCount = Math.max(0, state.unreadCount - belumDibaca);
     },
+    // Bersihkan sesi
+    clearNotifications: (state) => {
+      state.items = [];
+      state.unreadCount = 0;
+    }
   },
 });
 
@@ -60,6 +65,7 @@ export const {
   updateNotification, 
   markAllAsReadLocal,
   addNotification,
-  removeNotifications
+  removeNotifications,
+  clearNotifications
 } = notificationSlice.actions;
 export default notificationSlice.reducer;

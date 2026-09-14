@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { clearSession } from '../utils/session';
 import { changePasswordApi } from '../api/auth';
 import { useAuth } from '../hooks/useAuth';
 
@@ -25,9 +26,8 @@ export function ForceChangePasswordPage() {
     try {
       const response = await changePasswordApi(currentPassword, newPassword);
       setSuccess(response.message || 'Password berhasil diubah. Mengalihkan ke halaman login...');
-      setTimeout(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+      setTimeout(async () => {
+        await clearSession();
         window.location.href = '/login';
       }, 2000);
     } catch (err: any) {

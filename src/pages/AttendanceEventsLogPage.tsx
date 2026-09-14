@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAttendanceEvents } from '../api/attendance';
-import { AttendanceEvent, GetAttendanceEventsParams } from '../types/attendance';
+import { AttendanceEvent } from '../types/attendance';
 import '../components/ui/dashboard.css';
 import { AlertModal } from '../components/ui/AlertModal';
 
@@ -18,15 +18,11 @@ export function AttendanceEventsLogPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const params: GetAttendanceEventsParams = {
-        page,
-        limit: 20
-      };
-      
+      const params: any = { page, limit: 20 };
       if (onlyRejected) params.only_rejected = true;
       if (kind) params.kind = kind;
 
@@ -41,11 +37,11 @@ export function AttendanceEventsLogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, onlyRejected, kind]);
 
   useEffect(() => {
     fetchEvents();
-  }, [page, onlyRejected, kind]);
+  }, [fetchEvents]);
 
   const formatDate = (isoString: string) => {
     if (!isoString) return '-';

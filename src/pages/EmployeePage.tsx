@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, deleteEmployee, getEmployeeDetail, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
@@ -66,13 +66,7 @@ export function EmployeePage() {
     loadReferences();
   }, []);
 
-  // muat ulang data saat parameter berubah
-  useEffect(() => {
-    loadEmployees();
-
-  }, [page, departmentId, isActive]);
-
-  async function loadEmployees() {
+  const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -83,17 +77,22 @@ export function EmployeePage() {
         page,
         limit,
       });
-      if (res.success) {
-        setEmployees(res.data);
+      setEmployees(res.data);
+      if (res.meta) {
         setTotal(res.meta.total);
-        setTotalPages(res.meta.total_pages);
+        setTotalPages(res.meta.total_pages || 1);
       }
     } catch (err: any) {
       setError(err.message || 'Gagal memuat data karyawan');
     } finally {
       setLoading(false);
     }
-  }
+  }, [search, departmentId, isActive, page, limit]);
+
+  // muat ulang data saat parameter berubah
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

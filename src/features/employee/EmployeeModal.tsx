@@ -103,6 +103,24 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setPhotoFile(null);
       setPhotoMessage(null);
       setError('');
+    } else {
+      setFullName('');
+      setCountryCode('+62');
+      setPhoneNumber('');
+      setGender('');
+      setDepartmentId('');
+      setPositionId('');
+      setManagerId('');
+      setBirthDate('');
+      setAddress('');
+      setEmploymentStatus('');
+      setJoinDate('');
+      setResignDate('');
+      setCurrentPhotoUrl(null);
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      setPhotoMessage(null);
+      setError('');
     }
   }, [isOpen, employeeData, departments, positions, managers]);
 

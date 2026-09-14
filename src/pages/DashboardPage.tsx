@@ -31,7 +31,7 @@ export function DashboardPage() {
       }
     }
     fetchProfile();
-  }, []);
+  }, [login]);
 
   const formatDateIndo = (dateStr: string | undefined | null) => {
     const plain = formatPlainDate(dateStr);
@@ -67,10 +67,18 @@ export function DashboardPage() {
             
             <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: '24px', color: '#fff' }}>
-                    {(profile?.employee?.full_name || profile?.full_name || '?').charAt(0).toUpperCase()}
-                  </span>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                  {profile?.employee?.photo_url ? (
+                    <img 
+                      src={profile.employee.photo_url} 
+                      alt="Profile" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                  ) : (
+                    <span style={{ fontSize: '24px', color: '#fff' }}>
+                      {(profile?.employee?.full_name || profile?.full_name || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>

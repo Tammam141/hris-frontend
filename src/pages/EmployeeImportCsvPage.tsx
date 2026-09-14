@@ -7,6 +7,7 @@ import { getEmployees, createEmployee } from '../api/employee';
 import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
 import { validateEmployeeDates } from '../utils/dateValidation';
 import { AlertModal } from '../components/ui/AlertModal';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 
@@ -48,6 +49,9 @@ export function EmployeeImportCsvPage() {
   // Menyimpan error spesifik: format key `${rowIndex}-${fieldName}`
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' });
+  
+  const [isConfirmProceedOpen, setIsConfirmProceedOpen] = useState(false);
+  const [missingPosCountState, setMissingPosCountState] = useState(0);
 
   // Ambil daftar referensi saat komponen dimuat
   useEffect(() => {
@@ -167,7 +171,7 @@ export function EmployeeImportCsvPage() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       if (text.trim() === '') {
-        alert('File CSV kosong.');
+        setAlertInfo({ open: true, title: 'Error', message: 'File CSV kosong.', type: 'error' });
         return;
       }
 
@@ -176,12 +180,12 @@ export function EmployeeImportCsvPage() {
         skipEmptyLines: true,
         complete: (results) => {
           if (results.data.length === 0) {
-            alert('Tidak ditemukan data karyawan yang valid di dalam file CSV.');
+            setAlertInfo({ open: true, title: 'Error', message: 'Tidak ditemukan data karyawan yang valid di dalam file CSV.', type: 'error' });
             return;
           }
           
           if (results.data.length > 20) {
-            alert(`File berisi ${results.data.length} baris data. Maksimal 20 karyawan dalam satu permintaan (sesuai batasan sistem). Silakan pecah file CSV Anda.`);
+            setAlertInfo({ open: true, title: 'Error', message: `File berisi ${results.data.length} baris data. Maksimal 20 karyawan dalam satu permintaan (sesuai batasan sistem). Silakan pecah file CSV Anda.`, type: 'error' });
             return;
           }
 
@@ -189,7 +193,7 @@ export function EmployeeImportCsvPage() {
           const headers = results.meta.fields || [];
           const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
           if (missingHeaders.length > 0) {
-            alert(`File CSV tidak memiliki header wajib: ${missingHeaders.join(', ')}`);
+            setAlertInfo({ open: true, title: 'Error', message: `File CSV tidak memiliki header wajib: ${missingHeaders.join(', ')}`, type: 'error' });
             return;
           }
 
@@ -220,9 +224,8 @@ export function EmployeeImportCsvPage() {
           });
 
           if (results.errors && results.errors.length > 0) {
-            // Error parsing PapaParse (seperti tanda kutip yang tidak tertutup atau jumlah kolom salah di baris tertentu)
             const errorMessages = results.errors.map(err => `Baris ${err.row !== undefined ? err.row + 2 : '-'}: ${err.message}`).join('\n');
-            alert(`Terdapat kesalahan format CSV:\n${errorMessages}`);
+            setAlertInfo({ open: true, title: 'Kesalahan Format', message: `Terdapat kesalahan format CSV:\n${errorMessages}`, type: 'error' });
             return;
           }
 
@@ -230,7 +233,7 @@ export function EmployeeImportCsvPage() {
           setIsReviewing(true);
         },
         error: (error: any) => {
-          alert(`Gagal mem-parsing CSV: ${error.message}`);
+          setAlertInfo({ open: true, title: 'Error', message: `Gagal mem-parsing CSV: ${error.message}`, type: 'error' });
         }
       });
     };
@@ -296,10 +299,16 @@ export function EmployeeImportCsvPage() {
     }
 
     if (missingPositionCount > 0) {
-      const confirmProceed = window.confirm(`${missingPositionCount} baris belum punya jabatan, mereka tidak akan melihat menu apa pun sampai jabatannya diisi. Tetap lanjutkan?`);
-      if (!confirmProceed) return;
+      setMissingPosCountState(missingPositionCount);
+      setIsConfirmProceedOpen(true);
+      return;
     }
 
+    executeSubmitToBackend();
+  };
+
+  const executeSubmitToBackend = async () => {
+    setIsConfirmProceedOpen(false);
     setValidationErrors({});
     setIsSubmitting(true);
     
@@ -681,6 +690,16 @@ export function EmployeeImportCsvPage() {
         type={alertInfo.type}
         message={alertInfo.message}
         onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmProceedOpen}
+        title="Konfirmasi Lanjutkan"
+        message={`${missingPosCountState} baris belum punya jabatan, mereka tidak akan melihat menu apa pun sampai jabatannya diisi. Tetap lanjutkan?`}
+        confirmText="Ya, Lanjutkan"
+        isDestructive={false}
+        onConfirm={executeSubmitToBackend}
+        onCancel={() => setIsConfirmProceedOpen(false)}
       />
     </div>
   );

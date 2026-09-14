@@ -1,3 +1,5 @@
+import { clearSession } from '../utils/session';
+
 const API_URL = '/api/v1';
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
@@ -49,9 +51,9 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     }
 
     if (response.status === 401 && endpoint !== '/auth/login') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      clearSession().then(() => {
+        window.location.href = '/login';
+      });
       // Throw error anyway to stop execution chain
       throw new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali');
     }

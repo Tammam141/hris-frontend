@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getHolidays, createHoliday, updateHoliday, deleteHoliday, Holiday } from '../api/holiday';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
@@ -35,11 +35,7 @@ export function HolidayPage() {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
-  useEffect(() => {
-    loadHolidays();
-  }, [page, yearFilter]);
-
-  async function loadHolidays() {
+  const loadHolidays = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -53,7 +49,11 @@ export function HolidayPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, limit, yearFilter]);
+
+  useEffect(() => {
+    loadHolidays();
+  }, [loadHolidays]);
 
   function openCreateModal() {
     setModalMode('create');
@@ -164,9 +164,15 @@ export function HolidayPage() {
                   <tr key={holiday.id}>
                     <td>
                       <div style={{ fontWeight: 600 }}>
-                        {holiday.date || (holiday as any).holiday_date 
-                          ? format(parseISO(holiday.date || (holiday as any).holiday_date), 'dd MMMM yyyy') 
-                          : '-'}
+                        {(() => {
+                          const rawDate = holiday.date || (holiday as any).holiday_date;
+                          if (!rawDate) return '-';
+                          try {
+                            return format(parseISO(rawDate), 'dd MMMM yyyy');
+                          } catch {
+                            return '-';
+                          }
+                        })()}
                       </div>
                     </td>
                     <td>{holiday.name}</td>

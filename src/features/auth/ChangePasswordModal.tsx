@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { changePasswordApi } from '../../api/auth';
+import { clearSession } from '../../utils/session';
 import '../employee/employee-modal.css'; // Reusing the same modal CSS
 
 interface ChangePasswordModalProps {
@@ -32,9 +33,8 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
     try {
       const response = await changePasswordApi(currentPassword, newPassword);
       setSuccess(response.message || 'Password berhasil diubah');
-      setTimeout(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+      setTimeout(async () => {
+        await clearSession();
         window.location.href = '/login';
       }, 2000);
     } catch (err: any) {

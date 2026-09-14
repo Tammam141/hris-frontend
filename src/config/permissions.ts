@@ -1,5 +1,6 @@
 export interface AccessRule {
   features?: string[];
+  adminOnly?: boolean;
 }
 
 // Konfigurasi sentral per-rute berbasis fitur
@@ -10,13 +11,13 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/department': { features: ['organization.manage'] },
   '/position': { features: ['organization.manage'] },
   '/approval': { features: ['employee.approve_user'] },
-  '/leave-management': { features: ['leave.view_all'] },
+  '/leave-management': {}, // Semua bisa login untuk melihat bawahan
   '/leave-types': { features: ['leave.manage_type'] },
   '/holidays': { features: ['organization.holiday'] },
   '/balance-adjustments': { features: ['leave.adjust_balance'] },
   '/leave': {}, // Semua bisa akses cuti sendiri
   '/profile': {}, // Semua bisa edit profil sendiri
-  '/features': {}, // Fitur pengaturan admin, dicek dengan is_admin nanti atau tidak butuh fitur eksplisit (admin only)
+  '/features': { adminOnly: true }, // Hanya admin
   '/work-schedules': { features: ['organization.schedule'] },
   '/attendance': {}, // Semua bisa akses
   '/attendance/team': { features: ['attendance.view_team'] },

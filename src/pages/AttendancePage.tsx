@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { 
   getTodayAttendanceApi, 
@@ -11,7 +11,7 @@ import { AttendanceTodayResponse, Attendance, AttendanceSummary, AttendanceEvent
 import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../store';
+import { RootState, store } from '../store';
 import { addOfflineAttendance, removeOfflineAttendance } from '../store/attendanceSlice';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
@@ -30,11 +30,7 @@ export function AttendancePage() {
   const dispatch = useDispatch();
   const offlineQueue = useSelector((state: RootState) => state.attendance.offlineQueue);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Parallel fetch
@@ -66,15 +62,29 @@ export function AttendancePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.employee?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const isSyncingRef = useRef(false);
 
   // Proses sinkronisasi otomatis saat internet kembali menyala
   useEffect(() => {
     const syncOfflineQueue = async () => {
-      if (offlineQueue.length === 0) return;
+      if (isSyncingRef.current) return;
       
+      // Ambil antrean langsung dari store (bukan closure)
+      const currentQueue = store.getState().attendance.offlineQueue;
+      const myQueue = currentQueue.filter(item => !item.user_id || item.user_id === user?.id);
+
+      if (myQueue.length === 0) return;
+      
+      isSyncingRef.current = true;
       let syncCount = 0;
-      for (const item of offlineQueue) {
+      
+      for (const item of myQueue) {
         try {
           // --- MENGIRIM KE API SAAT ONLINE KEMBALI ---
           if (item.type === 'check-in') {
@@ -88,10 +98,7 @@ export function AttendancePage() {
           console.error('Failed to sync offline attendance', e);
           
           if (e.status === 409 && e.details?.attendance) {
-            // 409 Conflict: Hari ini sudah absen.
-            // Bandingkan apakah ini sebenarnya data kita yang sudah masuk?
             const backendTimeStr = item.type === 'check-in' ? e.details.attendance.check_in_at : e.details.attendance.check_out_at;
-            
             if (backendTimeStr) {
               const backendTimeMs = new Date(backendTimeStr).getTime();
               const localTimeMs = new Date(item.offline_time).getTime();
@@ -101,7 +108,7 @@ export function AttendancePage() {
                 syncCount++;
               } else {
                 dispatch(removeOfflineAttendance(item.id));
-                setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya. Hubungi atasan jika ini keliru.', type: 'error' });
+                setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya.', type: 'error' });
               }
             } else {
               dispatch(removeOfflineAttendance(item.id));
@@ -115,6 +122,8 @@ export function AttendancePage() {
         }
       }
 
+      isSyncingRef.current = false;
+
       if (syncCount > 0) {
         setAlertInfo({ open: true, title: 'Sinkronisasi Berhasil', message: `${syncCount} data absensi offline berhasil dikirim ke server!`, type: 'success' });
         loadData();
@@ -126,15 +135,16 @@ export function AttendancePage() {
     };
 
     window.addEventListener('online', handleOnline);
-
-    if (navigator.onLine && offlineQueue.length > 0) {
+    
+    // Sinkronisasi saat komponen pertama kali dimuat jika online
+    if (navigator.onLine) {
       syncOfflineQueue();
     }
 
     return () => {
       window.removeEventListener('online', handleOnline);
     };
-  }, [offlineQueue, dispatch]);
+  }, [dispatch, user?.id, loadData]);
 
   // Logika absen (menangani online & offline secara dinamis untuk masuk maupun pulang)
   const handleAttendance = async (type: 'check-in' | 'check-out') => {
@@ -147,7 +157,8 @@ export function AttendancePage() {
       dispatch(addOfflineAttendance({
         id: `${type}-${Date.now()}`,
         type,
-        offline_time: now
+        offline_time: now,
+        user_id: user?.id
       }));
       
       setAlertInfo({ open: true, title: 'Mode Offline', message: `Anda sedang offline. Absen ${label} disimpan di perangkat dan akan otomatis dikirim saat koneksi pulih.`, type: 'success' });
@@ -169,19 +180,40 @@ export function AttendancePage() {
     // JIKA ONLINE
     setIsSubmitting(true);
     try {
-      // Merekam waktu presisi saat tombol ditekan
-      const exactTimePressed = new Date().toISOString();
-
       if (type === 'check-in') {
-        await checkInApi(undefined, exactTimePressed);
+        await checkInApi(undefined);
       } else {
-        await checkOutApi(undefined, exactTimePressed);
+        await checkOutApi(undefined);
       }
       setAlertInfo({ open: true, title: 'Berhasil', message: `Berhasil melakukan absensi ${label}.`, type: 'success' });
       loadData();
     } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || `Gagal melakukan absensi ${label}.`, type: 'error' });
-      loadData(); 
+      // Jika error network padahal navigator.onLine true
+      if (!e.status && navigator.onLine) {
+        const now = new Date().toISOString();
+        dispatch(addOfflineAttendance({
+          id: `${type}-${Date.now()}`,
+          type,
+          offline_time: now,
+          user_id: user?.id
+        }));
+        setAlertInfo({ open: true, title: 'Mode Offline (Gangguan)', message: `Gagal terhubung ke server. Absen ${label} disimpan di perangkat.`, type: 'success' });
+        
+        setTodayData(prev => {
+          if (!prev) return prev;
+          const newAttendance = { ...prev.attendance };
+          if (type === 'check-in') {
+            (newAttendance as any).check_in_at = now;
+            return { ...prev, can_check_in: false, attendance: newAttendance as any };
+          } else {
+            (newAttendance as any).check_out_at = now;
+            return { ...prev, can_check_out: false, attendance: newAttendance as any };
+          }
+        });
+      } else {
+        setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || `Gagal melakukan absensi ${label}.`, type: 'error' });
+        loadData();
+      }
     } finally {
       setIsSubmitting(false);
     }

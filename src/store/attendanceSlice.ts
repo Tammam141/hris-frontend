@@ -6,6 +6,7 @@ export interface OfflineAttendanceItem {
   type: 'check-in' | 'check-out';
   note?: string; 
   offline_time: string; 
+  user_id?: string;
 }
 
 export interface AttendanceState {

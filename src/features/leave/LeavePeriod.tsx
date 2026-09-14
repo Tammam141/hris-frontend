@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO, eachDayOfInterval, startOfDay, addDays, isBefore } from 'date-fns';
@@ -42,7 +42,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   // Ambil tipe cuti, saldo, cuti yang sudah ada, dan hari libur
-  const fetchInitialData = () => {
+  const fetchInitialData = useCallback(() => {
     const currentYear = new Date().getFullYear();
     Promise.all([
       getLeaveTypes(), 
@@ -79,11 +79,11 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         }
       })
       .catch(err => console.error(err));
-  };
+  }, [user?.employee?.gender]);
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [fetchInitialData]);
 
   // Cleanup image preview URL on unmount
   useEffect(() => {
@@ -113,7 +113,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   }, [holidays]);
 
   // Blokir hari Sabtu (6), Minggu (0), libur nasional, dan tanggal cuti yang sudah ada
-  const isDateAvailable = (date: Date) => {
+  const isDateAvailable = useCallback((date: Date) => {
     const day = date.getDay();
     if (day === 0 || day === 6) return false;
     
@@ -123,10 +123,34 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     // Cek apakah tanggal ini sudah ada di cuti yang disetujui/pending
     const isDisabled = disabledDates.some(d => format(d, 'yyyy-MM-dd') === dateStr);
     return !isDisabled;
-  };
+  }, [holidayDates, disabledDates]);
 
   // Kalkulasi total hari kerja otomatis (estimasi frontend)
   useEffect(() => {
+    if (startDate && endDate) {
+      // Cek apakah dalam rentang ada hari yang sudah diambil cutinya
+      let hasOverlap = false;
+      try {
+        const days = eachDayOfInterval({ start: startDate, end: endDate });
+        for (const d of days) {
+          const dateStr = format(d, 'yyyy-MM-dd');
+          if (disabledDates.some(dd => format(dd, 'yyyy-MM-dd') === dateStr)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+      } catch (err) {}
+
+      if (hasOverlap) {
+        setAlertType('error');
+        setAlertMessage('Rentang tanggal yang dipilih bertabrakan dengan pengajuan cuti lain. Silakan pilih rentang yang kosong.');
+        setIsAlertOpen(true);
+        setDateRange([null, null]);
+        setTotalDays(0);
+        return;
+      }
+    }
+
     if (startDate) {
       const end = endDate || startDate;
       try {
@@ -142,7 +166,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     } else {
       setTotalDays(0);
     }
-  }, [startDate, endDate, holidayDates, disabledDates]);
+  }, [startDate, endDate, disabledDates, isDateAvailable]);
 
   function handleFileSelect(file: File | null) {
     // Revoke old preview URL
@@ -172,13 +196,15 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       return;
     }
     
-    // Cek jika tipe cuti ini butuh lampiran
+    // Cek jika tipe cuti ini butuh lampiran di frontend (opsional, karena backend juga memvalidasi)
     const selectedType = leaveTypes.find(t => t.id.toString() === leaveType);
     if (selectedType?.requires_attachment && !attachment) {
-      setAlertType('error');
-      setAlertMessage(`Harap unggah dokumen bukti untuk cuti ${selectedType.name}.`);
-      setIsAlertOpen(true);
-      return;
+      if (!selectedType.attachment_required_after || totalDays > selectedType.attachment_required_after) {
+        setAlertType('error');
+        setAlertMessage(`Harap unggah dokumen bukti untuk cuti ${selectedType.name}${selectedType.attachment_required_after ? ` (lebih dari ${selectedType.attachment_required_after} hari)` : ''}.`);
+        setIsAlertOpen(true);
+        return;
+      }
     }
 
     // Validasi Notice Days & Max Days
@@ -253,9 +279,9 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     } catch (err: any) {
       setAlertType('error');
       // Handle Specific Backend Errors
-      if (err.code === 409 && err.details?.conflicting_request_id) {
+      if (err.status === 409 && err.details?.conflicting_request_id) {
         setAlertMessage(`Tanggal yang Anda pilih bertabrakan dengan pengajuan cuti Anda yang lain.`);
-      } else if (err.code === 400 && err.details?.balance !== undefined) {
+      } else if (err.status === 400 && err.details?.balance !== undefined) {
         setAlertMessage(`Saldo cuti tidak cukup. Anda meminta ${err.details.requested} hari, tetapi sisa saldo hanya ${err.details.balance} hari.`);
       } else {
         setAlertMessage(err.message || 'Gagal mengajukan cuti.');
