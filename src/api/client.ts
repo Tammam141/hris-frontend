@@ -1,5 +1,13 @@
 import { clearSession } from '../utils/session';
 
+export interface ApiError extends Error {
+  status?: number;
+  code?: string;
+  details?: any;
+  errors?: any;
+  isNetworkError?: boolean;
+}
+
 const API_URL = '/api/v1';
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
@@ -43,11 +51,14 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     try {
       const text = await response.text();
       data = text ? JSON.parse(text) : {};
-    } catch (e) {
-      if (!response.ok) {
-        throw new Error(`Terjadi kesalahan pada server (Status: ${response.status}). Respons bukan JSON yang valid.`);
-      }
-      throw new Error('Gagal memproses respons dari server');
+    } catch {
+      const err = new Error(
+        !response.ok
+          ? `Terjadi kesalahan pada server (Status: ${response.status}). Respons bukan JSON yang valid.`
+          : 'Gagal memproses respons dari server'
+      ) as ApiError;
+      err.status = response.status;
+      throw err;
     }
 
     if (response.status === 401 && endpoint !== '/auth/login') {
@@ -55,7 +66,9 @@ export async function apiRequest(endpoint: string, method: string, body?: object
         window.location.href = '/login';
       });
       // Throw error anyway to stop execution chain
-      throw new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali');
+      const err = new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali') as ApiError;
+      err.status = response.status;
+      throw err;
     }
 
     if (!response.ok || (data.success !== undefined && !data.success)) {
@@ -66,7 +79,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
         errorMsg = data.errors.map((e: any) => e.message).join(', ');
       }
       
-      const error: any = new Error(errorMsg);
+      const error = new Error(errorMsg) as ApiError;
       error.status = response.status;
       if (data?.details) error.details = data.details;
       if (data?.code) error.code = data.code;
@@ -79,7 +92,14 @@ export async function apiRequest(endpoint: string, method: string, body?: object
   } catch (err: any) {
     if (timeoutId) clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('Permintaan ke server kehabisan waktu (Timeout). Silakan coba lagi.');
+      const timeoutErr = new Error('Permintaan ke server kehabisan waktu (Timeout). Silakan coba lagi.') as ApiError;
+      timeoutErr.isNetworkError = true;
+      throw timeoutErr;
+    }
+    
+    // Check for network errors like TypeError: Failed to fetch
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      (err as any).isNetworkError = true;
     }
     throw err;
   }

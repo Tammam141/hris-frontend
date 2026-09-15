@@ -23,7 +23,7 @@ export function AlertModal({ isOpen, title, message, onClose, type = 'error' }: 
         </div>
         
         <div className="modal-body">
-          <p style={{ fontSize: '15px', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+          <p style={{ fontSize: '15px', color: '#475569', lineHeight: '1.5', margin: 0, whiteSpace: 'pre-line' }}>
             {message}
           </p>
         </div>

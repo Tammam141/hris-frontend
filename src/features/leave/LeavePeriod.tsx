@@ -41,16 +41,26 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   const [alertType, setAlertType] = useState<'success' | 'error'>('success');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ambil tipe cuti, saldo, cuti yang sudah ada, dan hari libur
+  // Ambil tipe cuti, saldo, cuti yang sudah ada
   const fetchInitialData = useCallback(() => {
-    const currentYear = new Date().getFullYear();
+    const fetchAllLeaves = async () => {
+      let all: LeaveRequest[] = [];
+      let p = 1;
+      while (true) {
+        const res = await getMyLeaveRequests({ limit: 100, page: p }).catch(() => ({ data: [], meta: { total_pages: 1 } }));
+        if (res.data) all = [...all, ...res.data];
+        if (!res.meta || p >= res.meta.total_pages) break;
+        p++;
+      }
+      return { data: all };
+    };
+
     Promise.all([
       getLeaveTypes(), 
       getMyLeaveBalances().catch(() => null),
-      getMyLeaveRequests().catch(() => ({ data: [] })),
-      getHolidays({ year: currentYear, limit: 100 }).catch(() => ({ data: [] }))
+      fetchAllLeaves()
     ])
-      .then(([typesRes, balRes, leavesRes, holidaysRes]) => {
+      .then(([typesRes, balRes, leavesRes]) => {
         // Filter leave types: active only, and match gender if restricted
         const validTypes = typesRes.data.filter(t => {
           if (!t.is_active) return false;
@@ -73,10 +83,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           (l: LeaveRequest) => l.status === 'approved' || l.status === 'pending'
         );
         setExistingLeaves(activeLeaves);
-
-        if (holidaysRes.data) {
-          setHolidays(holidaysRes.data);
-        }
       })
       .catch(err => console.error(err));
   }, [user?.employee?.gender]);
@@ -84,6 +90,24 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
+
+  // Fetch holidays based on selected dateRange
+  useEffect(() => {
+    if (!startDate) return;
+    const end = endDate || startDate;
+    const startY = startDate.getFullYear();
+    const endY = end.getFullYear();
+    
+    const fetchHols = async () => {
+      let allHols: Holiday[] = [];
+      for (let y = startY; y <= endY; y++) {
+        const res = await getHolidays({ year: y, limit: 100 }).catch(() => ({ data: [] }));
+        if (res.data) allHols = [...allHols, ...res.data];
+      }
+      setHolidays(allHols);
+    };
+    fetchHols();
+  }, [startDate, endDate]);
 
   // Cleanup image preview URL on unmount
   useEffect(() => {
@@ -281,8 +305,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       // Handle Specific Backend Errors
       if (err.status === 409 && err.details?.conflicting_request_id) {
         setAlertMessage(`Tanggal yang Anda pilih bertabrakan dengan pengajuan cuti Anda yang lain.`);
-      } else if (err.status === 400 && err.details?.balance !== undefined) {
-        setAlertMessage(`Saldo cuti tidak cukup. Anda meminta ${err.details.requested} hari, tetapi sisa saldo hanya ${err.details.balance} hari.`);
       } else {
         setAlertMessage(err.message || 'Gagal mengajukan cuti.');
       }
@@ -299,7 +321,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       <form onSubmit={handleSubmit} className="leave-grid">
         <div className="leave-column-left">
           
-          <div style={{ marginBottom: '16px' }}>
+          <div className="leave-form-group">
             <label className="leave-label">Jenis Cuti</label>
             <select 
               className="custom-datepicker-input" 
@@ -315,7 +337,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           </div>
 
           <label className="leave-label">Pilih Periode Cuti</label>
-          <div style={{ position: 'relative' }}>
+          <div className="leave-datepicker-wrapper">
             <DatePicker
               selectsRange={true}
               startDate={startDate ?? undefined}
@@ -345,7 +367,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
-              style={{ position: 'absolute', right: '35px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }}
+              className="leave-datepicker-icon"
             >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -384,11 +406,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
             </div>
           )}
           
-          <div style={{ marginTop: '16px' }}>
-            <label className="leave-label">Alasan Cuti <span style={{ color: '#dc2626' }}>*</span></label>
+          <div className="leave-form-group">
+            <label className="leave-label">Alasan Cuti <span className="leave-required-asterisk">*</span></label>
             <textarea
-              className="custom-datepicker-input"
-              style={{ minHeight: '100px', resize: 'vertical', marginTop: '8px' }}
+              className="custom-datepicker-input leave-textarea"
               placeholder="Tuliskan alasan cuti Anda di sini..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -397,8 +418,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           </div>
 
           {/* Tombol Upload selalu muncul, bersifat opsional/wajib sesuai kondisi, backend yg validasi akhir */}
-          <div style={{ marginTop: '16px' }}>
-            <label className="leave-label">Upload Foto Bukti {leaveTypes.find(t => t.id.toString() === leaveType)?.requires_attachment ? <span style={{ color: '#dc2626' }}>*</span> : <span style={{ color: '#64748b', fontSize: '12px' }}>(Opsional)</span>}</label>
+          <div className="leave-upload-wrapper">
+            <label className="leave-label">Upload Foto Bukti {leaveTypes.find(t => t.id.toString() === leaveType)?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
             <div className="file-upload-card">
               <input 
                 type="file" 
@@ -444,7 +465,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                 </div>
               ) : (
                 <div className="file-upload-content">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '12px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="leave-upload-icon">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -458,13 +479,13 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         </div>
 
         <div className="leave-column-right">
-          <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <div className="leave-total-card">
             <span className="leave-total-title">Total Hari</span>
-            <span className="leave-total-number" style={{ display: 'block', fontSize: '48px', color: '#1a78d7', fontWeight: 700, margin: '8px 0' }}>{totalDays}</span>
-            <span style={{ fontSize: '14px', color: '#64748b' }}>hari kerja terpilih</span>
+            <span className="leave-total-number">{totalDays}</span>
+            <span className="leave-optional-text">hari kerja (estimasi)</span>
           </div>
           
-          <button type="submit" disabled={isLoading} className="btn btn-primary" style={{ width: '100%', marginTop: '24px', padding: '14px', fontSize: '16px', fontWeight: 600, opacity: isLoading ? 0.7 : 1 }}>
+          <button type="submit" disabled={isLoading} className="btn btn-primary leave-submit-btn" style={{ opacity: isLoading ? 0.7 : 1 }}>
             {isLoading ? 'Mengirim...' : 'Ajukan Cuti'}
           </button>
         </div>

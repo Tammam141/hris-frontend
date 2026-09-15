@@ -8,7 +8,8 @@ import '../../components/ui/auth.css';
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [errorObj, setErrorObj] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
@@ -18,11 +19,12 @@ export function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setErrorMsg('');
+    setErrorObj(null);
 
     const cek = loginSchema.safeParse({ email, password });
     if (!cek.success) {
-      setError(cek.error.issues[0].message);
+      setErrorMsg(cek.error.issues[0].message);
       return;
     }
 
@@ -36,7 +38,8 @@ export function LoginForm() {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Gagal terhubung ke server');
+      setErrorMsg(err.message || 'Gagal terhubung ke server');
+      setErrorObj(err);
     } finally {
       setLoading(false);
     }
@@ -48,10 +51,10 @@ export function LoginForm() {
         <h2 className="ui-card-title">Login</h2>
 
         {successMessage && <div className="alert-success">{successMessage}</div>}
-        {error && (
+        {errorMsg && (
           <div className="alert-error" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span>{error}</span>
-            {error.toLowerCase().includes('belum diverifikasi') && (
+            <span>{errorMsg}</span>
+            {(errorObj?.details?.reason === 'email_not_verified' || (errorObj?.status === 401 && errorMsg.toLowerCase().includes('not verified'))) && (
               <button 
                 type="button" 
                 className="btn btn-primary" 

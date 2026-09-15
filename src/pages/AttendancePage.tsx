@@ -77,56 +77,73 @@ export function AttendancePage() {
       
       // Ambil antrean langsung dari store (bukan closure)
       const currentQueue = store.getState().attendance.offlineQueue;
-      const myQueue = currentQueue.filter(item => !item.user_id || item.user_id === user?.id);
-
-      if (myQueue.length === 0) return;
+      const myQueue = [];
+      const todayDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Jakarta' }).substring(0, 10);
       
-      isSyncingRef.current = true;
-      let syncCount = 0;
-      
-      for (const item of myQueue) {
-        try {
-          // --- MENGIRIM KE API SAAT ONLINE KEMBALI ---
-          if (item.type === 'check-in') {
-            await checkInApi(item.note, item.offline_time);
-          } else {
-            await checkOutApi(item.note, item.offline_time);
-          }
+      for (const item of currentQueue) {
+        if (!item.user_id) {
+          // Buang antrean lama tanpa user_id
           dispatch(removeOfflineAttendance(item.id));
-          syncCount++;
-        } catch (e: any) {
-          console.error('Failed to sync offline attendance', e);
-          
-          if (e.status === 409 && e.details?.attendance) {
-            const backendTimeStr = item.type === 'check-in' ? e.details.attendance.check_in_at : e.details.attendance.check_out_at;
-            if (backendTimeStr) {
-              const backendTimeMs = new Date(backendTimeStr).getTime();
-              const localTimeMs = new Date(item.offline_time).getTime();
-              
-              if (backendTimeMs === localTimeMs) {
-                dispatch(removeOfflineAttendance(item.id));
-                syncCount++;
-              } else {
-                dispatch(removeOfflineAttendance(item.id));
-                setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya.', type: 'error' });
-              }
-            } else {
-              dispatch(removeOfflineAttendance(item.id));
-            }
-          } else if (e.status === 400 || e.code === 'VALIDATION_ERROR' || (e.message && e.message.includes('ditutup'))) {
+        } else if (item.user_id === user?.id) {
+          // Buang jika bukan hari ini (Asia/Jakarta)
+          const itemDate = new Date(item.offline_time).toLocaleString('en-CA', { timeZone: 'Asia/Jakarta' }).substring(0, 10);
+          if (itemDate !== todayDate) {
             dispatch(removeOfflineAttendance(item.id));
-            setAlertInfo({ open: true, title: 'Absen Ditolak', message: e.message || 'Data offline ditolak oleh sistem.', type: 'error' });
-          } else if (e.status === 401) {
-            break;
+          } else {
+            myQueue.push(item);
           }
         }
       }
 
-      isSyncingRef.current = false;
+      if (myQueue.length === 0) return;
+      
+      try {
+        isSyncingRef.current = true;
+        let syncCount = 0;
+        
+        for (const item of myQueue) {
+          try {
+            // --- MENGIRIM KE API SAAT ONLINE KEMBALI ---
+            if (item.type === 'check-in') {
+              await checkInApi(item.note, item.offline_time);
+            } else {
+              await checkOutApi(item.note, item.offline_time);
+            }
+            dispatch(removeOfflineAttendance(item.id));
+            syncCount++;
+          } catch (e: any) {
+            console.error('Failed to sync offline attendance', e);
+            
+            if (e.status === 409) {
+              dispatch(removeOfflineAttendance(item.id));
+              if (e.details?.attendance) {
+                const backendTimeStr = item.type === 'check-in' ? e.details.attendance.check_in_at : e.details.attendance.check_out_at;
+                if (backendTimeStr) {
+                  const backendTimeMs = new Date(backendTimeStr).getTime();
+                  const localTimeMs = new Date(item.offline_time).getTime();
+                  
+                  if (backendTimeMs === localTimeMs) {
+                    syncCount++;
+                    continue;
+                  }
+                }
+              }
+              setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya.', type: 'error' });
+            } else if (e.status === 400 || e.code === 'VALIDATION_ERROR') {
+              dispatch(removeOfflineAttendance(item.id));
+              setAlertInfo({ open: true, title: 'Absen Ditolak', message: e.message || 'Data offline ditolak oleh sistem.', type: 'error' });
+            } else if (e.status === 401) {
+              break;
+            }
+          }
+        }
 
-      if (syncCount > 0) {
-        setAlertInfo({ open: true, title: 'Sinkronisasi Berhasil', message: `${syncCount} data absensi offline berhasil dikirim ke server!`, type: 'success' });
-        loadData();
+        if (syncCount > 0) {
+          setAlertInfo({ open: true, title: 'Sinkronisasi Berhasil', message: `${syncCount} data absensi offline berhasil dikirim ke server!`, type: 'success' });
+          loadData();
+        }
+      } finally {
+        isSyncingRef.current = false;
       }
     };
 
@@ -188,8 +205,7 @@ export function AttendancePage() {
       setAlertInfo({ open: true, title: 'Berhasil', message: `Berhasil melakukan absensi ${label}.`, type: 'success' });
       loadData();
     } catch (e: any) {
-      // Jika error network padahal navigator.onLine true
-      if (!e.status && navigator.onLine) {
+      if (e.isNetworkError) {
         const now = new Date().toISOString();
         dispatch(addOfflineAttendance({
           id: `${type}-${Date.now()}`,
@@ -236,16 +252,16 @@ export function AttendancePage() {
     const cutoff = absent_cutoff_time.substring(0, 5);
 
     return (
-      <div className="attendance-schedule-ranges" style={{ marginTop: '12px', fontSize: '13px', color: '#475569', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span style={{ fontWeight: 600, color: '#16a34a' }}>Hadir</span>
+      <div className="attendance-schedule-ranges-box">
+        <div className="attendance-range-row">
+          <span className="attendance-range-label present">Hadir</span>
           <span>{start} &ndash; {presentEnd}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontWeight: 600, color: '#ca8a04' }}>Terlambat</span>
+        <div className="attendance-range-row late-row">
+          <span className="attendance-range-label late">Terlambat</span>
           <span>{lateStart} &ndash; {cutoff}</span>
         </div>
-        <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 500, textAlign: 'center', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+        <div className="attendance-range-footer">
           Lewat {cutoff} dihitung tidak hadir
         </div>
       </div>
@@ -277,7 +293,7 @@ export function AttendancePage() {
       {isLoading ? (
         <p>Memuat data...</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="attendance-page-layout">
           
           {/* Card Absensi Hari Ini */}
           <div className="attendance-today-card">
@@ -285,7 +301,7 @@ export function AttendancePage() {
             
             <div className="attendance-today-content">
               {offlineQueue.length > 0 && (
-                <div style={{ backgroundColor: '#fef9c3', color: '#854d0e', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fde047' }}>
+                <div className="attendance-offline-warning">
                   <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
@@ -331,7 +347,7 @@ export function AttendancePage() {
                   </button>
                 )}
                 {!todayData?.can_check_in && !todayData?.can_check_out && todayData?.blocked_reason && (
-                  <div className="attendance-blocked-msg" style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '12px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: 500, textAlign: 'center', marginTop: '16px' }}>
+                  <div className="attendance-blocked-msg">
                     {todayData.blocked_reason}
                   </div>
                 )}
@@ -373,8 +389,8 @@ export function AttendancePage() {
           {/* Riwayat Absensi */}
           <div className="attendance-history-card">
             <h2 className="attendance-history-title">Riwayat Absensi Bulan Ini</h2>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="attendance-table employee-table" style={{ width: '100%' }}>
+            <div className="attendance-table-wrapper">
+              <table className="attendance-table">
                 <thead>
                   <tr>
                     <th>Tanggal</th>
@@ -389,34 +405,42 @@ export function AttendancePage() {
                 <tbody>
                   {history.map(row => (
                     <tr key={row.id}>
-                      <td style={{ fontWeight: 500 }}>{formatPlainDate(row.attendance_date)}</td>
+                      <td className="table-cell-date">{formatPlainDate(row.attendance_date)}</td>
                       <td>{row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '-'}</td>
                       <td>{row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '-'}</td>
                       <td>{translateStatus(row.status)}</td>
-                      <td>{row.late_minutes > 0 ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{row.late_minutes} mnt</span> : <span style={{ color: '#94a3b8' }}>-</span>}</td>
-                      <td>{row.work_minutes ? formatMinutesToDuration(row.work_minutes) : <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                      <td>{row.late_minutes > 0 ? <span className="table-cell-late">{row.late_minutes} mnt</span> : <span className="table-cell-empty">-</span>}</td>
+                      <td>{row.work_minutes ? formatMinutesToDuration(row.work_minutes) : <span className="table-cell-empty">-</span>}</td>
                       <td>
-                        {row.note && row.note.startsWith('[Absen offline') ? (
-                          <div>
-                            <span style={{ fontSize: '10px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Offline</span>
-                            <br/>
-                            <span style={{ fontSize: '13px', color: '#475569' }}>{row.note}</span>
-                          </div>
-                        ) : row.note && row.note.startsWith('[') ? (
-                          <div>
-                            <span style={{ fontSize: '10px', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Dikoreksi</span>
-                            <br/>
-                            <span style={{ fontSize: '13px', color: '#475569' }}>{row.note}</span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || <span style={{ color: '#cbd5e1' }}>Tidak ada</span>}</span>
-                        )}
+                        {(() => {
+                          if (!row.note) return <span className="note-empty">Tidak ada</span>;
+                          const note = row.note;
+                          if (note.startsWith('[Offline attendance') || note.startsWith('[Absen offline')) {
+                            return (
+                              <div>
+                                <span className="note-badge-offline">Offline</span>
+                                <br />
+                                <span className="note-text">{note}</span>
+                              </div>
+                            );
+                          } else if (note.startsWith('[Corrected by') || note.startsWith('[Dikoreksi oleh')) {
+                            return (
+                              <div>
+                                <span className="note-badge-corrected">Dikoreksi</span>
+                                <br />
+                                <span className="note-text">{note}</span>
+                              </div>
+                            );
+                          } else {
+                            return <span className="note-text">{note}</span>;
+                          }
+                        })()}
                       </td>
                     </tr>
                   ))}
                   {history.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>Tidak ada data absensi di bulan ini.</td>
+                      <td colSpan={7} className="table-cell-no-data">Tidak ada data absensi di bulan ini.</td>
                     </tr>
                   )}
                 </tbody>
@@ -426,15 +450,15 @@ export function AttendancePage() {
           
           {/* Riwayat Log Mentah Absensi Saya */}
           <div className="attendance-history-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div className="log-header-container">
               <div>
-                <h2 className="attendance-history-title" style={{ marginBottom: '4px' }}>Log Aktivitas Tombol Absensi</h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Jejak rekaman penekanan tombol absensi (10 aktivitas terakhir)</p>
+                <h2 className="attendance-history-title log-header-title">Log Aktivitas Tombol Absensi</h2>
+                <p className="log-header-subtitle">Jejak rekaman penekanan tombol absensi (10 aktivitas terakhir)</p>
               </div>
             </div>
             
-            <div style={{ overflowX: 'auto' }}>
-              <table className="attendance-table employee-table" style={{ width: '100%' }}>
+            <div className="attendance-table-wrapper">
+              <table className="attendance-table">
                 <thead>
                   <tr>
                     <th>Jenis</th>
@@ -445,36 +469,32 @@ export function AttendancePage() {
                 </thead>
                 <tbody>
                   {events.map(evt => (
-                    <tr key={evt.id} style={{ backgroundColor: evt.rejection_reason ? '#fef2f2' : 'transparent' }}>
+                    <tr key={evt.id} className={evt.rejection_reason ? 'log-row-rejected' : 'log-row-default'}>
                       <td>
-                        <span style={{ 
-                          padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                          backgroundColor: evt.kind === 'check_in' ? '#dcfce7' : '#f1f5f9',
-                          color: evt.kind === 'check_in' ? '#166534' : '#475569'
-                        }}>
+                        <span className={evt.kind === 'check_in' ? 'log-badge-checkin' : 'log-badge-checkout'}>
                           {evt.kind === 'check_in' ? 'Check-In' : 'Check-Out'}
                         </span>
                       </td>
-                      <td style={{ fontSize: '13px' }}>
+                      <td className="log-cell-time">
                         {new Date(evt.occurred_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                       </td>
-                      <td style={{ fontSize: '12px', textTransform: 'capitalize', color: '#64748b' }}>
+                      <td className="log-cell-source">
                         {evt.source.replace('_', ' ')}
                       </td>
                       <td>
                         {evt.rejection_reason ? (
-                          <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 500 }}>
+                          <div className="log-cell-rejected">
                             DITOLAK: {evt.rejection_reason}
                           </div>
                         ) : (
-                          <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 500 }}>Diterima</span>
+                          <span className="log-cell-accepted">Diterima</span>
                         )}
                       </td>
                     </tr>
                   ))}
                   {events.length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '24px', fontSize: '13px', color: '#94a3b8' }}>
+                      <td colSpan={4} className="log-cell-no-data">
                         Belum ada jejak aktivitas atau API log belum tersedia.
                       </td>
                     </tr>

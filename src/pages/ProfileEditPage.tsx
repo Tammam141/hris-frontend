@@ -8,7 +8,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
-  const { user, login } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(user?.employee?.full_name || user?.full_name || '');
@@ -68,8 +68,7 @@ export function ProfileEditPage() {
       // Update context
       const res = await getMeApi();
       if (res.success) {
-        const token = localStorage.getItem('token');
-        if (token) login(token, res.data);
+        refreshUser(res.data);
       }
       
       setPhotoPreview(null);
@@ -91,8 +90,7 @@ export function ProfileEditPage() {
       // Update context
       const res = await getMeApi();
       if (res.success) {
-        const token = localStorage.getItem('token');
-        if (token) login(token, res.data);
+        refreshUser(res.data);
       }
       
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil dihapus', type: 'success' });
@@ -121,13 +119,10 @@ export function ProfileEditPage() {
       // Fetch the updated profile and update context
       const res = await getMeApi();
       if (res.success) {
-        const token = localStorage.getItem('token');
-        if (token) {
-          login(token, res.data);
-        }
+        refreshUser(res.data);
       }
 
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (error: any) {
       setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
     } finally {

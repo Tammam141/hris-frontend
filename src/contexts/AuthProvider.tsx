@@ -33,6 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user.features?.includes(code) || false;
   }, [user]);
 
+  const refreshUser = useCallback((newUser: User) => {
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -42,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login: login,
         logout: logout,
         hasFeature: hasFeature,
+        refreshUser: refreshUser,
       }}
     >
       {children}

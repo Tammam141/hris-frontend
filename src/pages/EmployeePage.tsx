@@ -24,7 +24,8 @@ export function EmployeePage() {
   const navigate = useNavigate();
 
   // state filter
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [isActive, setIsActive] = useState<string>(''); // '', 'true', 'false'
 
@@ -71,7 +72,7 @@ export function EmployeePage() {
     setError('');
     try {
       const res = await getEmployees({
-        search: search || undefined,
+        search: searchQuery || undefined,
         department_id: departmentId || undefined,
         is_active: isActive === '' ? undefined : isActive === 'true',
         page,
@@ -87,7 +88,7 @@ export function EmployeePage() {
     } finally {
       setLoading(false);
     }
-  }, [search, departmentId, isActive, page, limit]);
+  }, [searchQuery, departmentId, isActive, page, limit]);
 
   // muat ulang data saat parameter berubah
   useEffect(() => {
@@ -96,6 +97,7 @@ export function EmployeePage() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    setSearchQuery(searchInput);
     setPage(1);
     loadEmployees();
   }
@@ -198,8 +200,8 @@ export function EmployeePage() {
             type="text"
             className="input-field employee-search-input"
             placeholder="Cari Nama, Email, atau ID Karyawan..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
           <select
             className="input-field employee-filter-select"

@@ -6,7 +6,7 @@ import { formatPlainDate } from '../utils/dateFormatter';
 import '../components/ui/dashboard.css';
 
 export function DashboardPage() {
-  const { user, login } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(user);
   const [loading, setLoading] = useState(false);
@@ -18,11 +18,7 @@ export function DashboardPage() {
         const res = await getMeApi();
         if (res.success) {
           setProfile(res.data);
-          // Also update context so user info is fresh
-          const token = localStorage.getItem('token');
-          if (token) {
-            login(token, res.data);
-          }
+          refreshUser(res.data);
         }
       } catch (err) {
         console.error('Failed to fetch profile', err);
@@ -31,7 +27,7 @@ export function DashboardPage() {
       }
     }
     fetchProfile();
-  }, [login]);
+  }, [refreshUser]);
 
   const formatDateIndo = (dateStr: string | undefined | null) => {
     const plain = formatPlainDate(dateStr);
@@ -63,43 +59,43 @@ export function DashboardPage() {
         {loading ? (
           <p>Memuat profil...</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+          <div className="dashboard-grid">
             
-            <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+            <div className="profile-card">
+              <div className="profile-card-header">
+                <div className="profile-avatar-circle">
                   {profile?.employee?.photo_url ? (
                     <img 
                       src={profile.employee.photo_url} 
                       alt="Profile" 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      className="profile-avatar-img"
                     />
                   ) : (
-                    <span style={{ fontSize: '24px', color: '#fff' }}>
+                    <span className="profile-avatar-fallback">
                       {(profile?.employee?.full_name || profile?.full_name || '?').charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
                 <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>
+                  <h2 className="profile-card-title">
                     Informasi Akun
                   </h2>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Data login & akses</div>
+                  <div className="profile-card-subtitle">Data login & akses</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="profile-info-list">
                 <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Email</div>
-                  <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile?.email || '-'}</div>
+                  <div className="profile-info-label">Email</div>
+                  <div className="profile-info-value">{profile?.email || '-'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Role</div>
-                  <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500, textTransform: 'capitalize' }}>{profile?.role || '-'}</div>
+                  <div className="profile-info-label">Role</div>
+                  <div className="profile-info-value capitalize">{profile?.role || '-'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Status Akun</div>
-                  <div style={{ fontSize: '14px', color: profile?.is_active ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
+                  <div className="profile-info-label">Status Akun</div>
+                  <div className={`profile-info-value ${profile?.is_active ? 'active' : 'inactive'}`}>
                     {profile?.is_active ? 'Aktif' : 'Non-aktif'}
                   </div>
                 </div>
@@ -107,67 +103,67 @@ export function DashboardPage() {
             </div>
 
             {profile?.employee && (
-              <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+              <div className="profile-card">
+                <h2 className="profile-card-title profile-card-header">
                   Informasi Kepegawaian
                 </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="profile-info-list">
                   <div className="info-grid-2">
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>ID Karyawan</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.employee_number || '-'}</div>
+                      <div className="profile-info-label">ID Karyawan</div>
+                      <div className="profile-info-value">{profile.employee.employee_number || '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Telepon</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.phone || '-'}</div>
+                      <div className="profile-info-label">Telepon</div>
+                      <div className="profile-info-value">{profile.employee.phone || '-'}</div>
                     </div>
                   </div>
                   
                   <div className="info-grid-2">
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Jenis Kelamin</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500, textTransform: 'capitalize' }}>{profile.employee.gender || '-'}</div>
+                      <div className="profile-info-label">Jenis Kelamin</div>
+                      <div className="profile-info-value capitalize">{profile.employee.gender || '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Tanggal Lahir</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>
+                      <div className="profile-info-label">Tanggal Lahir</div>
+                      <div className="profile-info-value">
                         {formatDateIndo(profile.employee.birth_date)}
                       </div>
                     </div>
                   </div>
                   
                   <div>
-                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Alamat</div>
-                    <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.address || '-'}</div>
+                    <div className="profile-info-label">Alamat</div>
+                    <div className="profile-info-value">{profile.employee.address || '-'}</div>
                   </div>
 
                   <div className="info-grid-2">
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Departemen</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.department_name || '-'}</div>
+                      <div className="profile-info-label">Departemen</div>
+                      <div className="profile-info-value">{profile.employee.department_name || '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Jabatan</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.position_name || '-'}</div>
+                      <div className="profile-info-label">Jabatan</div>
+                      <div className="profile-info-value">{profile.employee.position_name || '-'}</div>
                     </div>
                   </div>
 
                   <div className="info-grid-2">
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Status Kepegawaian</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500, textTransform: 'capitalize' }}>{profile.employee.employment_status || '-'}</div>
+                      <div className="profile-info-label">Status Kepegawaian</div>
+                      <div className="profile-info-value capitalize">{profile.employee.employment_status || '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Tanggal Bergabung</div>
-                      <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>
+                      <div className="profile-info-label">Tanggal Bergabung</div>
+                      <div className="profile-info-value">
                         {formatDateIndo(profile.employee.join_date)}
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Manajer</div>
-                    <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 500 }}>{profile.employee.manager_name || '-'}</div>
+                    <div className="profile-info-label">Manajer</div>
+                    <div className="profile-info-value">{profile.employee.manager_name || '-'}</div>
                   </div>
                 </div>
               </div>

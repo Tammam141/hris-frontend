@@ -392,3 +392,59 @@
     width: 100%;
   }
 }
+
+.leave-form-group {
+  margin-bottom: 16px;
+}
+
+.leave-datepicker-wrapper {
+  position: relative;
+}
+
+.leave-datepicker-icon {
+  position: absolute;
+  right: 35px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #64748b;
+}
+
+.leave-textarea {
+  min-height: 100px;
+  resize: vertical;
+  margin-top: 8px;
+}
+
+.leave-upload-wrapper {
+  margin-top: 16px;
+}
+
+.leave-required-asterisk {
+  color: #dc2626;
+}
+
+.leave-optional-text {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.leave-upload-icon {
+  margin-bottom: 12px;
+}
+
+.leave-total-card {
+  background-color: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.leave-submit-btn {
+  width: 100%;
+  margin-top: 24px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+}

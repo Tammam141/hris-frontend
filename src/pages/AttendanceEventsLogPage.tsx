@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAttendanceEvents } from '../api/attendance';
-import { AttendanceEvent } from '../types/attendance';
+import { AttendanceEvent, GetAttendanceEventsParams } from '../types/attendance';
 import '../components/ui/dashboard.css';
+import '../components/ui/attendance.css';
 import { AlertModal } from '../components/ui/AlertModal';
 
 export function AttendanceEventsLogPage() {
@@ -22,7 +23,7 @@ export function AttendanceEventsLogPage() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const params: any = { page, limit: 20 };
+      const params: GetAttendanceEventsParams = { page, limit: 20 };
       if (onlyRejected) params.only_rejected = true;
       if (kind) params.kind = kind;
 
@@ -52,7 +53,7 @@ export function AttendanceEventsLogPage() {
         year: 'numeric', month: 'short', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       }).format(d);
-    } catch (e) {
+    } catch {
       return isoString;
     }
   };
@@ -78,7 +79,7 @@ export function AttendanceEventsLogPage() {
           <label className="form-label" style={{ marginBottom: '8px' }}>Filter Jenis</label>
           <select 
             className="input-field" 
-            style={{ width: '200px' }}
+            style={{ width: '260px' }}
             value={kind} 
             onChange={(e) => { setKind(e.target.value as any); setPage(1); }}
           >
@@ -101,13 +102,13 @@ export function AttendanceEventsLogPage() {
         </div>
       </div>
 
-      <div className="dashboard-card" style={{ padding: '0', overflowX: 'auto' }}>
+      <div className="attendance-table-wrapper" style={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Memuat log data...</div>
         ) : events.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Tidak ada rekaman absensi yang ditemukan.</div>
         ) : (
-          <table className="data-table">
+          <table className="attendance-table" style={{ margin: 0 }}>
             <thead>
               <tr>
                 <th>Karyawan</th>

@@ -1,13 +1,22 @@
 import { useMemo, useState } from 'react';
-import { Calendar, momentLocalizer, Views, ToolbarProps, Navigate } from 'react-big-calendar';
-import moment from 'moment';
-import 'moment/locale/id';
+import { Calendar, dateFnsLocalizer, Views, ToolbarProps, Navigate } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { id } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { LeaveRequest } from '../../api/leave';
 
 
-moment.locale('id');
-const localizer = momentLocalizer(moment);
+const locales = {
+  'id': id,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 interface LeaveCalendarProps {
   requests: LeaveRequest[];

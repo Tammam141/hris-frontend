@@ -187,24 +187,44 @@
 
 .attendance-history-title {
   font-size: 18px;
-  padding: 0 0 20px 0;
-  margin: 0;
+  margin: 0 0 20px 0;
   color: #0f172a;
-  border-bottom: 1px solid #e2e8f0;
   font-weight: 700;
   background-color: #ffffff;
 }
 
+.attendance-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.attendance-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
 .attendance-table th {
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
   padding: 16px 20px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
   color: #475569;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: left;
+  white-space: nowrap;
+}
+
+.attendance-table th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.attendance-table th:last-child {
+  border-top-right-radius: 8px;
 }
 
 .attendance-table td {
@@ -212,6 +232,11 @@
   border-bottom: 1px solid #e2e8f0;
   color: #334155;
   font-size: 14px;
+  text-align: left;
+}
+
+.attendance-table tbody tr:nth-child(even) td {
+  background-color: #f8fafc;
 }
 
 .attendance-table tr:hover td {
@@ -254,4 +279,186 @@
   .btn-check-in, .btn-check-out {
     width: 100%;
   }
+}
+
+.attendance-schedule-ranges-box {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #475569;
+  background-color: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.attendance-range-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.attendance-range-row.late-row {
+  margin-bottom: 8px;
+}
+
+.attendance-range-label.present {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.attendance-range-label.late {
+  font-weight: 600;
+  color: #ca8a04;
+}
+
+.attendance-range-footer {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.attendance-page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.attendance-offline-warning {
+  background-color: #fef9c3;
+  color: #854d0e;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #fde047;
+}
+
+
+.table-cell-date {
+  font-weight: 500;
+}
+
+.table-cell-late {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.table-cell-empty {
+  color: #94a3b8;
+}
+
+.note-empty {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.note-badge-offline {
+  font-size: 10px;
+  background-color: #e2e8f0;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.note-badge-corrected {
+  font-size: 10px;
+  background-color: #fef08a;
+  color: #854d0e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.note-text {
+  font-size: 13px;
+  color: #475569;
+}
+
+.table-cell-no-data {
+  text-align: center;
+  padding: 32px;
+}
+
+.log-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.log-header-title {
+  margin-bottom: 4px;
+}
+
+.log-header-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.log-row-rejected {
+  background-color: #fef2f2;
+}
+
+.log-row-default {
+  background-color: transparent;
+}
+
+.log-badge-checkin {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.log-badge-checkout {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.log-cell-time {
+  font-size: 13px;
+}
+
+.log-cell-source {
+  font-size: 12px;
+  text-transform: capitalize;
+  color: #64748b;
+}
+
+.log-cell-rejected {
+  font-size: 12px;
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.log-cell-accepted {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.log-cell-no-data {
+  text-align: center;
+  padding: 24px;
+  font-size: 13px;
+  color: #94a3b8;
 }

@@ -59,11 +59,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [isAuthenticated, dispatch, isConnected]);
 
-  useEffect(() => {
-    if (user?.must_change_password) {
-      setIsChangePasswordOpen(true);
-    }
-  }, [user]);
+
 
   function handleLogout() {
     logout();
@@ -75,7 +71,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // layout polos untuk guest atau force change password
   if (!isAuthenticated || location.pathname === '/force-change-password') {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+      <div className="app-guest-wrapper">
         <main>{children}</main>
       </div>
     );
@@ -83,10 +79,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   // layout utama
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+    <div className="app-main-container">
       {/* navbar */}
       <header className="app-navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="navbar-left">
           <button 
             className="hamburger-btn" 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -110,7 +106,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </button>
           </div>
 
-          <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="navbar-user">
             <span>Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
             <Avatar 
               photoUrl={user?.employee?.photo_url} 
@@ -119,7 +115,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               fontSize="14px"
             />
           </div>
-          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
+          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout btn-change-password">
             Ganti Password
           </button>
           <button onClick={handleLogout} className="btn-logout">
@@ -219,7 +215,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {isAttendanceOpen && (
                 <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance'].features}>
-                    <NavLink to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
+                    <NavLink end to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
                   </ShowIf>
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance/all'].features}>
                     <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>

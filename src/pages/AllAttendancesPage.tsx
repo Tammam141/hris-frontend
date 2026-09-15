@@ -57,8 +57,8 @@ export function AllAttendancesPage() {
         {isLoading ? (
           <p style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Memuat data...</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="attendance-table employee-table" style={{ width: '100%', minWidth: '800px' }}>
+          <div className="attendance-table-wrapper">
+            <table className="attendance-table">
               <thead>
                 <tr>
                   <th>Tanggal</th>

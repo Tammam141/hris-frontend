@@ -197,22 +197,8 @@ export async function cancelLeaveRequest(id: string): Promise<any> {
 export async function uploadLeaveAttachment(requestId: string, file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const token = localStorage.getItem('token');
-  const headers: HeadersInit = {
-    Authorization: `Bearer ${token}`
-  };
   
-  const response = await fetch(`/api/v1/leave-requests/${requestId}/attachments`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  const responseData = await response.json();
-  if (!response.ok) {
-    throw new Error(responseData.message || 'Gagal mengunggah foto');
-  }
-  return responseData;
+  return apiRequest(`/leave-requests/${requestId}/attachments`, 'POST', formData);
 }
 
 export async function getLeaveAttachments(requestId: string): Promise<{ data: LeaveAttachment[] }> {

@@ -151,13 +151,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       if (employmentStatus) payload.employment_status = employmentStatus;
 
       if (birthDate) payload.birth_date = birthDate;
-      if (address) payload.address = address;
+      payload.address = address || null;
       if (joinDate) payload.join_date = joinDate;
-      if (resignDate) payload.resign_date = resignDate;
+      payload.resign_date = resignDate || null;
 
-      if (departmentId) payload.department_id = departmentId;
-      if (positionId) payload.position_id = positionId;
-      if (managerId) payload.manager_id = managerId;
+      payload.department_id = departmentId || null;
+      payload.position_id = positionId || null;
+      payload.manager_id = managerId || null;
 
       await onSubmit(payload);
       onClose();
