@@ -53,7 +53,22 @@ export function EmployeeCreatePage() {
   const navigate = useNavigate();
 
   // ini array untuk form nya
-  const [forms, setForms] = useState<EmployeeFormState[]>([createEmptyForm()]);
+  const [forms, setForms] = useState<EmployeeFormState[]>(() => {
+    const savedForms = localStorage.getItem('employeeFormsDraft');
+    if (savedForms) {
+      try {
+        return JSON.parse(savedForms);
+      } catch (e) {
+        console.error("Gagal parse draft form dari localStorage", e);
+      }
+    }
+    return [createEmptyForm()];
+  });
+
+  // Simpan ke local storage setiap kali ada perubahan pada form
+  useEffect(() => {
+    localStorage.setItem('employeeFormsDraft', JSON.stringify(forms));
+  }, [forms]);
   
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -202,6 +217,7 @@ export function EmployeeCreatePage() {
 
       // Redirect setelah sukses (bisa menunggu user tutup modal, tapi kita redirect setelah beberapa detik atau biarkan user melihat dulu).
       // Lebih baik form dikosongkan jika user mau nambah lagi, atau arahkan kembali.
+      localStorage.removeItem('employeeFormsDraft');
       setForms([createEmptyForm()]);
       
     } catch (err: any) {
@@ -265,6 +281,14 @@ export function EmployeeCreatePage() {
   const getError = (index: number, field: string) => validationErrors[`${index}-${field}`];
   const getRowError = (index: number) => validationErrors[`${index}-row`];
 
+  const handleResetForm = () => {
+    if (window.confirm('Apakah Anda yakin ingin membersihkan semua data pada form ini? Data yang belum tersimpan akan hilang.')) {
+      localStorage.removeItem('employeeFormsDraft');
+      setForms([createEmptyForm()]);
+      setValidationErrors({});
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header-row create-employee-header">
@@ -275,7 +299,16 @@ export function EmployeeCreatePage() {
           <h1 className="dashboard-title">Tambah Karyawan Baru</h1>
           <p className="dashboard-subtitle">Anda dapat menambahkan banyak karyawan sekaligus.</p>
         </div>
-        <div className="create-employee-actions">
+        <div className="create-employee-actions" style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            type="button" 
+            className="btn" 
+            onClick={handleResetForm}
+            disabled={isSubmitting}
+            style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' }}
+          >
+            Bersihkan Form
+          </button>
           <button 
             type="button" 
             className="btn btn-secondary" 
