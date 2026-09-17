@@ -13,6 +13,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 
 export function EmployeePage() {
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
@@ -38,7 +40,10 @@ export function EmployeePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
 
-  // Delete State
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
+
+  // Status & Delete confirmState
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
 
@@ -119,11 +124,41 @@ export function EmployeePage() {
 
   async function handleModalSubmit(data: any) {
     if (selectedEmployee) {
-      await updateEmployee(selectedEmployee.id, data);
+      try {
+        await updateEmployee(selectedEmployee.id, { ...data, updated_at: selectedEmployee.updated_at });
+        setIsModalOpen(false);
+        loadEmployees();
+      } catch (err: any) {
+        if (isStaleData(err)) {
+          setStaleDetails(err.details);
+          setIsStaleModalOpen(true);
+        } else {
+          // It's possible that EmployeeModal catches general errors, but if STALE_DATA is thrown, we catch it here.
+          // Wait, if we throw it from EmployeeModal, we handle it here. 
+          // What if we just re-throw general error? Actually, EmployeeModal catches non-stale errors.
+          // So if we get here, it must be STALE_DATA, but just in case, we can set an alert.
+          setError(err.message || 'Gagal menyimpan data karyawan');
+        }
+      }
+    } else {
+      setIsModalOpen(false);
+      loadEmployees();
     }
-    setIsModalOpen(false);
-    loadEmployees();
   }
+
+  const handleStaleReload = async () => {
+    if (selectedEmployee) {
+      try {
+        const res = await getEmployeeDetail(selectedEmployee.id);
+        if (res.success) {
+          setSelectedEmployee(res.data);
+        }
+      } catch {
+        // Handle error
+      }
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function confirmToggleStatus(id: string, currentStatus: boolean, name: string) {
     setEmpToToggle({ id, currentStatus, name });
@@ -397,6 +432,13 @@ export function EmployeePage() {
         title="Informasi"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

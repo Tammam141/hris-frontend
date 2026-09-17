@@ -3,6 +3,8 @@ import { WorkSchedule } from '../../types/schedule';
 import { createScheduleApi, updateScheduleApi } from '../../api/schedule';
 import { getDepartments } from '../../api/department';
 import { XIcon } from '../../components/icons/XIcon';
+import { StaleDataModal } from '../../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../../utils/staleData';
 import '../employee/employee-modal.css';
 
 interface ScheduleFormModalProps {
@@ -16,6 +18,10 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
+  const [currentUpdatedAt, setCurrentUpdatedAt] = useState<string | undefined>(undefined);
   
   const isDefaultSchedule = schedule?.department_id === null && schedule?.id !== undefined;
 
@@ -40,6 +46,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     if (isOpen) {
       loadDepartments();
       if (schedule) {
+        setCurrentUpdatedAt(schedule.updated_at);
         setFormData({
           name: schedule.name,
           department_id: schedule.department_id || '',
@@ -143,17 +150,46 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
       };
 
       if (schedule?.id) {
-        await updateScheduleApi(schedule.id, payload);
+        await updateScheduleApi(schedule.id, { ...payload, updated_at: currentUpdatedAt });
       } else {
         await createScheduleApi(payload);
       }
       
       onSuccess();
     } catch (error: any) {
-      setErrorMsg(error.message || 'Gagal menyimpan jadwal kerja.');
+      if (isStaleData(error)) {
+        setStaleDetails(error.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setErrorMsg(error.message || 'Gagal menyimpan jadwal kerja.');
+      }
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as WorkSchedule;
+      setFormData({
+        name: current.name,
+        department_id: current.department_id || '',
+        start_time: current.start_time.substring(0, 5),
+        end_time: current.end_time.substring(0, 5),
+        late_tolerance_minutes: current.late_tolerance_minutes,
+        absent_cutoff_time: current.absent_cutoff_time.substring(0, 5),
+        works_monday: current.works_monday,
+        works_tuesday: current.works_tuesday,
+        works_wednesday: current.works_wednesday,
+        works_thursday: current.works_thursday,
+        works_friday: current.works_friday,
+        works_saturday: current.works_saturday,
+        works_sunday: current.works_sunday,
+        is_active: current.is_active,
+      });
+      setCurrentUpdatedAt(current.updated_at);
+    }
+    setIsStaleModalOpen(false);
   };
 
   if (!isOpen) return null;
@@ -307,6 +343,13 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           </form>
         </div>
       </div>
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
+      />
     </div>
   );
 }

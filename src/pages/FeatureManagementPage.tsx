@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { getFeatureMatrixApi, updatePositionFeaturesApi, FeatureMatrixResponse } from '../api/features';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css'; // Reuse table styles
 
 export function FeatureManagementPage() {
@@ -15,6 +17,9 @@ export function FeatureManagementPage() {
   // Modals
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
   const [confirmConfig, setConfirmConfig] = useState<{ open: boolean; positionId: string; positionName: string } | null>(null);
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   useEffect(() => {
     loadMatrix();
@@ -78,18 +83,29 @@ export function FeatureManagementPage() {
     const codes = Array.from(stagedFeatures[positionId] || []);
 
     try {
-      await updatePositionFeaturesApi(positionId, codes);
+      const pos = matrixData?.positions.find(p => p.id === positionId);
+      await updatePositionFeaturesApi(positionId, codes, pos?.updated_at);
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Fitur jabatan berhasil diperbarui.', type: 'success' });
     } catch (error: any) {
-      // Handle bad request with details.unknown_codes specifically if they exist
-      let msg = error.message || 'Gagal menyimpan fitur.';
-      if (error.details && error.details.unknown_codes) {
-        msg += ` Kode tidak dikenal: ${error.details.unknown_codes.join(', ')}`;
+      if (isStaleData(error)) {
+        setStaleDetails(error.details);
+        setIsStaleModalOpen(true);
+      } else {
+        // Handle bad request with details.unknown_codes specifically if they exist
+        let msg = error.message || 'Gagal menyimpan fitur.';
+        if (error.details && error.details.unknown_codes) {
+          msg += ` Kode tidak dikenal: ${error.details.unknown_codes.join(', ')}`;
+        }
+        setAlertInfo({ open: true, title: 'Gagal', message: msg, type: 'error' });
       }
-      setAlertInfo({ open: true, title: 'Gagal', message: msg, type: 'error' });
     } finally {
       setConfirmConfig(null);
     }
+  };
+
+  const handleStaleReload = () => {
+    setIsStaleModalOpen(false);
+    loadMatrix(); // Muat ulang matriks
   };
 
   if (isLoading) {
@@ -220,6 +236,13 @@ export function FeatureManagementPage() {
         type={alertInfo.type}
         message={alertInfo.message}
         onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+      />
+      
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

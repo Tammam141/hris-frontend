@@ -12,7 +12,7 @@ export async function getMeApi() {
   return apiRequest('/auth/me', 'GET');
 }
 
-export async function updateMeApi(data: { full_name?: string, phone?: string, birth_date?: string, address?: string }) {
+export async function updateMeApi(data: { full_name?: string, phone?: string, birth_date?: string, address?: string, updated_at?: string }) {
   return apiRequest('/auth/me', 'PATCH', data);
 }
 

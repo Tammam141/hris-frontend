@@ -14,6 +14,7 @@ export interface LeaveType {
   min_notice_days: number | null;
   gender_restriction: 'male' | 'female' | null;
   is_active: boolean;
+  updated_at?: string;
 }
 
 export interface LeaveRequestData {

@@ -162,9 +162,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       await onSubmit(payload);
       onClose();
     } catch (err: any) {
+      if (err.status === 409 && err.code === 'STALE_DATA') {
+        setLoading(false);
+        throw err;
+      }
       setError(err.message || 'Terjadi kesalahan saat menyimpan data');
     } finally {
-      setLoading(false);
+      if (loading) setLoading(false);
     }
   }
 

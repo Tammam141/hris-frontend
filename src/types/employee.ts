@@ -3,6 +3,7 @@ export interface Department {
   code: string;
   name: string;
   is_active: boolean;
+  updated_at?: string;
 }
 
 export interface Position {
@@ -11,6 +12,7 @@ export interface Position {
   name: string;
   level: number;
   is_active: boolean;
+  updated_at?: string;
 }
 
 export interface EmployeeListItem {
@@ -38,6 +40,7 @@ export interface EmployeeDetail extends EmployeeListItem {
   department_id: string | null;
   position_id: string | null;
   manager_id: string | null;
+  updated_at?: string;
 }
 
 export interface ListEmployeesResponse {
@@ -78,6 +81,7 @@ export interface CreateEmployeePayload {
 export interface UpdateEmployeePayload extends Partial<CreateEmployeePayload> {
   is_active?: boolean;
   resign_date?: string;
+  updated_at?: string;
 }
 
 export type CreateEmployeesBulkPayload = CreateEmployeePayload[];

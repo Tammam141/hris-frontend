@@ -7,6 +7,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 
 export function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -21,6 +23,9 @@ export function DepartmentPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -69,15 +74,30 @@ export function DepartmentPage() {
       if (modalMode === 'create') {
         await createDepartment({ code, name });
       } else if (selectedDept) {
-        await updateDepartment(selectedDept.id, { code, name });
+        await updateDepartment(selectedDept.id, { code, name, updated_at: selectedDept.updated_at });
       }
       setIsModalOpen(false);
       loadDepartments();
     } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyimpan departemen');
-      setAlertOpen(true);
+      if (isStaleData(err)) {
+        setStaleDetails(err.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertMessage(err.message || 'Gagal menyimpan departemen');
+        setAlertOpen(true);
+      }
     }
   }
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as Department;
+      setSelectedDept(current);
+      setCode(current.code);
+      setName(current.name);
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function handleDelete(dept: Department) {
     setDeptToDelete(dept);
@@ -196,6 +216,13 @@ export function DepartmentPage() {
         title="Peringatan"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

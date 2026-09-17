@@ -6,6 +6,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { parseISO, format } from 'date-fns';
 
 export function HolidayPage() {
@@ -28,6 +30,9 @@ export function HolidayPage() {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [isCollectiveLeave, setIsCollectiveLeave] = useState(false);
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -86,15 +91,32 @@ export function HolidayPage() {
       if (modalMode === 'create') {
         await createHoliday(payload);
       } else if (selectedHoliday) {
-        await updateHoliday(selectedHoliday.id, payload);
+        await updateHoliday(selectedHoliday.id, { ...payload, updated_at: selectedHoliday.updated_at });
       }
       setIsModalOpen(false);
       loadHolidays();
     } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyimpan hari libur');
-      setAlertOpen(true);
+      if (isStaleData(err)) {
+        setStaleDetails(err.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertMessage(err.message || 'Gagal menyimpan hari libur');
+        setAlertOpen(true);
+      }
     }
   }
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as Holiday;
+      setSelectedHoliday(current);
+      setName(current.name);
+      const dateStr = current.date || (current as any).holiday_date || '';
+      setDate(dateStr.substring(0, 10));
+      setIsCollectiveLeave(current.is_collective_leave);
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function handleDelete(holiday: Holiday) {
     setHolidayToDelete(holiday);
@@ -266,6 +288,13 @@ export function HolidayPage() {
         title="Peringatan"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

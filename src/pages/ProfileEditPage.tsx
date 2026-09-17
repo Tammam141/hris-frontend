@@ -5,6 +5,8 @@ import { updateMeApi, getMeApi, uploadMyPhotoApi, deleteMyPhotoApi } from '../ap
 import { AlertModal } from '../components/ui/AlertModal';
 import { Avatar } from '../components/ui/Avatar';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
@@ -24,6 +26,9 @@ export function ProfileEditPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Cleanup object URL
   useEffect(() => {
@@ -112,6 +117,7 @@ export function ProfileEditPage() {
         phone,
         birth_date: birthDate || undefined,
         address,
+        updated_at: user?.employee?.updated_at
       };
 
       await updateMeApi(dataToUpdate);
@@ -124,10 +130,31 @@ export function ProfileEditPage() {
 
       navigate('/dashboard');
     } catch (error: any) {
-      setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
+      if (isStaleData(error)) {
+        setStaleDetails(error.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
+      }
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleStaleReload = async () => {
+    try {
+      const res = await getMeApi();
+      if (res.success) {
+        refreshUser(res.data);
+        setFullName(res.data.employee?.full_name || res.data.full_name || '');
+        setPhone(res.data.employee?.phone || '');
+        setBirthDate(res.data.employee?.birth_date ? res.data.employee.birth_date.substring(0, 10) : '');
+        setAddress(res.data.employee?.address || '');
+      }
+    } catch {
+      // ignore
+    }
+    setIsStaleModalOpen(false);
   };
 
   return (
@@ -295,6 +322,13 @@ export function ProfileEditPage() {
         onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
       />
       
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
+      />
+
       <ConfirmModal
         isOpen={confirmDeletePhoto}
         title="Hapus Foto Profil"

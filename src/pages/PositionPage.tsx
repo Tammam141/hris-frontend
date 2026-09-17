@@ -7,6 +7,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 
 export function PositionPage() {
   const [positions, setPositions] = useState<Position[]>([]);
@@ -22,6 +24,9 @@ export function PositionPage() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [level, setLevel] = useState<number | ''>('');
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -73,15 +78,31 @@ export function PositionPage() {
       if (modalMode === 'create') {
         await createPosition(posData);
       } else if (selectedPos) {
-        await updatePosition(selectedPos.id, posData);
+        await updatePosition(selectedPos.id, { ...posData, updated_at: selectedPos.updated_at });
       }
       setIsModalOpen(false);
       loadPositions();
     } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyimpan jabatan');
-      setAlertOpen(true);
+      if (isStaleData(err)) {
+        setStaleDetails(err.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertMessage(err.message || 'Gagal menyimpan jabatan');
+        setAlertOpen(true);
+      }
     }
   }
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as Position;
+      setSelectedPos(current);
+      setCode(current.code);
+      setName(current.name);
+      setLevel(current.level);
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function handleDelete(pos: Position) {
     setPosToDelete(pos);
@@ -206,6 +227,13 @@ export function PositionPage() {
         title="Peringatan"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

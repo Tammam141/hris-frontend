@@ -6,6 +6,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
 
 export function LeaveTypePage() {
   const [types, setTypes] = useState<LeaveType[]>([]);
@@ -28,6 +30,9 @@ export function LeaveTypePage() {
   const [minNoticeDays, setMinNoticeDays] = useState<number | ''>('');
   const [genderRestriction, setGenderRestriction] = useState<'male' | 'female' | ''>('');
   const [isActive, setIsActive] = useState(true);
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -108,15 +113,38 @@ export function LeaveTypePage() {
       if (modalMode === 'create') {
         await createLeaveType(payload);
       } else if (selectedType) {
-        await updateLeaveType(selectedType.id, payload);
+        await updateLeaveType(selectedType.id, { ...payload, updated_at: selectedType.updated_at });
       }
       setIsModalOpen(false);
       loadTypes();
     } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyimpan jenis cuti');
-      setAlertOpen(true);
+      if (isStaleData(err)) {
+        setStaleDetails(err.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertMessage(err.message || 'Gagal menyimpan jenis cuti');
+        setAlertOpen(true);
+      }
     }
   }
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as LeaveType;
+      setSelectedType(current);
+      setCode(current.code);
+      setName(current.name);
+      setDefaultQuota(current.default_quota);
+      setDeductsBalance(current.deducts_balance);
+      setRequiresAttachment(current.requires_attachment);
+      setAttachmentRequiredAfter(current.attachment_required_after ?? '');
+      setMaxDaysPerRequest(current.max_days_per_request ?? '');
+      setMinNoticeDays(current.min_notice_days ?? '');
+      setGenderRestriction(current.gender_restriction ?? '');
+      setIsActive(current.is_active);
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function handleDelete(type: LeaveType) {
     setTypeToDelete(type);
@@ -146,15 +174,20 @@ export function LeaveTypePage() {
   async function handleDeactivate() {
     if (typeToDelete) {
       try {
-        await updateLeaveType(typeToDelete.id, { is_active: false });
+        await updateLeaveType(typeToDelete.id, { is_active: false, updated_at: typeToDelete.updated_at });
         setSuggestDeactivateOpen(false);
         setTypeToDelete(null);
         loadTypes();
         setAlertMessage('Jenis cuti berhasil dinonaktifkan.');
         setAlertOpen(true);
       } catch (err: any) {
-        setAlertMessage(err.message || 'Gagal menonaktifkan jenis cuti');
-        setAlertOpen(true);
+        if (isStaleData(err)) {
+          setStaleDetails(err.details);
+          setIsStaleModalOpen(true);
+        } else {
+          setAlertMessage(err.message || 'Gagal menonaktifkan jenis cuti');
+          setAlertOpen(true);
+        }
       }
     }
   }
@@ -342,6 +375,13 @@ export function LeaveTypePage() {
         title="Peringatan"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );
