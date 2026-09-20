@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getFeatureMatrixApi, updatePositionFeaturesApi, FeatureMatrixResponse } from '../api/features';
+import { getMeApi } from '../api/auth';
+import { useAuth } from '../hooks/useAuth';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
@@ -7,6 +9,7 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css'; // Reuse table styles
 
 export function FeatureManagementPage() {
+  const { refreshUser } = useAuth();
   const [matrixData, setMatrixData] = useState<FeatureMatrixResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -84,7 +87,24 @@ export function FeatureManagementPage() {
 
     try {
       const pos = matrixData?.positions.find(p => p.id === positionId);
-      await updatePositionFeaturesApi(positionId, codes, pos?.updated_at);
+      const res = await updatePositionFeaturesApi(positionId, codes, pos?.updated_at || '');
+      
+      // Perbarui updated_at jabatan itu di state dari respons backend
+      setMatrixData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          positions: prev.positions.map(p =>
+            p.id === positionId ? { ...p, updated_at: res.data?.updated_at || p.updated_at } : p
+          ),
+        };
+      });
+      
+      // Segarkan konteks user login jika ternyata jabatannya sendiri yang diubah,
+      // agar menu/tombol fitur langsung muncul tanpa harus reload halaman.
+      const meRes = await getMeApi();
+      if (meRes.success) refreshUser(meRes.data);
+
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Fitur jabatan berhasil diperbarui.', type: 'success' });
     } catch (error: any) {
       if (isStaleData(error)) {

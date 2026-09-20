@@ -163,7 +163,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
             break;
           }
         }
-      } catch (err) {}
+      } catch {}
 
       if (hasOverlap) {
         setAlertType('error');
@@ -184,7 +184,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           if (isDateAvailable(d)) count++;
         });
         setTotalDays(count);
-      } catch (err) {
+      } catch {
         setTotalDays(0);
       }
     } else {
@@ -300,13 +300,13 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       handleFileSelect(null);
       fetchInitialData();
       if (onSuccess) onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlertType('error');
       // Handle Specific Backend Errors
-      if (err.status === 409 && err.details?.conflicting_request_id) {
+      if ((err as any)?.status === 409 && (err as any)?.details?.conflicting_request_id) {
         setAlertMessage(`Tanggal yang Anda pilih bertabrakan dengan pengajuan cuti Anda yang lain.`);
       } else {
-        setAlertMessage(err.message || 'Gagal mengajukan cuti.');
+        setAlertMessage((err as any)?.message || 'Gagal mengajukan cuti.');
       }
       setIsAlertOpen(true);
     } finally {

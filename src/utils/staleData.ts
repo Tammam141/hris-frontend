@@ -9,6 +9,9 @@ export interface StaleDataDetails {
   } | null;
 }
 
+/**
+ * Cek error STALE_DATA (409) dan jadikan Type Guard untuk objek `err.details`.
+ */
 export function isStaleData(err: unknown): err is ApiError & { details: StaleDataDetails } {
   if (typeof err === 'object' && err !== null) {
     const apiErr = err as any;

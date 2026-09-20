@@ -57,7 +57,7 @@ export function useNotificationSocket(isAuthenticated: boolean) {
           } else if (msg.event === 'notification.cleared' && Array.isArray(msg.ids)) {
             dispatch(removeNotifications(msg.ids));
           }
-        } catch (err) {
+        } catch {
           // Abaikan jika pesan yang dikirim server berantakan (bukan JSON valid)
           console.warn('[WebSocket] Pesan masuk gagal di-parse, panjang:', String(event.data).length);
         }

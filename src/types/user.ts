@@ -27,6 +27,6 @@ export interface User {
     address?: string | null;
     photo_path?: string | null;
     photo_url?: string | null;
-    updated_at?: string;
+    updated_at: string;
   } | null;
 }

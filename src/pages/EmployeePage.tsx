@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, deleteEmployee, getEmployeeDetail, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
+import { ShowIf } from '../components/ShowIf';
 import { getPositions } from '../api/position';
 import { setUserActive } from '../api/user';
 import { EmployeeListItem, Department, Position, EmployeeDetail } from '../types/employee';
@@ -264,22 +265,24 @@ export function EmployeePage() {
         </div>
 
         {/* Tombol Aksi: Upload CSV & Tambah Karyawan (di bawah form pencarian) */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <button 
-            type="button" 
-            className="btn btn-secondary" 
-            onClick={() => navigate('/employee/import-csv')}
-          >
-            Upload Karyawan by CSV
-          </button>
-          <button 
-            type="button" 
-            className="btn btn-primary btn-success" 
-            onClick={() => navigate('/employee/create')}
-          >
-            + Tambah Karyawan
-          </button>
-        </div>
+        <ShowIf feature="employee.create">
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => navigate('/employee/import-csv')}
+            >
+              Upload Karyawan by CSV
+            </button>
+            <button 
+              type="button" 
+              className="btn btn-primary btn-success" 
+              onClick={() => navigate('/employee/create')}
+            >
+              + Tambah Karyawan
+            </button>
+          </div>
+        </ShowIf>
 
         {/* Tabel Karyawan */}
         <div className="employee-table-wrapper">

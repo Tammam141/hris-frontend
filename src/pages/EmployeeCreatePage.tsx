@@ -87,16 +87,32 @@ export function EmployeeCreatePage() {
     async function loadReferences() {
       setLoading(true);
       try {
-        const [depRes, posRes, empRes] = await Promise.all([
+        const results = await Promise.allSettled([
           getDepartments(),
           getPositions(),
           getEmployees({ limit: 100 }) // Ambil untuk daftar manajer
         ]);
-        if (depRes.success) setDepartments(depRes.data);
-        if (posRes.success) setPositions(posRes.data);
-        if (empRes.success) setManagers(empRes.data);
+        
+        const depRes = results[0];
+        const posRes = results[1];
+        const empRes = results[2];
+
+        if (depRes.status === 'fulfilled' && depRes.value.success) {
+          setDepartments(depRes.value.data);
+        }
+        if (posRes.status === 'fulfilled' && posRes.value.success) {
+          setPositions(posRes.value.data);
+        }
+        
+        if (empRes.status === 'fulfilled' && empRes.value.success) {
+          setManagers(empRes.value.data);
+        } else {
+          // Gagal memuat daftar karyawan (mungkin karena tidak punya izin employee.view_all)
+          // Kita sembunyikan dropdown atasan dan beri keterangan
+          setManagers([]);
+        }
       } catch (err: any) {
-        setAlertInfo({ open: true, title: 'Error', message: err.message || 'Gagal memuat referensi data', type: 'error' });
+        setAlertInfo({ open: true, title: 'Error', message: (err as any)?.message || 'Gagal memuat referensi data', type: 'error' });
       } finally {
         setLoading(false);
       }
@@ -425,10 +441,16 @@ export function EmployeeCreatePage() {
                   </div>
                   <div>
                     <label className="form-label">Manajer Atasan (Opsional)</label>
-                    <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
-                      <option value="">-- Pilih Manajer --</option>
-                      {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
-                    </select>
+                    {managers.length > 0 ? (
+                      <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
+                        <option value="">-- Pilih Manajer --</option>
+                        {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
+                      </select>
+                    ) : (
+                      <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: '#f8fafc', color: '#64748b', fontSize: '13px', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>
+                        Atasan dapat diisi kemudian oleh admin.
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="form-label">Status Kepegawaian</label>

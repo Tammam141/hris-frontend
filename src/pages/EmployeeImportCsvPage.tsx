@@ -66,26 +66,33 @@ export function EmployeeImportCsvPage() {
         if (posRes.success) setPositionList(posRes.data);
 
         // Fetch all employees for manager list concurrently
-        const firstPageRes = await getEmployees({ limit: 100, page: 1 });
-        if (firstPageRes.success) {
-          let allEmployees = [...firstPageRes.data];
-          const totalPages = firstPageRes.meta.total_pages || 1;
-          
-          if (totalPages > 1) {
-            const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) => 
-              getEmployees({ limit: 100, page: i + 2 })
-            );
-            const otherPagesRes = await Promise.all(pagePromises);
-            otherPagesRes.forEach(res => {
-              if (res.success) {
-                allEmployees = [...allEmployees, ...res.data];
-              }
-            });
+        try {
+          const firstPageRes = await getEmployees({ limit: 100, page: 1 });
+          if (firstPageRes.success) {
+            let allEmployees = [...firstPageRes.data];
+            const totalPages = firstPageRes.meta.total_pages || 1;
+            
+            if (totalPages > 1) {
+              const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) => 
+                getEmployees({ limit: 100, page: i + 2 })
+              );
+              const otherPagesRes = await Promise.allSettled(pagePromises);
+              otherPagesRes.forEach(res => {
+                if (res.status === 'fulfilled' && res.value.success) {
+                  allEmployees = [...allEmployees, ...res.value.data];
+                }
+              });
+            }
+            setManagerList(allEmployees);
           }
-          setManagerList(allEmployees);
+        } catch {
+          // Gagal fetch manager (misal tidak ada izin employee.view_all)
+          // Biarkan list manager kosong
+          setManagerList([]);
         }
       } catch (err: any) {
         console.error('Gagal memuat referensi data:', err);
+        setAlertInfo({ open: true, title: 'Error', message: (err as any)?.message || 'Gagal memuat referensi data', type: 'error' });
       } finally {
         setIsLoadingRefs(false);
       }

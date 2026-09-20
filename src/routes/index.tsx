@@ -26,6 +26,7 @@ import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage';
 import { AttendancePage } from '../pages/AttendancePage';
 import { AllAttendancesPage } from '../pages/AllAttendancesPage';
+import { TeamAttendancePage } from '../pages/TeamAttendancePage';
 import { AttendanceEventsLogPage } from '../pages/AttendanceEventsLogPage';
 import { NotificationPage } from '../pages/NotificationPage';
 
@@ -115,6 +116,10 @@ export function AppRoutes() {
           
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/all']} />}>
             <Route path="/attendance/all" element={<AllAttendancesPage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/team']} />}>
+            <Route path="/attendance/team" element={<TeamAttendancePage />} />
           </Route>
           
           <Route element={<FeatureProtectedRoute rule={{ features: ['attendance.report'] }} />}>

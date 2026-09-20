@@ -16,7 +16,7 @@ export interface Attendance {
   check_in_source?: 'online' | 'offline_sync' | 'system' | 'correction';
   check_out_source?: 'online' | 'offline_sync' | 'system' | 'correction';
   created_at?: string;
-  updated_at?: string;
+  updated_at: string;
   
   employee_name?: string;
   employee_number?: string;

@@ -29,6 +29,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // State untuk dropdown master data
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [isEmployeeMenuOpen, setIsEmployeeMenuOpen] = useState(false);
 
   // Notifikasi dari Redux
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
@@ -140,9 +141,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </ShowIf>
 
             <ShowIf feature={ROUTE_PERMISSIONS['/employee'].features}>
-              <NavLink to="/employee" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UsersIcon /> Employee
-              </NavLink>
+              <div className="sidebar-dropdown-container">
+                <button 
+                  className="sidebar-link" 
+                  onClick={() => setIsEmployeeMenuOpen(!isEmployeeMenuOpen)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', color: '#1e293b' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><UsersIcon /> Karyawan</span>
+                  <span style={{ transform: isEmployeeMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '12px' }}>▼</span>
+                </button>
+                {isEmployeeMenuOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/employee'].features}>
+                      <NavLink to="/employee" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Daftar Karyawan</NavLink>
+                    </ShowIf>
+                    <ShowIf feature="employee.create">
+                      <NavLink to="/employee/create" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Tambah Karyawan</NavLink>
+                    </ShowIf>
+                    <ShowIf feature="employee.create">
+                      <NavLink to="/employee/import-csv" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Impor CSV</NavLink>
+                    </ShowIf>
+                  </div>
+                )}
+              </div>
             </ShowIf>
 
             <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>
@@ -216,6 +237,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance'].features}>
                     <NavLink end to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
+                  </ShowIf>
+                  <ShowIf feature="attendance.view_team">
+                    <NavLink to="/attendance/team" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Tim</NavLink>
                   </ShowIf>
                   <ShowIf feature={ROUTE_PERMISSIONS['/attendance/all'].features}>
                     <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>

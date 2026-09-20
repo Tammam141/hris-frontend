@@ -79,8 +79,8 @@ export function ProfileEditPage() {
       setPhotoPreview(null);
       setPhotoFile(null);
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil diperbarui', type: 'success' });
-    } catch (error: any) {
-      setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal mengunggah foto.', type: 'error' });
+    } catch (error: unknown) {
+      setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal mengunggah foto.', type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -99,8 +99,8 @@ export function ProfileEditPage() {
       }
       
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil dihapus', type: 'success' });
-    } catch (error: any) {
-      setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal menghapus foto.', type: 'error' });
+    } catch (error: unknown) {
+      setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal menghapus foto.', type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -117,7 +117,7 @@ export function ProfileEditPage() {
         phone,
         birth_date: birthDate || undefined,
         address,
-        updated_at: user?.employee?.updated_at
+        updated_at: user?.employee?.updated_at || ''
       };
 
       await updateMeApi(dataToUpdate);
@@ -129,12 +129,12 @@ export function ProfileEditPage() {
       }
 
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isStaleData(error)) {
         setStaleDetails(error.details);
         setIsStaleModalOpen(true);
       } else {
-        setAlertInfo({ open: true, title: 'Gagal', message: error.message || 'Gagal memperbarui profil.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal memperbarui profil.', type: 'error' });
       }
     } finally {
       setIsSubmitting(false);
