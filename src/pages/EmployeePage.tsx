@@ -5,6 +5,7 @@ import { getDepartments } from '../api/department';
 import { ShowIf } from '../components/ShowIf';
 import { getPositions } from '../api/position';
 import { setUserActive } from '../api/user';
+import { useAuth } from '../hooks/useAuth';
 import { EmployeeListItem, Department, Position, EmployeeDetail } from '../types/employee';
 import { EmployeeModal } from '../features/employee/EmployeeModal';
 import { EditIcon } from '../components/icons/EditIcon';
@@ -19,6 +20,9 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
 
 export function EmployeePage() {
+  const { hasFeature } = useAuth();
+  const bisaAksi = hasFeature('employee.update') || hasFeature('employee.delete');
+
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -304,19 +308,19 @@ export function EmployeePage() {
                 <th>JABATAN</th>
                 <th>MANAJER</th>
                 <th>STATUS</th>
-                <th className="text-center">AKSI</th>
+                {bisaAksi && <th className="text-center">AKSI</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
                     Tidak ada data karyawan ditemukan.
                   </td>
                 </tr>
