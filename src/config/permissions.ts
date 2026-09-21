@@ -22,7 +22,9 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/attendance': {}, // Semua bisa akses
   '/attendance/team': { features: ['attendance.view_team'] },
   '/attendance/all': { features: ['attendance.view_all'] },
-  '/attendance/report': { features: ['attendance.report'] },
+  '/attendance/events': { features: ['attendance.report'] },
+  '/employee/import-csv': { features: ['employee.create'] },
+  '/activity-logs': { features: ['system.view_log'] },
 };
 
 export function hasRouteAccess(

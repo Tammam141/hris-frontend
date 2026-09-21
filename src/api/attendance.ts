@@ -77,7 +77,7 @@ export interface CorrectAttendancePayload {
   check_in_at?: string;
   check_out_at?: string;
   reason: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 // Fungsi mengeksekusi koreksi absensi (khusus HR/Admin)

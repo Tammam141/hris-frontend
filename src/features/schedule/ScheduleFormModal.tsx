@@ -6,6 +6,7 @@ import { XIcon } from '../../components/icons/XIcon';
 import { StaleDataModal } from '../../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../../utils/staleData';
 import '../employee/employee-modal.css';
+import { ApiError } from '../../api/client';
 
 interface ScheduleFormModalProps {
   isOpen: boolean;
@@ -156,7 +157,8 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
       }
       
       onSuccess();
-    } catch (error: any) {
+    } catch (e: any) {
+      const error = e as ApiError;
       if (isStaleData(error)) {
         setStaleDetails(error.details);
         setIsStaleModalOpen(true);

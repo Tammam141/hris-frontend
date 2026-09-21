@@ -16,6 +16,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { ApiError } from '../api/client';
 
 export function EmployeePage() {
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
@@ -66,7 +67,8 @@ export function EmployeePage() {
         ]);
         if (depRes.success) setDepartments(depRes.data);
         if (posRes.success) setPositions(posRes.data);
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setError(err.message || 'Gagal memuat data referensi');
       }
     }
@@ -89,7 +91,8 @@ export function EmployeePage() {
         setTotal(res.meta.total);
         setTotalPages(res.meta.total_pages || 1);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data karyawan');
     } finally {
       setLoading(false);
@@ -116,7 +119,8 @@ export function EmployeePage() {
         setSelectedEmployee(res.data);
         setIsModalOpen(true);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat detail karyawan');
     } finally {
       setLoading(false);
@@ -129,7 +133,8 @@ export function EmployeePage() {
         await updateEmployee(selectedEmployee.id, { ...data, updated_at: selectedEmployee.updated_at });
         setIsModalOpen(false);
         loadEmployees();
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         if (isStaleData(err)) {
           setStaleDetails(err.details);
           setIsStaleModalOpen(true);
@@ -173,7 +178,8 @@ export function EmployeePage() {
     try {
       await setUserActive(empToToggle.id, !empToToggle.currentStatus);
       loadEmployees();
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setAlertMessage(err.message || 'Gagal mengubah status pengguna');
       setAlertOpen(true);
     } finally {
@@ -193,7 +199,8 @@ export function EmployeePage() {
         loadEmployees();
         setIsDeleteConfirmOpen(false);
         setEmployeeToDelete(null);
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         if (err.details && err.details.subordinates) {
           setAlertMessage(

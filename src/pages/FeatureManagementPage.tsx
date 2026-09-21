@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css'; // Reuse table styles
+import { ApiError } from '../api/client';
 
 export function FeatureManagementPage() {
   const { refreshUser } = useAuth();
@@ -57,7 +58,8 @@ export function FeatureManagementPage() {
 
         setStagedFeatures(initialStaged);
       }
-    } catch (error: any) {
+    } catch (e: any) {
+      const error = e as ApiError;
       setAlertInfo({ open: true, title: 'Error', message: error.message || 'Gagal memuat matriks fitur', type: 'error' });
     } finally {
       setIsLoading(false);
@@ -87,7 +89,7 @@ export function FeatureManagementPage() {
 
     try {
       const pos = matrixData?.positions.find(p => p.id === positionId);
-      const res = await updatePositionFeaturesApi(positionId, codes, pos?.updated_at || '');
+      const res = await updatePositionFeaturesApi(positionId, codes, pos?.updated_at || undefined);
       
       // Perbarui updated_at jabatan itu di state dari respons backend
       setMatrixData(prev => {
@@ -106,7 +108,8 @@ export function FeatureManagementPage() {
       if (meRes.success) refreshUser(meRes.data);
 
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Fitur jabatan berhasil diperbarui.', type: 'success' });
-    } catch (error: any) {
+    } catch (e: any) {
+      const error = e as ApiError;
       if (isStaleData(error)) {
         setStaleDetails(error.details);
         setIsStaleModalOpen(true);

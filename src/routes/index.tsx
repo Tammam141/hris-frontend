@@ -29,6 +29,7 @@ import { AllAttendancesPage } from '../pages/AllAttendancesPage';
 import { TeamAttendancePage } from '../pages/TeamAttendancePage';
 import { AttendanceEventsLogPage } from '../pages/AttendanceEventsLogPage';
 import { NotificationPage } from '../pages/NotificationPage';
+import { ActivityLogPage } from '../pages/ActivityLogPage';
 
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
@@ -61,6 +62,9 @@ export function AppRoutes() {
           
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee/create']} />}>
             <Route path="/employee/create" element={<EmployeeCreatePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee/import-csv']} />}>
             <Route path="/employee/import-csv" element={<EmployeeImportCsvPage />} />
           </Route>
 
@@ -122,8 +126,12 @@ export function AppRoutes() {
             <Route path="/attendance/team" element={<TeamAttendancePage />} />
           </Route>
           
-          <Route element={<FeatureProtectedRoute rule={{ features: ['attendance.report'] }} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/events']} />}>
             <Route path="/attendance/events" element={<AttendanceEventsLogPage />} />
+          </Route>
+
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/activity-logs']} />}>
+            <Route path="/activity-logs" element={<ActivityLogPage />} />
           </Route>
 
         </Route>

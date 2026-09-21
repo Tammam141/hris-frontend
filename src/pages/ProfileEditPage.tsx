@@ -1,3 +1,4 @@
+import { ApiError } from '../api/client';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -79,8 +80,9 @@ export function ProfileEditPage() {
       setPhotoPreview(null);
       setPhotoFile(null);
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil diperbarui', type: 'success' });
-    } catch (error: unknown) {
-      setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal mengunggah foto.', type: 'error' });
+    } catch (error) {
+      const e = error as ApiError;
+      setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal mengunggah foto.', type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -99,8 +101,9 @@ export function ProfileEditPage() {
       }
       
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil dihapus', type: 'success' });
-    } catch (error: unknown) {
-      setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal menghapus foto.', type: 'error' });
+    } catch (error) {
+      const e = error as ApiError;
+      setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal menghapus foto.', type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -117,7 +120,7 @@ export function ProfileEditPage() {
         phone,
         birth_date: birthDate || undefined,
         address,
-        updated_at: user?.employee?.updated_at || ''
+        updated_at: user?.employee?.updated_at || undefined
       };
 
       await updateMeApi(dataToUpdate);
@@ -129,12 +132,13 @@ export function ProfileEditPage() {
       }
 
       navigate('/dashboard');
-    } catch (error: unknown) {
-      if (isStaleData(error)) {
-        setStaleDetails(error.details);
+    } catch (error) {
+      const e = error as ApiError;
+      if (isStaleData(e)) {
+        setStaleDetails(e.details);
         setIsStaleModalOpen(true);
       } else {
-        setAlertInfo({ open: true, title: 'Gagal', message: (error as any)?.message || 'Gagal memperbarui profil.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal memperbarui profil.', type: 'error' });
       }
     } finally {
       setIsSubmitting(false);

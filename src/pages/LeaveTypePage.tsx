@@ -8,6 +8,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { ApiError } from '../api/client';
 
 export function LeaveTypePage() {
   const [types, setTypes] = useState<LeaveType[]>([]);
@@ -55,7 +56,8 @@ export function LeaveTypePage() {
       if (res.data) {
         setTypes(res.data);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data jenis cuti');
     } finally {
       setLoading(false);
@@ -117,7 +119,8 @@ export function LeaveTypePage() {
       }
       setIsModalOpen(false);
       loadTypes();
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
@@ -158,7 +161,8 @@ export function LeaveTypePage() {
         setIsDeleteConfirmOpen(false);
         setTypeToDelete(null);
         loadTypes();
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         if (err.status === 400 && err.details?.leave_request_count) {
           setAlertMessage(`Jenis cuti "${typeToDelete.name}" tidak bisa dihapus karena sudah dipakai di ${err.details.leave_request_count} pengajuan cuti. Anda bisa menonaktifkannya agar tidak bisa dipilih lagi.`);
@@ -180,7 +184,8 @@ export function LeaveTypePage() {
         loadTypes();
         setAlertMessage('Jenis cuti berhasil dinonaktifkan.');
         setAlertOpen(true);
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         if (isStaleData(err)) {
           setStaleDetails(err.details);
           setIsStaleModalOpen(true);

@@ -40,6 +40,6 @@ export async function getPositionFeaturesApi(positionId: string) {
   return apiRequest(`/positions/${positionId}/features`, 'GET');
 }
 
-export async function updatePositionFeaturesApi(positionId: string, codes: string[], updated_at: string) {
+export async function updatePositionFeaturesApi(positionId: string, codes: string[], updated_at?: string) {
   return apiRequest(`/positions/${positionId}/features`, 'PUT', { codes, updated_at });
 }

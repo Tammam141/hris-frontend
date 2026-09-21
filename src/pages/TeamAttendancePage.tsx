@@ -1,3 +1,4 @@
+import { ApiError } from '../api/client';
 import { useState, useEffect } from 'react';
 import { getTeamAttendancesApi } from '../api/attendance';
 import { Attendance } from '../types/attendance';
@@ -11,19 +12,29 @@ export function TeamAttendancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalData, setTotalData] = useState(0);
+
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await getTeamAttendancesApi();
+      const res = await getTeamAttendancesApi({ page, limit: 20 });
       if (res.success) {
         setAttendances(res.data);
+        if (res.meta) {
+          setTotalPages(res.meta.total_pages || 1);
+          setTotalData(res.meta.total || 0);
+        }
       }
-    } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Error', message: (e as any)?.message || 'Gagal memuat data absensi tim.', type: 'error' });
+    } catch (error) {
+      const e = error as ApiError;
+      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi tim.', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -47,15 +58,30 @@ export function TeamAttendancePage() {
           <h1 className="dashboard-title">Absensi Tim (Manajer)</h1>
           <p className="dashboard-subtitle">Pantau riwayat kehadiran bawahan Anda.</p>
         </div>
-        <button onClick={loadData} className="btn btn-secondary" style={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '6px' }}>
+        <button onClick={loadData} className="btn btn-secondary" >
           Refresh
         </button>
       </div>
 
       <div className="attendance-history-card" style={{ marginTop: '24px' }}>
-        <h2 className="attendance-history-title">Data Absensi Tim</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 className="attendance-history-title">Data Absensi Tim</h2>
+          <span style={{ fontSize: '13px', color: '#64748b' }}>
+            Menampilkan {attendances.length} dari {totalData} data
+          </span>
+        </div>
+          <span style={{ fontSize: '13px', color: '#64748b' }}>
+            Menampilkan {attendances.length} dari {totalData} data
+          </span>
+        </div>
+          <span style={{ fontSize: '13px', color: '#64748b' }}>
+            Menampilkan {attendances.length} dari {totalData} data
+          </span>
+        </div>
         {isLoading ? (
-          <p style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Memuat data...</p>
+          <p className="table-cell-no-data">Memuat data...</p>
         ) : (
           <div className="attendance-table-wrapper">
             <table className="attendance-table">
@@ -73,7 +99,7 @@ export function TeamAttendancePage() {
               <tbody>
                 {attendances.map(row => (
                   <tr key={row.id}>
-                    <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{formatPlainDate(row.attendance_date)}</td>
+                    <td className="table-cell-date">{formatPlainDate(row.attendance_date)}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.employee_name || '-'}</div>
                       <div style={{ fontSize: '12px', color: '#64748b' }}>{row.position_name || '-'}</div>
@@ -85,29 +111,68 @@ export function TeamAttendancePage() {
                     <td>
                       {row.check_in_source === 'offline_sync' || row.check_out_source === 'offline_sync' ? (
                         <div>
-                          <span style={{ fontSize: '10px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Offline</span>
+                          <span className="note-badge-offline">Offline</span>
                           <br/>
-                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || '-'}</span>
+                          <span className="note-text">{row.note || '-'}</span>
                         </div>
                       ) : row.check_in_source === 'correction' || row.check_out_source === 'correction' ? (
                         <div>
-                          <span style={{ fontSize: '10px', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px', fontWeight: 600 }}>Dikoreksi</span>
+                          <span className="note-badge-corrected">Dikoreksi</span>
                           <br/>
-                          <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || '-'}</span>
+                          <span className="note-text">{row.note || '-'}</span>
                         </div>
                       ) : (
-                        <span style={{ fontSize: '13px', color: '#475569' }}>{row.note || <span style={{ color: '#cbd5e1' }}>-</span>}</span>
+                        <span className="note-text">{row.note || <span className="note-empty">-</span>}</span>
                       )}
                     </td>
                   </tr>
                 ))}
                 {attendances.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>Belum ada data absensi tim yang tercatat.</td>
+                    <td colSpan={7} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+            <button 
+              disabled={page === 1} 
+              onClick={() => setPage(p => p - 1)}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+            >
+              Prev
+            </button>
+            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
+            <button 
+              disabled={page === totalPages} 
+              onClick={() => setPage(p => p + 1)}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+            >
+              Next
+            </button>          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+            <button 
+              disabled={page === 1} 
+              onClick={() => setPage(p => p - 1)}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+            >
+              Prev
+            </button>
+            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
+            <button 
+              disabled={page === totalPages} 
+              onClick={() => setPage(p => p + 1)}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+            >
+              Next
+            </button>
           </div>
         )}
       </div>

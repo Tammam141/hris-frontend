@@ -9,6 +9,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { parseISO, format } from 'date-fns';
+import { ApiError } from '../api/client';
 
 export function HolidayPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -49,7 +50,8 @@ export function HolidayPage() {
         setHolidays(res.data);
         if (res.meta) setTotalPages(res.meta.total_pages || 1);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data hari libur');
     } finally {
       setLoading(false);
@@ -95,7 +97,8 @@ export function HolidayPage() {
       }
       setIsModalOpen(false);
       loadHolidays();
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
@@ -130,7 +133,8 @@ export function HolidayPage() {
         setIsDeleteConfirmOpen(false);
         setHolidayToDelete(null);
         loadHolidays();
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         setAlertMessage(err.message || 'Gagal menghapus hari libur');
         setAlertOpen(true);

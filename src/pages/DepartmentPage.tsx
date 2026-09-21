@@ -9,6 +9,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { ApiError } from '../api/client';
 
 export function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -45,7 +46,8 @@ export function DepartmentPage() {
       if (res.success) {
         setDepartments(res.data);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data departemen');
     } finally {
       setLoading(false);
@@ -78,7 +80,8 @@ export function DepartmentPage() {
       }
       setIsModalOpen(false);
       loadDepartments();
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
@@ -111,7 +114,8 @@ export function DepartmentPage() {
         setIsDeleteConfirmOpen(false);
         setDeptToDelete(null);
         loadDepartments();
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         if (err.details && (err.details as any).employee_count) {
           setAlertMessage(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);

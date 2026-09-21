@@ -140,7 +140,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <NavLink to="/dashboard" className="sidebar-link" onClick={() => setIsSidebarOpen(false)}>Dashboard</NavLink>
             </ShowIf>
 
-            <ShowIf feature={ROUTE_PERMISSIONS['/employee'].features}>
+            <ShowIf feature={['employee.view_all', 'employee.create']}>
               <div className="sidebar-dropdown-container">
                 <button 
                   className="sidebar-link" 
@@ -191,7 +191,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </ShowIf>
             
             {/* Master Data Cuti Dropdown - Kita asumsikan jika bisa lihat leave-types, maka bisa lihat dropdown ini */}
-            <ShowIf feature={ROUTE_PERMISSIONS['/leave-types'].features}>
+            <ShowIf feature={['leave.manage_type', 'organization.holiday', 'leave.adjust_balance']}>
               <div className="sidebar-dropdown-container">
                 <button 
                   className="sidebar-link" 
@@ -263,6 +263,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <UserCheckIcon /> Matriks Fitur
               </NavLink>
             )}
+
+            <ShowIf feature={ROUTE_PERMISSIONS['/activity-logs'].features}>
+              <NavLink to="/activity-logs" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BriefcaseIcon /> Log Aktivitas
+              </NavLink>
+            </ShowIf>
           </nav>
         </aside>
 
