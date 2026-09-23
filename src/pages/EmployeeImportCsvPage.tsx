@@ -11,6 +11,8 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 
+import { isRateLimited } from '../utils/rateLimit';
+
 interface CsvRow {
   full_name: string;
   email: string;
@@ -48,7 +50,7 @@ export function EmployeeImportCsvPage() {
 
   // Menyimpan error spesifik: format key `${rowIndex}-${fieldName}`
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' });
+  const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' | 'warning' });
   
   const [isConfirmProceedOpen, setIsConfirmProceedOpen] = useState(false);
   const [missingPosCountState, setMissingPosCountState] = useState(0);
@@ -65,13 +67,15 @@ export function EmployeeImportCsvPage() {
         if (depRes.success) setDepartmentList(depRes.data);
         if (posRes.success) setPositionList(posRes.data);
 
-        // Fetch all employees for manager list concurrently
+        // Rate Limit & Error Handling: Tangkap rejected promises (selain 403) dan tampilkan peringatan non-blokir dengan retryAfter
         try {
           const firstPageRes = await getEmployees({ limit: 100, page: 1 });
           if (firstPageRes.success) {
             let allEmployees = [...firstPageRes.data];
             const totalPages = firstPageRes.meta.total_pages || 1;
-            
+            let maxRetryAfter = 0;
+            let hasNon403Rejected = false;
+
             if (totalPages > 1) {
               const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) => 
                 getEmployees({ limit: 100, page: i + 2 })
@@ -80,15 +84,45 @@ export function EmployeeImportCsvPage() {
               otherPagesRes.forEach(res => {
                 if (res.status === 'fulfilled' && res.value.success) {
                   allEmployees = [...allEmployees, ...res.value.data];
+                } else if (res.status === 'rejected') {
+                  const errReason = res.reason;
+                  if (errReason?.status !== 403) {
+                    hasNon403Rejected = true;
+                    if (isRateLimited(errReason)) {
+                      maxRetryAfter = Math.max(maxRetryAfter, errReason.retryAfter);
+                    }
+                  }
                 }
               });
             }
+
+            if (hasNon403Rejected) {
+              const retryMsg = maxRetryAfter > 0
+                ? ` Muat ulang halaman ini dalam ${maxRetryAfter} detik.`
+                : ' Muat ulang halaman ini sebentar lagi.';
+              setAlertInfo({
+                open: true,
+                title: 'Peringatan Data Manajer',
+                message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
+                type: 'warning'
+              });
+            }
+
             setManagerList(allEmployees);
           }
-        } catch {
-          // Gagal fetch manager (misal tidak ada izin employee.view_all)
-          // Biarkan list manager kosong
+        } catch (err: any) {
           setManagerList([]);
+          if (err?.status !== 403) {
+            const retryMsg = isRateLimited(err)
+              ? ` Muat ulang halaman ini dalam ${err.retryAfter} detik.`
+              : ' Muat ulang halaman ini sebentar lagi.';
+            setAlertInfo({
+              open: true,
+              title: 'Peringatan Data Manajer',
+              message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
+              type: 'warning'
+            });
+          }
         }
       } catch (err: any) {
         console.error('Gagal memuat referensi data:', err);

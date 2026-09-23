@@ -11,6 +11,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import '../components/ui/create-employee.css';
 
+import { isRateLimited } from '../utils/rateLimit';
+
 interface EmployeeFormState {
   id: string; // Internal ID for React key
   full_name: string;
@@ -76,7 +78,7 @@ export function EmployeeCreatePage() {
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' });
+  const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' | 'warning' });
 
   // State untuk menyimpan error dari backend. 
   // Format key field error: `${rowIndex}-${fieldName}`
@@ -104,12 +106,60 @@ export function EmployeeCreatePage() {
           setPositions(posRes.value.data);
         }
         
+        // Rate Limit & Error Handling: Jika fetch manajer terhenti/gagal (selain 403), tampilkan peringatan non-blokir dengan retryAfter
         if (empRes.status === 'fulfilled' && empRes.value.success) {
-          setManagers(empRes.value.data);
+          let allEmployees = [...empRes.value.data];
+          const totalPages = empRes.value.meta?.total_pages || 1;
+          let maxRetryAfter = 0;
+          let hasNon403Rejected = false;
+
+          if (totalPages > 1) {
+            const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
+              getEmployees({ limit: 100, page: i + 2 })
+            );
+            const otherPagesRes = await Promise.allSettled(pagePromises);
+            otherPagesRes.forEach((res) => {
+              if (res.status === 'fulfilled' && res.value.success) {
+                allEmployees = [...allEmployees, ...res.value.data];
+              } else if (res.status === 'rejected') {
+                const errReason = res.reason;
+                if (errReason?.status !== 403) {
+                  hasNon403Rejected = true;
+                  if (isRateLimited(errReason)) {
+                    maxRetryAfter = Math.max(maxRetryAfter, errReason.retryAfter);
+                  }
+                }
+              }
+            });
+          }
+
+          if (hasNon403Rejected) {
+            const retryMsg = maxRetryAfter > 0
+              ? ` Muat ulang halaman ini dalam ${maxRetryAfter} detik.`
+              : ' Muat ulang halaman ini sebentar lagi.';
+            setAlertInfo({
+              open: true,
+              title: 'Peringatan Data Manajer',
+              message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
+              type: 'warning',
+            });
+          }
+
+          setManagers(allEmployees);
         } else {
-          // Gagal memuat daftar karyawan (mungkin karena tidak punya izin employee.view_all)
-          // Kita sembunyikan dropdown atasan dan beri keterangan
           setManagers([]);
+          const errReason = empRes.status === 'rejected' ? empRes.reason : null;
+          if (errReason && errReason?.status !== 403) {
+            const retryMsg = isRateLimited(errReason)
+              ? ` Muat ulang halaman ini dalam ${errReason.retryAfter} detik.`
+              : ' Muat ulang halaman ini sebentar lagi.';
+            setAlertInfo({
+              open: true,
+              title: 'Peringatan Data Manajer',
+              message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
+              type: 'warning',
+            });
+          }
         }
       } catch (err: any) {
         setAlertInfo({ open: true, title: 'Error', message: (err as any)?.message || 'Gagal memuat referensi data', type: 'error' });

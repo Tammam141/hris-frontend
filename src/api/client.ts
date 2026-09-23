@@ -6,6 +6,7 @@ export interface ApiError extends Error {
   details?: any;
   errors?: any;
   isNetworkError?: boolean;
+  retryAfter?: number;
 }
 
 const API_URL = '/api/v1';
@@ -72,6 +73,22 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     }
 
     if (!response.ok || (data.success !== undefined && !data.success)) {
+      // Rate Limit: Tangkap 429 RATE_LIMIT_EXCEEDED & baca header Retry-After untuk hitung mundur
+      if (data?.code === 'RATE_LIMIT_EXCEEDED') {
+        const retryHeader = response.headers ? response.headers.get('Retry-After') : null;
+        const parsed = retryHeader ? parseInt(retryHeader, 10) : NaN;
+        const retryAfter = !isNaN(parsed) && parsed > 0 ? parsed : 60;
+
+        const errorMsg = `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter} detik.`;
+        const error = new Error(errorMsg) as ApiError;
+        error.status = response.status || 429;
+        error.code = 'RATE_LIMIT_EXCEEDED';
+        error.retryAfter = retryAfter;
+        if (data?.details) error.details = data.details;
+        if (data?.errors) error.errors = data.errors;
+        throw error;
+      }
+
       let errorMsg = data?.message || 'Terjadi kesalahan pada server';
       
       // Parse array errors if available

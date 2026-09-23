@@ -6,7 +6,7 @@ interface AlertModalProps {
   title: string;
   message: React.ReactNode;
   onClose: () => void;
-  type?: 'error' | 'info' | 'success';
+  type?: 'error' | 'info' | 'success' | 'warning';
 }
 
 export function AlertModal({ isOpen, title, message, onClose, type = 'error' }: AlertModalProps) {
@@ -16,7 +16,7 @@ export function AlertModal({ isOpen, title, message, onClose, type = 'error' }: 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title" style={{ color: type === 'error' ? '#dc2626' : '#0f172a' }}>
+          <h2 className="modal-title" style={{ color: type === 'error' ? '#dc2626' : type === 'warning' ? '#d97706' : '#0f172a' }}>
             {title}
           </h2>
           <button className="modal-close-btn" onClick={onClose}>&times;</button>
