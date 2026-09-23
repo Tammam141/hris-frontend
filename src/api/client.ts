@@ -9,7 +9,8 @@ export interface ApiError extends Error {
   retryAfter?: number;
 }
 
-const API_URL = '/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_URL = API_BASE + '/api/v1';
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
   const token = localStorage.getItem('token');
