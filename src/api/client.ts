@@ -54,9 +54,10 @@ export async function apiRequest(endpoint: string, method: string, body?: object
       const text = await response.text();
       data = text ? JSON.parse(text) : {};
     } catch {
+      const fullUrl = API_URL + endpoint;
       const err = new Error(
         !response.ok
-          ? `Terjadi kesalahan pada server (Status: ${response.status}). Respons bukan JSON yang valid.`
+          ? `Terjadi kesalahan pada server (Status: ${response.status}) saat mengakses ${fullUrl}. Respons bukan JSON yang valid.`
           : 'Gagal memproses respons dari server'
       ) as ApiError;
       err.status = response.status;
