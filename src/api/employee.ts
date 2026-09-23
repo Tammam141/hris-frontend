@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, Department, Position, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();
@@ -22,9 +22,19 @@ export async function getEmployeeDetail(id: string): Promise<{ success: boolean;
 
 
 
-export async function createEmployee(data: CreateEmployeePayload): Promise<{ success: boolean; message: string }> {
-  const response = await apiRequest('/employees', 'POST', data);
-  return response as { success: boolean; message: string };
+export async function createEmployee(
+  data: CreateEmployeePayload | CreateEmployeePayload[] | Record<string, CreateEmployeePayload>
+): Promise<any> {
+  // 1. FE Validasi: Apakah data ini Single atau Multiple (Array atau Object ber-index "0")
+  const isMultiple = Array.isArray(data) || (typeof data === 'object' && data !== null && '0' in data);
+
+  // 2. Tentukan pengaturan berdasarkan hasil validasi
+  const config = isMultiple ? { timeout: 30000 } : undefined;
+
+  // 3. Eksekusi ke endpoint yang sama
+  const response = await apiRequest('/employees', 'POST', data, config);
+  
+  return response;
 }
 
 export async function updateEmployee(id: string, data: UpdateEmployeePayload): Promise<{ success: boolean; message: string }> {
@@ -34,5 +44,15 @@ export async function updateEmployee(id: string, data: UpdateEmployeePayload): P
 
 export async function deleteEmployee(id: string): Promise<{ success: boolean; message: string }> {
   const response = await apiRequest(`/employees/${id}`, 'DELETE');
+  return response as { success: boolean; message: string };
+}
+
+export async function uploadEmployeePhotoApi(id: string, data: FormData): Promise<{ success: boolean; message: string; data: any }> {
+  const response = await apiRequest(`/employees/${id}/photo`, 'POST', data);
+  return response as { success: boolean; message: string; data: any };
+}
+
+export async function deleteEmployeePhotoApi(id: string): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest(`/employees/${id}/photo`, 'DELETE');
   return response as { success: boolean; message: string };
 }

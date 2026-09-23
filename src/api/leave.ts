@@ -1,8 +1,6 @@
 import { apiRequest } from './client';
 
-// ============================================================
 // INTERFACES
-// ============================================================
 
 export interface LeaveType {
   id: string;
@@ -16,6 +14,7 @@ export interface LeaveType {
   min_notice_days: number | null;
   gender_restriction: 'male' | 'female' | null;
   is_active: boolean;
+  updated_at: string;
 }
 
 export interface LeaveRequestData {
@@ -72,9 +71,7 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
-// ============================================================
 // LEAVE TYPES — CRUD (HR/Admin bisa tulis, semua bisa baca)
-// ============================================================
 
 export async function getLeaveTypes(): Promise<{ data: LeaveType[] }> {
   return apiRequest('/leave-types', 'GET');
@@ -96,9 +93,7 @@ export async function deleteLeaveType(id: string): Promise<{ success: boolean; m
   return apiRequest(`/leave-types/${id}`, 'DELETE');
 }
 
-// ============================================================
 // LEAVE BALANCES
-// ============================================================
 
 export async function getMyLeaveBalances(periodYear?: number): Promise<{ data: { employee_id: string; period_year: number; balances: LeaveBalance[] } }> {
   const query = periodYear ? `?period_year=${periodYear}` : '';
@@ -125,12 +120,17 @@ export async function adjustBalance(data: {
   amount: number;
   reason: string;
 }): Promise<{ success: boolean; message: string }> {
-  return apiRequest('/leave-balances/adjustments', 'POST', data);
+  const payload = {
+    employee_id: data.employee_id,
+    leave_type_id: data.leave_type_id,
+    period_year: data.period_year,
+    amount: data.amount,
+    note: data.reason
+  };
+  return apiRequest('/leave-balances/adjustments', 'POST', payload);
 }
 
-// ============================================================
 // LEAVE REQUESTS — Pengajuan Cuti
-// ============================================================
 
 export async function createLeaveRequest(data: LeaveRequestData): Promise<{ data: LeaveRequest }> {
   return apiRequest('/leave-requests', 'POST', data);
@@ -166,9 +166,7 @@ export async function getAllLeaveRequests(params?: {
   return apiRequest(`/leave-requests${qs ? '?' + qs : ''}`, 'GET');
 }
 
-// ============================================================
 // LEAVE APPROVALS
-// ============================================================
 
 export async function getLeaveApprovals(params?: {
   status?: string;
@@ -195,29 +193,13 @@ export async function cancelLeaveRequest(id: string): Promise<any> {
   return apiRequest(`/leave-requests/${id}/cancel`, 'PATCH');
 }
 
-// ============================================================
 // ATTACHMENTS
-// ============================================================
 
 export async function uploadLeaveAttachment(requestId: string, file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const token = localStorage.getItem('token');
-  const headers: HeadersInit = {
-    Authorization: `Bearer ${token}`
-  };
   
-  const response = await fetch(`/api/v1/leave-requests/${requestId}/attachments`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  const responseData = await response.json();
-  if (!response.ok) {
-    throw new Error(responseData.message || 'Gagal mengunggah foto');
-  }
-  return responseData;
+  return apiRequest(`/leave-requests/${requestId}/attachments`, 'POST', formData);
 }
 
 export async function getLeaveAttachments(requestId: string): Promise<{ data: LeaveAttachment[] }> {

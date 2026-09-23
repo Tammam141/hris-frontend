@@ -1,53 +1,40 @@
-import { User } from '../types/user';
-
-// Konstanta Roles
-export const ROLES = {
-  ADMIN: 'admin',
-  HR: 'hr',
-  EMPLOYEE: 'employee',
-} as const;
-
-// Konstanta Positions
-export const POSITIONS = {
-  MANAGER: 'Manager',
-} as const;
-
 export interface AccessRule {
-  roles?: string[];
-  positions?: string[];
+  features?: string[];
+  adminOnly?: boolean;
 }
 
-// Konfigurasi sentral per-rute
+// Konfigurasi sentral per-rute berbasis fitur
 export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
-  '/dashboard': { roles: [ROLES.ADMIN, ROLES.HR, ROLES.EMPLOYEE] },
-  '/employee': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/department': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/position': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/approval': { roles: [ROLES.ADMIN] },
-  '/leave-management': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/leave-types': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/holidays': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/balance-adjustments': { roles: [ROLES.ADMIN, ROLES.HR] },
-  '/leave': { roles: [ROLES.ADMIN, ROLES.HR, ROLES.EMPLOYEE] },
+  '/dashboard': {}, // Semua bisa akses
+  '/employee': { features: ['employee.view_all'] },
+  '/employee/create': { features: ['employee.create'] },
+  '/department': { features: ['organization.manage'] },
+  '/position': { features: ['organization.manage'] },
+  '/approval': { features: ['employee.approve_user'] },
+  '/leave-management': {}, // Semua bisa login untuk melihat bawahan
+  '/leave-types': { features: ['leave.manage_type'] },
+  '/holidays': { features: ['organization.holiday'] },
+  '/balance-adjustments': { features: ['leave.adjust_balance'] },
+  '/leave': {}, // Semua bisa akses cuti sendiri
+  '/profile': {}, // Semua bisa edit profil sendiri
+  '/features': { adminOnly: true }, // Hanya admin
+  '/work-schedules': { features: ['organization.schedule'] },
+  '/attendance': {}, // Semua bisa akses
+  '/attendance/team': { features: ['attendance.view_team'] },
+  '/attendance/all': { features: ['attendance.view_all'] },
+  '/attendance/events': { features: ['attendance.report'] },
+  '/employee/import-csv': { features: ['employee.create'] },
+  '/activity-logs': { features: ['system.view_log'] },
 };
 
-/**
- * Fungsi bantuan untuk mengecek hak akses.
- * Jika salah satu kriteria (role atau posisi) terpenuhi, akses diberikan.
- */
-export function hasAccess(
-  userRole?: string,
-  userPosition?: string | null,
-  allowedRoles?: string[],
-  allowedPositions?: string[]
+export function hasRouteAccess(
+  hasFeature: (code: string) => boolean,
+  allowedFeatures?: string[]
 ): boolean {
-  // Jika tidak ada batasan yang diberikan, maka dianggap bebas akses
-  if ((!allowedRoles || allowedRoles.length === 0) && (!allowedPositions || allowedPositions.length === 0)) {
+  if (!allowedFeatures || allowedFeatures.length === 0) {
     return true;
   }
 
-  const hasRoleAccess = allowedRoles && userRole ? allowedRoles.includes(userRole) : false;
-  const hasPositionAccess = allowedPositions && userPosition ? allowedPositions.includes(userPosition) : false;
-
-  return hasRoleAccess || hasPositionAccess;
+  // Jika butuh salah satu dari allowedFeatures (OR condition)
+  return allowedFeatures.some(code => hasFeature(code));
 }

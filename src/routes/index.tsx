@@ -5,9 +5,12 @@ import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { ForceChangePasswordPage } from '../pages/ForceChangePasswordPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 import { EmployeePage } from '../pages/EmployeePage';
+import { EmployeeCreatePage } from '../pages/EmployeeCreatePage';
+import { EmployeeImportCsvPage } from '../pages/EmployeeImportCsvPage';
 import { LeavePage } from '../pages/LeavePage';
 import { DepartmentPage } from '../pages/DepartmentPage';
 import { PositionPage } from '../pages/PositionPage';
@@ -16,9 +19,20 @@ import { LeaveManagementPage } from '../pages/LeaveManagementPage';
 import { LeaveTypePage } from '../pages/LeaveTypePage';
 import { HolidayPage } from '../pages/HolidayPage';
 import { BalanceAdjustmentPage } from '../pages/BalanceAdjustmentPage';
+import { ProfileEditPage } from '../pages/ProfileEditPage';
+import { FeatureManagementPage } from '../pages/FeatureManagementPage';
 
-// RBAC
-import { RoleProtectedRoute } from './RoleProtectedRoute';
+// New Modules
+import { WorkScheduleManagementPage } from '../pages/WorkScheduleManagementPage';
+import { AttendancePage } from '../pages/AttendancePage';
+import { AllAttendancesPage } from '../pages/AllAttendancesPage';
+import { TeamAttendancePage } from '../pages/TeamAttendancePage';
+import { AttendanceEventsLogPage } from '../pages/AttendanceEventsLogPage';
+import { NotificationPage } from '../pages/NotificationPage';
+import { ActivityLogPage } from '../pages/ActivityLogPage';
+
+// Feature-based AC
+import { FeatureProtectedRoute } from './FeatureProtectedRoute';
 import { ROUTE_PERMISSIONS } from '../config/permissions';
 
 export function AppRoutes() {
@@ -35,44 +49,89 @@ export function AppRoutes() {
         {/* Semua rute di bawah ini wajib login */}
         <Route element={<ProtectedRoute />}>
           
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
+          <Route path="/force-change-password" element={<ForceChangePasswordPage />} />
+          <Route path="/notifications" element={<NotificationPage />} />
+
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/dashboard']} />}>
             <Route path="/dashboard" element={<DashboardPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee']} />}>
             <Route path="/employee" element={<EmployeePage />} />
           </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee/create']} />}>
+            <Route path="/employee/create" element={<EmployeeCreatePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/employee/import-csv']} />}>
+            <Route path="/employee/import-csv" element={<EmployeeImportCsvPage />} />
+          </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/department']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/department']} />}>
             <Route path="/department" element={<DepartmentPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/position']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/position']} />}>
             <Route path="/position" element={<PositionPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/approval']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/approval']} />}>
             <Route path="/approval" element={<ApprovalPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave-management']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave-management']} />}>
             <Route path="/leave-management" element={<LeaveManagementPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave-types']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave-types']} />}>
             <Route path="/leave-types" element={<LeaveTypePage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/holidays']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/holidays']} />}>
             <Route path="/holidays" element={<HolidayPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/balance-adjustments']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/balance-adjustments']} />}>
             <Route path="/balance-adjustments" element={<BalanceAdjustmentPage />} />
           </Route>
 
-          <Route element={<RoleProtectedRoute rule={ROUTE_PERMISSIONS['/leave']} />}>
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/leave']} />}>
             <Route path="/leave" element={<LeavePage />} />
+          </Route>
+
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/profile']} />}>
+            <Route path="/profile" element={<ProfileEditPage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/features']} />}>
+            <Route path="/features" element={<FeatureManagementPage />} />
+          </Route>
+          
+          {/* Work Schedules */}
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/work-schedules']} />}>
+            <Route path="/work-schedules" element={<WorkScheduleManagementPage />} />
+          </Route>
+
+          {/* Attendance */}
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance']} />}>
+            <Route path="/attendance" element={<AttendancePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/all']} />}>
+            <Route path="/attendance/all" element={<AllAttendancesPage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/team']} />}>
+            <Route path="/attendance/team" element={<TeamAttendancePage />} />
+          </Route>
+          
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/attendance/events']} />}>
+            <Route path="/attendance/events" element={<AttendanceEventsLogPage />} />
+          </Route>
+
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/activity-logs']} />}>
+            <Route path="/activity-logs" element={<ActivityLogPage />} />
           </Route>
 
         </Route>

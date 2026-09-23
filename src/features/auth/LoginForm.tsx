@@ -1,28 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
+import { isRateLimited } from '../../utils/rateLimit';
 import '../../components/ui/auth.css';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [errorObj, setErrorObj] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = location.state?.message;
 
+  // Rate Limit: Hitung mundur setiap 1 detik sampai tombol & form login aktif kembali
+  useEffect(() => {
+    let timer: number;
+    if (countdown > 0) {
+      timer = window.setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            setErrorMsg('');
+            setErrorObj(null);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [countdown]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setErrorMsg('');
+    setErrorObj(null);
 
     const cek = loginSchema.safeParse({ email, password });
     if (!cek.success) {
-      setError(cek.error.issues[0].message);
+      setErrorMsg(cek.error.issues[0].message);
       return;
     }
 
@@ -36,11 +60,23 @@ export function LoginForm() {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Gagal terhubung ke server');
+      // Rate Limit: Jika kena 429 RATE_LIMIT_EXCEEDED, mulai hitung mundur dari err.retryAfter
+      if (isRateLimited(err)) {
+        setCountdown(err.retryAfter);
+        setErrorMsg(`Terlalu banyak percobaan login. Coba lagi dalam ${err.retryAfter} detik.`);
+        setErrorObj(err);
+      } else {
+        setErrorMsg(err.message || 'Gagal terhubung ke server');
+        setErrorObj(err);
+      }
     } finally {
       setLoading(false);
     }
   }
+
+  const currentErrorMsg = countdown > 0
+    ? `Terlalu banyak percobaan login. Coba lagi dalam ${countdown} detik.`
+    : errorMsg;
 
   return (
     <div className="auth-page-container">
@@ -48,10 +84,11 @@ export function LoginForm() {
         <h2 className="ui-card-title">Login</h2>
 
         {successMessage && <div className="alert-success">{successMessage}</div>}
-        {error && (
+
+        {currentErrorMsg && (
           <div className="alert-error" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span>{error}</span>
-            {error.toLowerCase().includes('belum diverifikasi') && (
+            <span>{currentErrorMsg}</span>
+            {(errorObj?.details?.reason === 'email_not_verified' || (errorObj?.status === 401 && currentErrorMsg.toLowerCase().includes('not verified'))) && (
               <button 
                 type="button" 
                 className="btn btn-primary" 
@@ -73,7 +110,7 @@ export function LoginForm() {
             placeholder="Masukkan email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
+            disabled={loading || countdown > 0}
             required
           />
 
@@ -85,7 +122,7 @@ export function LoginForm() {
             placeholder="Masukkan password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
+            disabled={loading || countdown > 0}
             required
           />
 
@@ -95,8 +132,8 @@ export function LoginForm() {
             </Link>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Memproses...' : 'Login'}
+          <button type="submit" className="btn btn-primary" disabled={loading || countdown > 0}>
+            {loading ? 'Memproses...' : countdown > 0 ? `Coba lagi dalam ${countdown} detik` : 'Login'}
           </button>
         </form>
 

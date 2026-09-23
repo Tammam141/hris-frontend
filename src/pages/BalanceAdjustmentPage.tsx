@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getEmployees } from '../api/employee';
 import { getLeaveTypes, adjustBalance, getEmployeeBalance, LeaveType } from '../api/leave';
-import { Employee } from '../types/employee';
+import { EmployeeListItem } from '../types/employee';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
 
 export function BalanceAdjustmentPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   
   // Selection State
@@ -178,8 +178,8 @@ export function BalanceAdjustmentPage() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>
-              Simpan Penyesuaian
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }} disabled={isSubmitting}>
+              {isSubmitting ? 'Menyimpan...' : 'Simpan Penyesuaian'}
             </button>
           </form>
         </div>

@@ -1,0 +1,96 @@
+.create-employee-header {
+  margin-bottom: 24px;
+}
+
+.create-employee-back-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.create-employee-back-btn:hover {
+  color: #0f172a;
+}
+
+.create-employee-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.create-employee-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.create-employee-card {
+  background-color: white;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.create-employee-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 16px;
+}
+
+.create-employee-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+}
+
+.create-employee-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  color: white;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.create-employee-remove-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.create-employee-remove-btn:hover {
+  background-color: #fee2e2;
+}
+
+.create-employee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}

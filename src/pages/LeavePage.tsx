@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LeavePeriod } from '../features/leave/LeavePeriod';
 import { LeaveHistory } from '../features/leave/LeaveHistory';
 import { getMyLeaveBalances, LeaveBalance } from '../api/leave';
@@ -8,6 +8,7 @@ import '../components/ui/leave.css';
 export function LeavePage() {
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     getMyLeaveBalances()
@@ -18,7 +19,7 @@ export function LeavePage() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshKey]); // Juga di-refresh kalau ada pengajuan cuti baru!
 
   return (
     <div className="dashboard-container leave-page-container">
@@ -53,12 +54,12 @@ export function LeavePage() {
         <div className="leave-page-content">
           {/* Bagian Atas: Form Pengajuan */}
           <div>
-            <LeavePeriod />
+            <LeavePeriod onSuccess={() => setRefreshKey(k => k + 1)} />
           </div>
 
           {/* Bagian Bawah: Riwayat Pengajuan */}
           <div>
-            <LeaveHistory />
+            <LeaveHistory refreshKey={refreshKey} />
           </div>
         </div>
       </div>

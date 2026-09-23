@@ -157,19 +157,67 @@
 }
 
 @media (max-width: 480px) {
-
   /* Mobile Phones */
   .app-navbar {
-    flex-direction: row;
-    /* keep it row to show hamburger and brand */
-    justify-content: space-between;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     padding: 16px;
-    gap: 12px;
+    gap: 16px;
+  }
+
+  .app-navbar > div:first-child {
+    width: 100%;
+    /* Keep hamburger and brand together on the left */
   }
 
   .navbar-right {
     width: 100%;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
+
+  .navbar-user {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .notif-bell-wrapper {
+    align-self: flex-end;
+    margin-top: -54px; /* Pull bell up to the top row next to brand */
+  }
+
+  .btn-logout {
+    width: 100%;
+  }
+}
+
+.app-guest-wrapper {
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.app-main-container {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-change-password {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import '../components/ui/leavemanagement.css';
@@ -26,7 +26,7 @@ export function LeaveManagementPage() {
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({ isOpen: false, title: '', message: '', type: 'success' });
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
 
-  const fetchApprovals = () => {
+  const fetchApprovals = useCallback(() => {
     setIsLoading(true);
     getLeaveApprovals({ page, limit, status: statusFilter === 'all' ? undefined : statusFilter })
       .then(res => {
@@ -35,11 +35,11 @@ export function LeaveManagementPage() {
       })
       .catch(err => console.error(err))
       .finally(() => setIsLoading(false));
-  };
+  }, [page, limit, statusFilter]);
 
   useEffect(() => {
     fetchApprovals();
-  }, [page, statusFilter]);
+  }, [fetchApprovals]);
 
   const openConfirm = (id: string, action: 'approve' | 'reject', name: string) => {
     setConfirmModal({ isOpen: true, id, action, name });
@@ -125,7 +125,7 @@ export function LeaveManagementPage() {
           ))}
         </div>
 
-        <div className="table-container">
+        <div className="employee-table-wrapper">
           <table className="employee-table">
             <thead>
               <tr>

@@ -1,5 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import '../ui/layout.css';
 import { useAuth } from '../../hooks/useAuth';
 import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal';
@@ -8,8 +8,17 @@ import { CalendarWeekIcon } from '../icons/CalendarWeekIcon';
 import { BuildingIcon } from '../icons/BuildingIcon';
 import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
+import { ClockIcon } from '../icons/ClockIcon';
+import { BellIcon } from '../icons/BellIcon';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../store';
+import { setNotifications } from '../../store/notificationSlice';
+import { getNotifications } from '../../api/notification';
+import { useNotificationSocket } from '../../realtime/useNotificationSocket';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
+import { Avatar } from '../ui/Avatar';
+import '../ui/notification.css';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, isAuthenticated } = useAuth();
@@ -19,22 +28,51 @@ export function AppLayout({ children }: { children: ReactNode }) {
   
   // State untuk dropdown master data
   const [isMasterLeaveOpen, setIsMasterLeaveOpen] = useState(false);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [isEmployeeMenuOpen, setIsEmployeeMenuOpen] = useState(false);
 
+  // Notifikasi dari Redux
+  const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
+  const dispatch = useDispatch();
+
+  // WebSocket
+  const { isConnected } = useNotificationSocket(isAuthenticated);
+
+  // Polling Notifikasi (sebagai jaring pengaman)
   useEffect(() => {
-    if (user?.must_change_password) {
-      setIsChangePasswordOpen(true);
-    }
-  }, [user]);
+    if (!isAuthenticated) return;
+    const load = async () => {
+      try {
+        const res = await getNotifications({ limit: 20 });
+        if (res.success && res.data) {
+          dispatch(setNotifications({ items: res.data, unreadCount: res.meta.unread }));
+        }
+      } catch {
+        // Abaikan jika error
+      }
+    };
+    
+    // Ambil data setiap kali komponen dipasang ATAU status koneksi berubah
+    load();
+
+    const pollingInterval = isConnected ? 300000 : 60000;
+    const id = setInterval(load, pollingInterval);
+    return () => clearInterval(id);
+  }, [isAuthenticated, dispatch, isConnected]);
+
+
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
-  // layout polos untuk guest
-  if (!isAuthenticated) {
+  const location = useLocation();
+
+  // layout polos untuk guest atau force change password
+  if (!isAuthenticated || location.pathname === '/force-change-password') {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+      <div className="app-guest-wrapper">
         <main>{children}</main>
       </div>
     );
@@ -42,10 +80,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   // layout utama
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+    <div className="app-main-container">
       {/* navbar */}
       <header className="app-navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="navbar-left">
           <button 
             className="hamburger-btn" 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -55,10 +93,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="navbar-brand">HRIS</div>
         </div>
         <div className="navbar-right">
-          <span className="navbar-user">
-            <strong>{user?.full_name}</strong>
-          </span>
-          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
+          {/* Tombol Lonceng Notifikasi */}
+          <div className="notif-bell-wrapper">
+            <button 
+              className="notif-bell-btn" 
+              onClick={() => navigate('/notifications')}
+              title="Notifikasi"
+            >
+              <BellIcon size={22} />
+              {unreadCount > 0 && (
+                <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
+          </div>
+
+          <div className="navbar-user">
+            <span>Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
+            <Avatar 
+              photoUrl={user?.employee?.photo_url} 
+              name={user?.full_name || ''} 
+              size="36px" 
+              fontSize="14px"
+            />
+          </div>
+          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout btn-change-password">
             Ganti Password
           </button>
           <button onClick={handleLogout} className="btn-logout">
@@ -78,42 +136,62 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* sidebar */}
         <aside className={`app-sidebar ${isSidebarOpen ? 'open' : ''}`}>
           <nav className="sidebar-nav">
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/dashboard'].roles} allowedPositions={ROUTE_PERMISSIONS['/dashboard'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/dashboard'].features}>
               <NavLink to="/dashboard" className="sidebar-link" onClick={() => setIsSidebarOpen(false)}>Dashboard</NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/employee'].roles} allowedPositions={ROUTE_PERMISSIONS['/employee'].positions}>
-              <NavLink to="/employee" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UsersIcon /> Employee
-              </NavLink>
+            <ShowIf feature={['employee.view_all', 'employee.create']}>
+              <div className="sidebar-dropdown-container">
+                <button 
+                  className="sidebar-link" 
+                  onClick={() => setIsEmployeeMenuOpen(!isEmployeeMenuOpen)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', color: '#1e293b' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><UsersIcon /> Karyawan</span>
+                  <span style={{ transform: isEmployeeMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '12px' }}>▼</span>
+                </button>
+                {isEmployeeMenuOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/employee'].features}>
+                      <NavLink to="/employee" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Daftar Karyawan</NavLink>
+                    </ShowIf>
+                    <ShowIf feature="employee.create">
+                      <NavLink to="/employee/create" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Tambah Karyawan</NavLink>
+                    </ShowIf>
+                    <ShowIf feature="employee.create">
+                      <NavLink to="/employee/import-csv" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Impor CSV</NavLink>
+                    </ShowIf>
+                  </div>
+                )}
+              </div>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/department'].roles} allowedPositions={ROUTE_PERMISSIONS['/department'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>
               <NavLink to="/department" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BuildingIcon /> Department
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/position'].roles} allowedPositions={ROUTE_PERMISSIONS['/position'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/position'].features}>
               <NavLink to="/position" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BriefcaseIcon /> Position
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/approval'].roles} allowedPositions={ROUTE_PERMISSIONS['/approval'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/approval'].features}>
               <NavLink to="/approval" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserCheckIcon /> Persetujuan Akun
               </NavLink>
             </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-management'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-management'].positions}>
+            <ShowIf feature={ROUTE_PERMISSIONS['/leave-management'].features}>
               <NavLink to="/leave-management" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CalendarWeekIcon /> Persetujuan Cuti
               </NavLink>
             </ShowIf>
             
             {/* Master Data Cuti Dropdown - Kita asumsikan jika bisa lihat leave-types, maka bisa lihat dropdown ini */}
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-types'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-types'].positions}>
+            <ShowIf feature={['leave.manage_type', 'organization.holiday', 'leave.adjust_balance']}>
               <div className="sidebar-dropdown-container">
                 <button 
                   className="sidebar-link" 
@@ -125,23 +203,70 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
                 {isMasterLeaveOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave-types'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave-types'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/leave-types'].features}>
                       <NavLink to="/leave-types" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Jenis Cuti</NavLink>
                     </ShowIf>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/holidays'].roles} allowedPositions={ROUTE_PERMISSIONS['/holidays'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/holidays'].features}>
                       <NavLink to="/holidays" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Hari Libur</NavLink>
                     </ShowIf>
-                    <ShowIf allowedRoles={ROUTE_PERMISSIONS['/balance-adjustments'].roles} allowedPositions={ROUTE_PERMISSIONS['/balance-adjustments'].positions}>
+                    <ShowIf feature={ROUTE_PERMISSIONS['/balance-adjustments'].features}>
                       <NavLink to="/balance-adjustments" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Penyesuaian Saldo</NavLink>
                     </ShowIf>
                   </div>
                 )}
               </div>
             </ShowIf>
+            
+            <ShowIf feature={ROUTE_PERMISSIONS['/work-schedules'].features}>
+              <NavLink to="/work-schedules" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClockIcon /> Jadwal Kerja
+              </NavLink>
+            </ShowIf>
 
-            <ShowIf allowedRoles={ROUTE_PERMISSIONS['/leave'].roles} allowedPositions={ROUTE_PERMISSIONS['/leave'].positions}>
+            {/* Attendance Module */}
+            <div className="sidebar-dropdown-container">
+              <button 
+                className="sidebar-link" 
+                onClick={() => setIsAttendanceOpen(!isAttendanceOpen)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', color: '#1e293b' }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ClockIcon /> Modul Absensi</span>
+                <span style={{ transform: isAttendanceOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '12px' }}>▼</span>
+              </button>
+              {isAttendanceOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+                  <ShowIf feature={ROUTE_PERMISSIONS['/attendance'].features}>
+                    <NavLink end to="/attendance" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Saya</NavLink>
+                  </ShowIf>
+                  <ShowIf feature="attendance.view_team">
+                    <NavLink to="/attendance/team" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Absensi Tim</NavLink>
+                  </ShowIf>
+                  <ShowIf feature={ROUTE_PERMISSIONS['/attendance/all'].features}>
+                    <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>
+                  </ShowIf>
+                  <ShowIf feature={['attendance.report']}>
+                    <NavLink to="/attendance/events" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Log Mentah Absensi</NavLink>
+                  </ShowIf>
+                </div>
+              )}
+            </div>
+
+            <ShowIf feature={ROUTE_PERMISSIONS['/leave'].features}>
               <NavLink to="/leave" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CalendarWeekIcon /> Cuti (Leave)
+              </NavLink>
+            </ShowIf>
+            
+            {/* Admin Only features */}
+            {user?.role === 'admin' && (
+              <NavLink to="/features" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheckIcon /> Matriks Fitur
+              </NavLink>
+            )}
+
+            <ShowIf feature={ROUTE_PERMISSIONS['/activity-logs'].features}>
+              <NavLink to="/activity-logs" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BriefcaseIcon /> Log Aktivitas
               </NavLink>
             </ShowIf>
           </nav>

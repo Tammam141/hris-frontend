@@ -1,27 +1,39 @@
-import { useState, useEffect } from 'react';
-import { getEmployees, deleteEmployee, getEmployeeDetail, createEmployee, updateEmployee } from '../api/employee';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getEmployees, deleteEmployee, getEmployeeDetail, updateEmployee } from '../api/employee';
 import { getDepartments } from '../api/department';
+import { ShowIf } from '../components/ShowIf';
 import { getPositions } from '../api/position';
 import { setUserActive } from '../api/user';
+import { useAuth } from '../hooks/useAuth';
 import { EmployeeListItem, Department, Position, EmployeeDetail } from '../types/employee';
 import { EmployeeModal } from '../features/employee/EmployeeModal';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import { Avatar } from '../components/ui/Avatar';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { ApiError } from '../api/client';
 
 export function EmployeePage() {
+  const { hasFeature } = useAuth();
+  const bisaAksi = hasFeature('employee.update') || hasFeature('employee.delete');
+
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   // state filter
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [isActive, setIsActive] = useState<string>(''); // '', 'true', 'false'
 
@@ -32,13 +44,14 @@ export function EmployeePage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
 
-  // Delete State
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
+
+  // Status & Delete confirmState
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
-  const [subordinatesList, setSubordinatesList] = useState<any[]>([]);
 
   // Status Toggle State
   const [isStatusConfirmOpen, setIsStatusConfirmOpen] = useState(false);
@@ -58,52 +71,48 @@ export function EmployeePage() {
         ]);
         if (depRes.success) setDepartments(depRes.data);
         if (posRes.success) setPositions(posRes.data);
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setError(err.message || 'Gagal memuat data referensi');
       }
     }
     loadReferences();
   }, []);
 
-  // muat ulang data saat parameter berubah
-  useEffect(() => {
-    loadEmployees();
-
-  }, [page, departmentId, isActive]);
-
-  async function loadEmployees() {
+  const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const res = await getEmployees({
-        search: search || undefined,
+        search: searchQuery || undefined,
         department_id: departmentId || undefined,
         is_active: isActive === '' ? undefined : isActive === 'true',
         page,
         limit,
       });
-      if (res.success) {
-        setEmployees(res.data);
+      setEmployees(res.data);
+      if (res.meta) {
         setTotal(res.meta.total);
-        setTotalPages(res.meta.total_pages);
+        setTotalPages(res.meta.total_pages || 1);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data karyawan');
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchQuery, departmentId, isActive, page, limit]);
+
+  // muat ulang data saat parameter berubah
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    setSearchQuery(searchInput);
     setPage(1);
     loadEmployees();
-  }
-
-  function openCreateModal() {
-    setModalMode('create');
-    setSelectedEmployee(null);
-    setIsModalOpen(true);
   }
 
   async function openEditModal(emp: EmployeeListItem) {
@@ -111,11 +120,11 @@ export function EmployeePage() {
       setLoading(true);
       const res = await getEmployeeDetail(emp.id);
       if (res.success) {
-        setModalMode('edit');
         setSelectedEmployee(res.data);
         setIsModalOpen(true);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat detail karyawan');
     } finally {
       setLoading(false);
@@ -123,14 +132,43 @@ export function EmployeePage() {
   }
 
   async function handleModalSubmit(data: any) {
-    if (modalMode === 'create') {
-      await createEmployee(data);
-    } else if (modalMode === 'edit' && selectedEmployee) {
-      await updateEmployee(selectedEmployee.id, data);
+    if (selectedEmployee) {
+      try {
+        await updateEmployee(selectedEmployee.id, { ...data, updated_at: selectedEmployee.updated_at });
+        setIsModalOpen(false);
+        loadEmployees();
+      } catch (e: any) {
+      const err = e as ApiError;
+        if (isStaleData(err)) {
+          setStaleDetails(err.details);
+          setIsStaleModalOpen(true);
+        } else {
+          // It's possible that EmployeeModal catches general errors, but if STALE_DATA is thrown, we catch it here.
+          // Wait, if we throw it from EmployeeModal, we handle it here. 
+          // What if we just re-throw general error? Actually, EmployeeModal catches non-stale errors.
+          // So if we get here, it must be STALE_DATA, but just in case, we can set an alert.
+          setError(err.message || 'Gagal menyimpan data karyawan');
+        }
+      }
+    } else {
+      setIsModalOpen(false);
+      loadEmployees();
     }
-    setIsModalOpen(false);
-    loadEmployees();
   }
+
+  const handleStaleReload = async () => {
+    if (selectedEmployee) {
+      try {
+        const res = await getEmployeeDetail(selectedEmployee.id);
+        if (res.success) {
+          setSelectedEmployee(res.data);
+        }
+      } catch {
+        // Handle error
+      }
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function confirmToggleStatus(id: string, currentStatus: boolean, name: string) {
     setEmpToToggle({ id, currentStatus, name });
@@ -144,7 +182,8 @@ export function EmployeePage() {
     try {
       await setUserActive(empToToggle.id, !empToToggle.currentStatus);
       loadEmployees();
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setAlertMessage(err.message || 'Gagal mengubah status pengguna');
       setAlertOpen(true);
     } finally {
@@ -154,7 +193,6 @@ export function EmployeePage() {
 
   function handleDelete(emp: EmployeeListItem) {
     setEmployeeToDelete(emp);
-    setSubordinatesList([]);
     setIsDeleteConfirmOpen(true);
   }
 
@@ -165,10 +203,10 @@ export function EmployeePage() {
         loadEmployees();
         setIsDeleteConfirmOpen(false);
         setEmployeeToDelete(null);
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         if (err.details && err.details.subordinates) {
-          setSubordinatesList(err.details.subordinates);
           setAlertMessage(
             <>
               <div style={{ marginBottom: '16px' }}>{err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.'}</div>
@@ -209,8 +247,8 @@ export function EmployeePage() {
             type="text"
             className="input-field employee-search-input"
             placeholder="Cari Nama, Email, atau ID Karyawan..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
           <select
             className="input-field employee-filter-select"
@@ -235,20 +273,34 @@ export function EmployeePage() {
             Cari
           </button>
         </form>
-          <button 
-            type="button" 
-            className="btn btn-primary btn-success" 
-            onClick={openCreateModal}
-          >
-            + Tambah Karyawan
-          </button>
         </div>
+
+        {/* Tombol Aksi: Upload CSV & Tambah Karyawan (di bawah form pencarian) */}
+        <ShowIf feature="employee.create">
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => navigate('/employee/import-csv')}
+            >
+              Upload Karyawan by CSV
+            </button>
+            <button 
+              type="button" 
+              className="btn btn-primary btn-success" 
+              onClick={() => navigate('/employee/create')}
+            >
+              + Tambah Karyawan
+            </button>
+          </div>
+        </ShowIf>
 
         {/* Tabel Karyawan */}
         <div className="employee-table-wrapper">
           <table className="employee-table">
             <thead>
               <tr>
+                <th>FOTO</th>
                 <th>ID KARYAWAN</th>
                 <th>NAMA LENGKAP</th>
                 <th>EMAIL</th>
@@ -256,25 +308,33 @@ export function EmployeePage() {
                 <th>JABATAN</th>
                 <th>MANAJER</th>
                 <th>STATUS</th>
-                <th className="text-center">AKSI</th>
+                {bisaAksi && <th className="text-center">AKSI</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
                     Tidak ada data karyawan ditemukan.
                   </td>
                 </tr>
               ) : (
                 employees.map(emp => (
                   <tr key={emp.id}>
+                    <td>
+                      <Avatar 
+                        photoUrl={emp.photo_url} 
+                        name={emp.full_name} 
+                        size="40px" 
+                        fontSize="14px"
+                      />
+                    </td>
                     <td>{emp.employee_number}</td>
                     <td className="employee-name">{emp.full_name}</td>
                     <td className="employee-subtext">{emp.email || '-'}</td>
@@ -338,7 +398,6 @@ export function EmployeePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
-        mode={modalMode}
         employeeData={selectedEmployee}
         departments={departments}
         positions={positions}
@@ -387,6 +446,13 @@ export function EmployeePage() {
         title="Informasi"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

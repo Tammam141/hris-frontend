@@ -7,6 +7,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  hasFeature: (code: string) => boolean;
+  refreshUser: (user: User) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

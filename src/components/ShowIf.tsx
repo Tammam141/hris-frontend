@@ -1,30 +1,30 @@
 import { ReactNode } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { hasAccess } from '../config/permissions';
+import { hasRouteAccess } from '../config/permissions';
 
 interface ShowIfProps {
   children: ReactNode;
-  allowedRoles?: string[];
-  allowedPositions?: string[];
+  feature?: string | string[]; // bisa satu string atau array of string
 }
 
 /**
  * Komponen wrapper untuk merender UI secara kondisional
- * berdasarkan role atau position pengguna saat ini.
+ * berdasarkan fitur (permissions) pengguna saat ini.
  */
-export function ShowIf({ children, allowedRoles, allowedPositions }: ShowIfProps) {
-  const { user, isAuthenticated } = useAuth();
+export function ShowIf({ children, feature }: ShowIfProps) {
+  const { user, isAuthenticated, hasFeature } = useAuth();
 
   if (!isAuthenticated || !user) {
     return null;
   }
 
-  const isAllowed = hasAccess(
-    user.role, 
-    user.employee?.position_name, 
-    allowedRoles, 
-    allowedPositions
-  );
+  // Jika tidak diberikan prop feature, otomatis diizinkan
+  if (!feature) {
+    return <>{children}</>;
+  }
+
+  const featuresToCheck = Array.isArray(feature) ? feature : [feature];
+  const isAllowed = hasRouteAccess(hasFeature, featuresToCheck);
 
   if (!isAllowed) {
     return null;

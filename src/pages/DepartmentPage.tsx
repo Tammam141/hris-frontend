@@ -7,6 +7,9 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { StaleDataModal } from '../components/ui/StaleDataModal';
+import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { ApiError } from '../api/client';
 
 export function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -21,7 +24,9 @@ export function DepartmentPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+
+  const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
+  const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
   // Delete & Alert State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -41,7 +46,8 @@ export function DepartmentPage() {
       if (res.success) {
         setDepartments(res.data);
       }
-    } catch (err: any) {
+    } catch (e: any) {
+      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data departemen');
     } finally {
       setLoading(false);
@@ -53,7 +59,6 @@ export function DepartmentPage() {
     setSelectedDept(null);
     setCode('');
     setName('');
-    setDescription('');
     setIsModalOpen(true);
   }
 
@@ -62,7 +67,6 @@ export function DepartmentPage() {
     setSelectedDept(dept);
     setCode(dept.code);
     setName(dept.name);
-    setDescription(dept.description || '');
     setIsModalOpen(true);
   }
 
@@ -70,17 +74,33 @@ export function DepartmentPage() {
     e.preventDefault();
     try {
       if (modalMode === 'create') {
-        await createDepartment({ code, name, description });
+        await createDepartment({ code, name });
       } else if (selectedDept) {
-        await updateDepartment(selectedDept.id, { code, name, description });
+        await updateDepartment(selectedDept.id, { code, name, updated_at: selectedDept.updated_at });
       }
       setIsModalOpen(false);
       loadDepartments();
-    } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyimpan departemen');
-      setAlertOpen(true);
+    } catch (e: any) {
+      const err = e as ApiError;
+      if (isStaleData(err)) {
+        setStaleDetails(err.details);
+        setIsStaleModalOpen(true);
+      } else {
+        setAlertMessage(err.message || 'Gagal menyimpan departemen');
+        setAlertOpen(true);
+      }
     }
   }
+
+  const handleStaleReload = () => {
+    if (staleDetails?.current) {
+      const current = staleDetails.current as Department;
+      setSelectedDept(current);
+      setCode(current.code);
+      setName(current.name);
+    }
+    setIsStaleModalOpen(false);
+  };
 
   function handleDelete(dept: Department) {
     setDeptToDelete(dept);
@@ -94,7 +114,8 @@ export function DepartmentPage() {
         setIsDeleteConfirmOpen(false);
         setDeptToDelete(null);
         loadDepartments();
-      } catch (err: any) {
+      } catch (e: any) {
+      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
         if (err.details && (err.details as any).employee_count) {
           setAlertMessage(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);
@@ -125,21 +146,19 @@ export function DepartmentPage() {
               <tr>
                 <th>Kode</th>
                 <th>Nama Departemen</th>
-                <th>Deskripsi</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
+                <tr><td colSpan={3} className="text-center empty-table-cell">Memuat data...</td></tr>
               ) : departments.length === 0 ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
+                <tr><td colSpan={3} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
               ) : (
                 departments.map(dept => (
                   <tr key={dept.id}>
                     <td className="employee-name">{dept.code}</td>
                     <td>{dept.name}</td>
-                    <td className="employee-subtext">{dept.description || '-'}</td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
@@ -172,10 +191,6 @@ export function DepartmentPage() {
                   <label className="form-label">Nama Departemen</label>
                   <input type="text" className="input-field" value={name} onChange={e => setName(e.target.value)} required placeholder="Contoh: Information Technology" />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Deskripsi</label>
-                  <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Deskripsi opsional..." />
-                </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Batal</button>
@@ -205,6 +220,13 @@ export function DepartmentPage() {
         title="Peringatan"
         message={alertMessage}
         onClose={() => setAlertOpen(false)}
+      />
+
+      <StaleDataModal
+        isOpen={isStaleModalOpen}
+        onClose={() => setIsStaleModalOpen(false)}
+        onReload={handleStaleReload}
+        details={staleDetails}
       />
     </div>
   );

@@ -12,6 +12,11 @@ export async function getMeApi() {
   return apiRequest('/auth/me', 'GET');
 }
 
+export async function updateMeApi(data: { full_name?: string, phone?: string, birth_date?: string, address?: string, updated_at?: string }) {
+  return apiRequest('/auth/me', 'PATCH', data);
+}
+
+
 export async function changePasswordApi(current_password: string, new_password: string) {
   return apiRequest('/auth/password', 'PATCH', { current_password, new_password });
 }
@@ -30,4 +35,12 @@ export async function forgotPasswordApi(email: string) {
 
 export async function resetPasswordApi(email: string, token: string, password: string, password_confirmation: string) {
   return apiRequest('/auth/reset-password', 'POST', { email, token, password, password_confirmation });
+}
+
+export async function uploadMyPhotoApi(data: FormData) {
+  return apiRequest('/auth/me/photo', 'POST', data);
+}
+
+export async function deleteMyPhotoApi() {
+  return apiRequest('/auth/me/photo', 'DELETE');
 }
