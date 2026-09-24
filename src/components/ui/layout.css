@@ -1,4 +1,4 @@
-/*(Navbar & Sidebar) */
+/* Navbar & Header */
 .hamburger-btn {
   display: none;
   background: none;
@@ -12,10 +12,16 @@
 .app-navbar {
   background-color: #ffffff;
   border-bottom: 1px solid #e2e8f0;
-  padding: 20px 40px;
+  padding: 16px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .navbar-brand {
@@ -31,19 +37,49 @@
 }
 
 .navbar-user {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
   color: #334155;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-change-password-icon {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.btn-change-password-icon:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
 }
 
 .btn-logout {
   background-color: #ef4444;
   color: #ffffff;
   border: none;
-  padding: 10px 16px;
+  padding: 9px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
 .btn-logout:hover {
@@ -114,8 +150,6 @@
 
 /* Responsive Layout */
 @media (max-width: 768px) {
-
-  /* iPad / Tablets */
   .hamburger-btn {
     display: block;
   }
@@ -157,38 +191,52 @@
 }
 
 @media (max-width: 480px) {
-  /* Mobile Phones */
+  /* Mobile Phones Layout */
   .app-navbar {
     flex-direction: column;
     align-items: stretch;
-    padding: 16px;
-    gap: 16px;
+    padding: 12px 16px;
+    gap: 10px;
   }
 
-  .app-navbar > div:first-child {
+  .navbar-left {
+    display: flex;
+    align-items: center;
     width: 100%;
-    /* Keep hamburger and brand together on the left */
   }
 
   .navbar-right {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
   }
 
   .navbar-user {
-    justify-content: space-between;
-    width: 100%;
+    font-size: 13px;
+    gap: 6px;
   }
   
-  .notif-bell-wrapper {
-    align-self: flex-end;
-    margin-top: -54px; /* Pull bell up to the top row next to brand */
+  .navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .btn-change-password-icon {
+    width: 34px;
+    height: 34px;
   }
 
   .btn-logout {
-    width: 100%;
+    width: auto;
+    padding: 6px 12px;
+    font-size: 13px;
   }
 }
 
@@ -204,20 +252,127 @@
   flex-direction: column;
 }
 
-.navbar-left {
+/* App Footer Styling (Light Mode - Clear & Synchronized) */
+.app-footer {
+  margin-top: auto;
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 13px;
+  position: relative;
+}
+
+.app-footer-accent-bar {
+  height: 2px;
+  width: 100%;
+  background: #1a78d7;
+}
+
+.app-footer-content {
+  padding: 16px 32px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
+  background-color: #f8fafc;
 }
 
-.navbar-user {
+.app-footer-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.btn-change-password {
-  background-color: #f1f5f9;
+.app-footer-title {
+  color: #1a78d7;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.app-footer-divider {
+  color: #cbd5e1;
+}
+
+.app-footer-desc {
   color: #475569;
-  border: 1px solid #cbd5e1;
+  font-weight: 500;
+}
+
+.app-footer-devs {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.app-footer-dev-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-footer-dev-card:hover {
+  border-color: #1a78d7;
+  box-shadow: 0 2px 6px rgba(26, 120, 215, 0.1);
+}
+
+.app-footer-role {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #1a78d7;
+}
+
+.app-footer-dev-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-footer-name {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.app-footer-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.app-footer-social-link:hover {
+  background: #1a78d7;
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .app-footer-content {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  .app-footer-devs {
+    width: 100%;
+    flex-direction: column;
+  }
+  .app-footer-dev-card {
+    width: 100%;
+  }
 }
