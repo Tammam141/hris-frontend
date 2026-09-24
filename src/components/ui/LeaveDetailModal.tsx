@@ -150,7 +150,11 @@ export function LeaveDetailModal({ isOpen, request, onClose }: LeaveDetailModalP
               {!isLoading && !attachmentSrc && (
                 <div className="leave-detail-row" style={{ flexDirection: 'column' }}>
                   <span className="leave-detail-label" style={{ marginBottom: '8px' }}>Foto Bukti</span>
-                  <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Tidak ada foto bukti yang dilampirkan.</p>
+                  <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>
+                    {displayData.status === 'cancelled' 
+                      ? 'Foto bukti sudah dihapus karena pengajuan dibatalkan.' 
+                      : 'Tidak ada foto bukti yang dilampirkan.'}
+                  </p>
                 </div>
               )}
             </>

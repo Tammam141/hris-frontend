@@ -263,7 +263,7 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
       <ConfirmModal
         isOpen={isCancelConfirmOpen}
         title="Batalkan Pengajuan Cuti"
-        message="Apakah Anda yakin ingin membatalkan pengajuan cuti ini?"
+        message="Apakah Anda yakin ingin membatalkan pengajuan cuti ini? Foto bukti yang dilampirkan akan ikut terhapus permanen."
         confirmText="Ya, Batalkan"
         isDestructive={true}
         onConfirm={confirmCancel}
