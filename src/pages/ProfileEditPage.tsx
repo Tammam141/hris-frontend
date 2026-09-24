@@ -8,6 +8,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { compressImage } from '../utils/imageCompressor';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
@@ -39,9 +40,9 @@ export function ProfileEditPage() {
   }, [photoPreview]);
 
   // Handle Photo Selection
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+      let file = e.target.files[0];
       
       // Validasi ekstensi/tipe (frontend only initial check)
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -49,6 +50,14 @@ export function ProfileEditPage() {
         setAlertInfo({ open: true, title: 'Gagal', message: 'Foto profil harus berupa gambar JPEG, PNG, atau WebP yang sah', type: 'error' });
         return;
       }
+
+      setIsUploadingPhoto(true);
+      try {
+        file = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
+      } catch (err) {
+        console.error('Gagal mengompresi gambar:', err);
+      }
+      setIsUploadingPhoto(false);
 
       // Validasi ukuran
       if (file.size > 5 * 1024 * 1024) {

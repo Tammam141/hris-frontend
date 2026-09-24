@@ -3,6 +3,7 @@ import { Department, Position, UpdateEmployeePayload, EmployeeListItem, Employee
 import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';
+import { compressImage } from '../../utils/imageCompressor';
 import { Avatar } from '../../components/ui/Avatar';
 import './employee-modal.css';
 
@@ -172,15 +173,24 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   }
 
   // Handle Photo specific actions
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhotoMessage(null);
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+      let file = e.target.files[0];
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         setPhotoMessage({ text: 'Foto profil harus berupa gambar JPEG, PNG, atau WebP yang sah', type: 'error' });
         return;
       }
+
+      setIsUploadingPhoto(true);
+      try {
+        file = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
+      } catch (err) {
+        console.error('Gagal mengompresi gambar:', err);
+      }
+      setIsUploadingPhoto(false);
+
       if (file.size > 5 * 1024 * 1024) {
         setPhotoMessage({ text: 'Ukuran berkas maksimal 5 MB', type: 'error' });
         return;

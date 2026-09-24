@@ -6,6 +6,7 @@ import { AlertModal } from '../../components/ui/AlertModal';
 import { getLeaveTypes, createLeaveRequest, uploadLeaveAttachment, cancelLeaveRequest, getMyLeaveBalances, getMyLeaveRequests, LeaveType, LeaveRequest } from '../../api/leave';
 import { getHolidays, Holiday } from '../../api/holiday';
 import { useAuth } from '../../hooks/useAuth';
+import { compressImage } from '../../utils/imageCompressor';
 import '../../components/ui/leave.css';
 
 interface LeavePeriodProps {
@@ -424,9 +425,18 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               <input 
                 type="file" 
                 accept="image/jpeg, image/png, image/webp"
-                onChange={(e) => {
+                onChange={async (e) => {
                   if (e.target.files && e.target.files.length > 0) {
-                    const file = e.target.files[0];
+                    let file = e.target.files[0];
+                    
+                    setIsLoading(true);
+                    try {
+                      file = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 });
+                    } catch (err) {
+                      console.error('Gagal mengompresi gambar:', err);
+                    }
+                    setIsLoading(false);
+
                     if (file.size > 5 * 1024 * 1024) {
                       setAlertType('error');
                       setAlertMessage('Ukuran file foto tidak boleh melebihi 5 MB.');
