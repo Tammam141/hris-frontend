@@ -388,7 +388,9 @@ export function AttendancePage() {
 
           {/* Riwayat Absensi */}
           <div className="attendance-history-card">
-            <h2 className="attendance-history-title">Riwayat Absensi Bulan Ini</h2>
+            <div className="attendance-card-header">
+              <h2 className="attendance-history-title">Riwayat Absensi Bulan Ini</h2>
+            </div>
             <div className="attendance-table-wrapper">
               <table className="attendance-table">
                 <thead>

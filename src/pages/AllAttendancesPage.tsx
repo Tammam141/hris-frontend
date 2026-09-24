@@ -133,7 +133,7 @@ export function AllAttendancesPage() {
       </div>
 
       <div className="attendance-history-card" style={{ marginTop: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="attendance-card-header">
           <h2 className="attendance-history-title">Data Absensi Global</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
             Menampilkan {attendances.length} dari {totalData} data
