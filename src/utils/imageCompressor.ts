@@ -6,7 +6,7 @@ export interface CompressOptions {
 
 /**
  * Mengompresi file gambar di sisi browser menggunakan HTML5 Canvas.
- * Ini mengurangi ukuran file 50-75% sambil menjaga kejelasan gambar.
+ * Menjaga nama file asli dan format MIME type sesuai dengan file yang diunggah.
  */
 export async function compressImage(file: File, options: CompressOptions = {}): Promise<File> {
   const {
@@ -19,8 +19,23 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
     return file;
   }
 
-  // Gunakan webp untuk png/webp agar transparansi terjaga dan kompresi maksimal, jpeg untuk lainnya.
-  const mimeType = (file.type === 'image/png' || file.type === 'image/webp') ? 'image/webp' : 'image/jpeg';
+  // Tentukan MIME type berdasarkan tipe file asli menggunakan switch-case
+  let mimeType: string;
+  switch (file.type) {
+    case 'image/png':
+      mimeType = 'image/png';
+      break;
+    case 'image/webp':
+      mimeType = 'image/webp';
+      break;
+    case 'image/jpeg':
+    case 'image/jpg':
+      mimeType = 'image/jpeg';
+      break;
+    default:
+      mimeType = file.type || 'image/jpeg';
+      break;
+  }
 
   const imageUrl = URL.createObjectURL(file);
 
@@ -53,22 +68,15 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
       // Gambar ulang image ke canvas
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Konversi canvas menjadi Blob (file baru)
+      // Konversi canvas menjadi Blob dengan format MIME type asli
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             return resolve(file);
           }
 
-          // Sesuaikan ekstensi nama file baru
-          let newName = file.name;
-          if (mimeType === 'image/webp' && !newName.toLowerCase().endsWith('.webp')) {
-            newName = newName.replace(/\.[^/.]+$/, "") + ".webp";
-          } else if (mimeType === 'image/jpeg' && !newName.toLowerCase().match(/\.(jpg|jpeg)$/)) {
-            newName = newName.replace(/\.[^/.]+$/, "") + ".jpg";
-          }
-
-          const compressedFile = new File([blob], newName, {
+          // Gunakan nama file asli tanpa mengubah ekstensi atau nama file
+          const compressedFile = new File([blob], file.name, {
             type: mimeType,
             lastModified: Date.now(),
           });
