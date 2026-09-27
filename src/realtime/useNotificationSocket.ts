@@ -26,8 +26,9 @@ export function useNotificationSocket(isAuthenticated: boolean) {
     
     // Fungsi utama untuk membuka pipa komunikasi ke server
     const connect = () => {
-      const base = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-      const url = base.replace(/^http/, 'ws') + '/ws';
+      const url =
+        import.meta.env.VITE_WS_URL ||
+        window.location.origin.replace(/^http/, 'ws') + '/ws';
       socket = new WebSocket(url);
       socketRef.current = socket;
 
