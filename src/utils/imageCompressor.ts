@@ -2,24 +2,46 @@ export interface CompressOptions {
   maxWidth?: number;
   maxHeight?: number;
   quality?: number; // 0.1 to 1.0
+  convertToJpeg?: boolean; // Selalu konversi ke JPEG (berguna untuk foto profil)
+}
+
+/**
+ * Memeriksa apakah gambar pada canvas memiliki piksel transparan (alpha < 255)
+ */
+function checkTransparency(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
+  try {
+    const imgData = ctx.getImageData(0, 0, width, height).data;
+    const len = imgData.length;
+    for (let i = 3; i < len; i += 4) {
+      if (imgData[i] < 255) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Mengompresi file gambar di sisi browser menggunakan HTML5 Canvas.
- * Menjaga nama file asli dan format MIME type sesuai dengan file yang diunggah.
+ * - Mengonversi PNG tanpa transparansi (atau jika convertToJpeg aktif) menjadi JPEG
+ *   karena kompresi quality pada canvas.toBlob hanya efektif pada lossy format (JPEG/WebP).
+ * - Menjaga format MIME type sesuai aturan dan menghasilkan berkas yang optimal.
  */
 export async function compressImage(file: File, options: CompressOptions = {}): Promise<File> {
   const {
     maxWidth = 1200,
     maxHeight = 1200,
     quality = 0.7, // Kualitas 70% biasanya optimal untuk ukuran file vs kejelasan
+    convertToJpeg = false,
   } = options;
 
   if (!file.type.startsWith('image/')) {
     return file;
   }
 
-  // Tentukan MIME type berdasarkan tipe file asli menggunakan switch-case
+  // Tentukan MIME type dasar
   let mimeType: string;
   switch (file.type) {
     case 'image/png':
@@ -33,7 +55,7 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
       mimeType = 'image/jpeg';
       break;
     default:
-      mimeType = file.type || 'image/jpeg';
+      mimeType = 'image/jpeg';
       break;
   }
 
@@ -68,16 +90,38 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
       // Gambar ulang image ke canvas
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Konversi canvas menjadi Blob dengan format MIME type asli
+      let targetMimeType = mimeType;
+
+      if (file.type === 'image/png') {
+        const hasAlpha = checkTransparency(ctx, width, height);
+        // Konversi ke JPEG jika gambar tidak memiliki transparansi ATAU opsi convertToJpeg aktif (misal foto profil)
+        if (!hasAlpha || convertToJpeg) {
+          targetMimeType = 'image/jpeg';
+          if (hasAlpha) {
+            // Beri background putih agar area transparan tidak menjadi hitam saat dikonversi ke JPEG
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+        }
+      } else if (convertToJpeg && targetMimeType !== 'image/jpeg') {
+        targetMimeType = 'image/jpeg';
+      }
+
+      // Konversi canvas menjadi Blob
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             return resolve(file);
           }
 
-          // Gunakan nama file asli tanpa mengubah ekstensi atau nama file
-          const compressedFile = new File([blob], file.name, {
-            type: mimeType,
+          let outputFileName = file.name;
+          if (targetMimeType === 'image/jpeg' && !/\.(jpe?g)$/i.test(file.name)) {
+            outputFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+          }
+
+          const compressedFile = new File([blob], outputFileName, {
+            type: targetMimeType,
             lastModified: Date.now(),
           });
 
@@ -88,7 +132,7 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
             resolve(compressedFile);
           }
         },
-        mimeType,
+        targetMimeType,
         quality
       );
     };

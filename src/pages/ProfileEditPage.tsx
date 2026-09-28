@@ -53,7 +53,7 @@ export function ProfileEditPage() {
 
       setIsUploadingPhoto(true);
       try {
-        file = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
+        file = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7, convertToJpeg: true });
       } catch (err) {
         console.error('Gagal mengompresi gambar:', err);
       }
