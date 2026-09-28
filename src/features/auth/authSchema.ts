@@ -1,12 +1,18 @@
 import { z } from 'zod';
 
+import { FULL_NAME_REGEX, FULL_NAME_INVALID_MSG } from '../../utils/nameValidation';
+
 export const loginSchema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
   password: z.string().min(1, 'Password wajib diisi'),
 });
 
 export const registerSchema = z.object({
-  full_name: z.string().min(3, 'Nama lengkap minimal 3 karakter'),
+  full_name: z
+    .string()
+    .min(3, 'Nama lengkap minimal 3 karakter')
+    .max(150, 'Nama lengkap maksimal 150 karakter')
+    .regex(FULL_NAME_REGEX, FULL_NAME_INVALID_MSG),
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid, contoh: nama@domain.com'),
   password: z.string().min(8, 'Password minimal 8 karakter'),
   confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),

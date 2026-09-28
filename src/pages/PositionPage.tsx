@@ -24,6 +24,7 @@ export function PositionPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [level, setLevel] = useState<number | ''>('');
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
@@ -60,6 +61,7 @@ export function PositionPage() {
     setSelectedPos(null);
     setCode('');
     setName('');
+    setNameError('');
     setLevel('');
     setIsModalOpen(true);
   }
@@ -69,12 +71,14 @@ export function PositionPage() {
     setSelectedPos(pos);
     setCode(pos.code);
     setName(pos.name);
+    setNameError('');
     setLevel(pos.level);
     setIsModalOpen(true);
   }
 
   async function handleModalSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setNameError('');
     try {
       const posData = { code, name, level: Number(level) };
       if (modalMode === 'create') {
@@ -89,6 +93,8 @@ export function PositionPage() {
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
+      } else if (err.status === 409 && (err.message === 'Position name is already in use' || err.message?.toLowerCase().includes('position name'))) {
+        setNameError('Nama jabatan sudah dipakai');
       } else {
         setAlertMessage(err.message || 'Gagal menyimpan jabatan');
         setAlertOpen(true);
@@ -196,7 +202,19 @@ export function PositionPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Nama Jabatan</label>
-                  <input type="text" className="input-field" value={name} onChange={e => setName(e.target.value)} required placeholder="Contoh: Manager" />
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    style={nameError ? { borderColor: '#ef4444' } : undefined}
+                    value={name} 
+                    onChange={e => {
+                      setName(e.target.value);
+                      setNameError('');
+                    }} 
+                    required 
+                    placeholder="Contoh: Manager" 
+                  />
+                  {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Tingkat Jabatan (Level)</label>

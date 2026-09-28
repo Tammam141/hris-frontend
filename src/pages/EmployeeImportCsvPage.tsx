@@ -6,6 +6,7 @@ import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
 import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
 import { validateEmployeeDates } from '../utils/dateValidation';
+import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import '../components/ui/dashboard.css';
@@ -310,12 +311,47 @@ export function EmployeeImportCsvPage() {
       
       if (!row.position_id) missingPositionCount++;
 
+      // Validasi Nama Lengkap
+      if (row.full_name) {
+        const nameErr = validateFullName(row.full_name);
+        if (nameErr) {
+          newErrors[`${idx}-full_name`] = nameErr;
+          localErrors++;
+        }
+      }
+
       // Validasi Tanggal
       const dateErrors = validateEmployeeDates(row.birth_date, row.join_date);
       dateErrors.forEach(err => {
         newErrors[`${idx}-${err.field}`] = err.message;
         localErrors++;
       });
+    });
+
+    // Cek nomor telepon & email duplikat di antara baris CSV
+    const seenPhones = new Map<string, number>();
+    const seenEmails = new Map<string, number>();
+
+    parsedRows.forEach((row, idx) => {
+      const cleanPhone = (row.phone || '').trim();
+      if (cleanPhone) {
+        if (seenPhones.has(cleanPhone)) {
+          newErrors[`${idx}-phone`] = `Nomor telepon kembar dengan baris ${seenPhones.get(cleanPhone)! + 1}`;
+          localErrors++;
+        } else {
+          seenPhones.set(cleanPhone, idx);
+        }
+      }
+
+      const cleanEmail = (row.email || '').trim().toLowerCase();
+      if (cleanEmail) {
+        if (seenEmails.has(cleanEmail)) {
+          newErrors[`${idx}-email`] = `Email kembar dengan baris ${seenEmails.get(cleanEmail)! + 1}`;
+          localErrors++;
+        } else {
+          seenEmails.set(cleanEmail, idx);
+        }
+      }
     });
 
     if (hasUnresolvedFields) {
@@ -332,8 +368,8 @@ export function EmployeeImportCsvPage() {
       setValidationErrors(newErrors);
       setAlertInfo({
         open: true,
-        title: 'Validasi Tanggal Gagal',
-        message: 'Terdapat kesalahan pada tanggal lahir atau tanggal bergabung. Silakan perbaiki baris yang ditandai merah.',
+        title: 'Validasi Gagal',
+        message: 'Terdapat kesalahan pada data karyawan (nama, telepon, email, atau tanggal). Silakan periksa tanda merah pada tabel pratinjau.',
         type: 'error'
       });
       return;
@@ -417,7 +453,11 @@ export function EmployeeImportCsvPage() {
           parsedErrors[`${row.index}-row`] = row.message;
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
-              parsedErrors[`${row.index}-${e.field}`] = e.message;
+              let msg = e.message;
+              if (msg === 'Phone number is already registered' || msg?.toLowerCase().includes('phone number is already')) {
+                msg = 'Nomor telepon sudah terdaftar';
+              }
+              parsedErrors[`${row.index}-${e.field}`] = msg;
             });
           }
         });

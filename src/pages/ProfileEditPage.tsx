@@ -8,6 +8,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
+import { validateFullName } from '../utils/nameValidation';
 import { compressImage } from '../utils/imageCompressor';
 import '../components/ui/dashboard.css';
 
@@ -17,6 +18,8 @@ export function ProfileEditPage() {
 
   const [fullName, setFullName] = useState(user?.employee?.full_name || user?.full_name || '');
   const [phone, setPhone] = useState(user?.employee?.phone || '');
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [birthDate, setBirthDate] = useState(user?.employee?.birth_date ? user.employee.birth_date.substring(0, 10) : '');
   const [address, setAddress] = useState(user?.employee?.address || '');
   
@@ -120,6 +123,16 @@ export function ProfileEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setNameError('');
+    setPhoneError('');
+
+    const nameErr = validateFullName(fullName);
+    if (nameErr) {
+      setNameError(nameErr);
+      setAlertInfo({ open: true, title: 'Validasi Gagal', message: nameErr, type: 'error' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -146,6 +159,9 @@ export function ProfileEditPage() {
       if (isStaleData(e)) {
         setStaleDetails(e.details);
         setIsStaleModalOpen(true);
+      } else if (e.status === 409 && (e.message === 'Phone number is already registered' || e.message?.toLowerCase().includes('phone'))) {
+        setPhoneError('Nomor telepon sudah terdaftar');
+        setAlertInfo({ open: true, title: 'Gagal', message: 'Nomor telepon sudah terdaftar', type: 'error' });
       } else {
         setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal memperbarui profil.', type: 'error' });
       }
@@ -240,10 +256,15 @@ export function ProfileEditPage() {
               <input 
                 type="text" 
                 className="input-field" 
+                style={nameError ? { borderColor: '#ef4444' } : undefined}
                 value={fullName} 
-                onChange={e => setFullName(e.target.value)} 
+                onChange={e => {
+                  setFullName(e.target.value);
+                  setNameError('');
+                }} 
                 required 
               />
+              {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
             </div>
             
             <div className="form-group">
@@ -251,10 +272,15 @@ export function ProfileEditPage() {
               <input 
                 type="text" 
                 className="input-field" 
+                style={phoneError ? { borderColor: '#ef4444' } : undefined}
                 value={phone} 
-                onChange={e => setPhone(e.target.value)} 
+                onChange={e => {
+                  setPhone(e.target.value);
+                  setPhoneError('');
+                }} 
                 required 
               />
+              {phoneError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{phoneError}</span>}
             </div>
 
             <div className="form-group">

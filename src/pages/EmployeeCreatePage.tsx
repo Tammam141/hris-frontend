@@ -5,6 +5,7 @@ import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
 import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
 import { validateEmployeeDates } from '../utils/dateValidation';
+import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
@@ -201,15 +202,26 @@ export function EmployeeCreatePage() {
       if (!f.full_name || !f.email || !f.password || !f.phone_number) {
         newErrors[`${i}-row`] = 'Harap lengkapi semua field wajib';
         localErrors++;
-      } else if (f.password.length < 8) {
-        newErrors[`${i}-password`] = 'Minimal 8 karakter';
-        localErrors++;
+      } else {
+        const nameErr = validateFullName(f.full_name);
+        if (nameErr) {
+          newErrors[`${i}-full_name`] = nameErr;
+          localErrors++;
+        }
+        if (f.password.length < 8) {
+          newErrors[`${i}-password`] = 'Minimal 8 karakter';
+          localErrors++;
+        }
       }
       
-      // Cek email duplikat di dalam satu form
+      // Cek email & nomor telepon duplikat di dalam satu form
       for (let j = i + 1; j < forms.length; j++) {
-        if (forms[j].email && forms[j].email === f.email) {
+        if (forms[j].email && forms[j].email.toLowerCase().trim() === f.email.toLowerCase().trim()) {
           newErrors[`${j}-email`] = 'Email ini sudah dipakai di baris atasnya';
+          localErrors++;
+        }
+        if (forms[j].phone_number && forms[j].phone_number.trim() === f.phone_number.trim()) {
+          newErrors[`${j}-phone`] = 'Nomor telepon ini sudah dipakai di baris atasnya';
           localErrors++;
         }
       }
@@ -305,14 +317,22 @@ export function EmployeeCreatePage() {
           parsedErrors[`${row.index}-row`] = row.message;
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
-              parsedErrors[`${row.index}-${e.field}`] = e.message;
+              let msg = e.message;
+              if (msg === 'Phone number is already registered' || msg?.toLowerCase().includes('phone number is already')) {
+                msg = 'Nomor telepon sudah terdaftar';
+              }
+              parsedErrors[`${row.index}-${e.field}`] = msg;
             });
           }
         });
         errorParsed = true;
-      } else if (err.code === 'CONFLICT') {
-        // Objek tunggal conflict, fallback to single form error
-        parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
+      } else if (err.code === 'CONFLICT' || err.status === 409) {
+        // Objek tunggal conflict, arahkan ke field yang sesuai
+        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
+          parsedErrors['0-phone'] = 'Nomor telepon sudah terdaftar';
+        } else {
+          parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
+        }
         errorParsed = true;
       }
 

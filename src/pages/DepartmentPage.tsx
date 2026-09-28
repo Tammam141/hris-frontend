@@ -24,6 +24,7 @@ export function DepartmentPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
@@ -59,6 +60,7 @@ export function DepartmentPage() {
     setSelectedDept(null);
     setCode('');
     setName('');
+    setNameError('');
     setIsModalOpen(true);
   }
 
@@ -67,11 +69,13 @@ export function DepartmentPage() {
     setSelectedDept(dept);
     setCode(dept.code);
     setName(dept.name);
+    setNameError('');
     setIsModalOpen(true);
   }
 
   async function handleModalSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setNameError('');
     try {
       if (modalMode === 'create') {
         await createDepartment({ code, name });
@@ -85,6 +89,8 @@ export function DepartmentPage() {
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
+      } else if (err.status === 409 && (err.message === 'Department name is already in use' || err.message?.toLowerCase().includes('department name'))) {
+        setNameError('Nama departemen sudah dipakai');
       } else {
         setAlertMessage(err.message || 'Gagal menyimpan departemen');
         setAlertOpen(true);
@@ -189,7 +195,19 @@ export function DepartmentPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Nama Departemen</label>
-                  <input type="text" className="input-field" value={name} onChange={e => setName(e.target.value)} required placeholder="Contoh: Information Technology" />
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    style={nameError ? { borderColor: '#ef4444' } : undefined}
+                    value={name} 
+                    onChange={e => {
+                      setName(e.target.value);
+                      setNameError('');
+                    }} 
+                    required 
+                    placeholder="Contoh: Information Technology" 
+                  />
+                  {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
                 </div>
               </div>
               <div className="modal-footer">

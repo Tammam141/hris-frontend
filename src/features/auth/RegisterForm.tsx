@@ -19,6 +19,8 @@ export function RegisterForm() {
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -27,6 +29,8 @@ export function RegisterForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setNameError('');
+    setPhoneError('');
     setSuccess('');
 
     // fungsi untuk menggabungkan kode negara dengan nomor telepon
@@ -45,7 +49,13 @@ export function RegisterForm() {
     });
 
     if (!cek.success) {
-      setError(cek.error.issues[0].message);
+      const firstIssue = cek.error.issues[0];
+      setError(firstIssue.message);
+      if (firstIssue.path[0] === 'full_name') {
+        setNameError(firstIssue.message);
+      } else if (firstIssue.path[0] === 'phone') {
+        setPhoneError(firstIssue.message);
+      }
       return;
     }
 
@@ -65,6 +75,13 @@ export function RegisterForm() {
         });
       }
     } catch (err: any) {
+      if (err.status === 409) {
+        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
+          setPhoneError('Nomor telepon sudah terdaftar');
+          setError('Nomor telepon sudah terdaftar');
+          return;
+        }
+      }
       setError(err.message || 'Gagal terhubung ke server');
     } finally {
       setLoading(false);
@@ -85,12 +102,17 @@ export function RegisterForm() {
             id="fullName"
             type="text"
             className="input-field"
+            style={nameError ? { borderColor: '#ef4444' } : undefined}
             placeholder="Masukkan nama lengkap"
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(e) => {
+              setFullName(e.target.value);
+              setNameError('');
+            }}
             disabled={loading}
             required
           />
+          {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
 
           <label htmlFor="email" className="input-label">Email</label>
           <input
@@ -136,7 +158,10 @@ export function RegisterForm() {
               className="input-field"
               style={{ width: '110px' }}
               value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
+              onChange={(e) => {
+                setCountryCode(e.target.value);
+                setPhoneError('');
+              }}
               disabled={loading}
             >
               <option value="+62">+62 (ID)</option>
@@ -148,13 +173,18 @@ export function RegisterForm() {
               id="phone"
               type="tel"
               className="input-field"
+              style={phoneError ? { borderColor: '#ef4444' } : undefined}
               placeholder="8123456789"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))} // Hanya menerima angka
+              onChange={(e) => {
+                setPhoneNumber(e.target.value.replace(/\D/g, ''));
+                setPhoneError('');
+              }} // Hanya menerima angka
               disabled={loading}
               required
             />
           </div>
+          {phoneError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{phoneError}</span>}
 
           <label className="input-label">Jenis Kelamin</label>
           <div style={{ display: 'flex', gap: '20px', marginTop: '4px' }}>
