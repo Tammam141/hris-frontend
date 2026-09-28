@@ -138,11 +138,7 @@ export function EmployeeImportCsvPage() {
   const handleDownloadTemplate = () => {
     const headers = "full_name,email,phone,password,gender,role,birth_date,address,join_date,employment_status,department,position,manager";
     const rows = [
-      "John Doe,john@company.com,+628123456789,12345678,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,2022-01-10,permanent,Engineering,Frontend Developer,",
-      "Jane Smith,jane@company.com,+628123456790,12345678,female,employee,1998-07-22,Jl. Sudirman No. 5 Bandung,2023-05-15,contract,Marketing,Marketing Staff,",
-      "Ahmad Fauzi,ahmad@company.com,+628123456791,12345678,male,employee,1990-01-10,Jl. Gatot Subroto No. 8 Surabaya,2020-03-01,permanent,HRD,HR Manager,",
-      "Siti Nurhaliza,siti@company.com,+628123456792,12345678,female,employee,1997-11-30,Jl. Diponegoro No. 3 Yogyakarta,2023-08-01,probation,Finance,Accountant,Ahmad Fauzi",
-      "Rudi Hartono,rudi@company.com,+628123456793,12345678,male,employee,1993-05-18,Jl. Ahmad Yani No. 12 Semarang,2021-11-12,permanent,Engineering,Backend Developer,John Doe"
+      "John Doe,john@company.com,+628123456789,12345678,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,2022-01-10,permanent,Engineering,Frontend Developer,"
     ];
     const csvContent = [headers, ...rows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

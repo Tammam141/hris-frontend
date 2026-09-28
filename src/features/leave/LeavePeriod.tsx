@@ -84,6 +84,14 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           (l: LeaveRequest) => l.status === 'approved' || l.status === 'pending'
         );
         setExistingLeaves(activeLeaves);
+
+        // Muat hari libur tahun berjalan saat pertama kali halaman dibuka
+        const currentYear = new Date().getFullYear();
+        getHolidays({ year: currentYear, limit: 100 })
+          .then(holsRes => {
+            if (holsRes.data) setHolidays(holsRes.data);
+          })
+          .catch(() => {});
       })
       .catch(err => console.error(err));
   }, [user?.employee?.gender]);
@@ -134,7 +142,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   // Set tanggal libur nasional
   const holidayDates = useMemo(() => {
-    return holidays.filter(h => h && h.date).map(h => format(parseISO(h.date), 'yyyy-MM-dd'));
+    return holidays.filter(h => h && h.holiday_date).map(h => format(parseISO(h.holiday_date), 'yyyy-MM-dd'));
   }, [holidays]);
 
   // Blokir hari Sabtu (6), Minggu (0), libur nasional, dan tanggal cuti yang sudah ada

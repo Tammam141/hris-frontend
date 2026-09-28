@@ -75,7 +75,7 @@ export function HolidayPage() {
     setModalMode('edit');
     setSelectedHoliday(holiday);
     setName(holiday.name);
-    const dateStr = holiday.date || (holiday as any).holiday_date || '';
+    const dateStr = holiday.holiday_date || '';
     setDate(dateStr.substring(0, 10));
     setIsCollectiveLeave(holiday.is_collective_leave);
     setIsModalOpen(true);
@@ -86,7 +86,7 @@ export function HolidayPage() {
     try {
       const payload = {
         name,
-        date,
+        holiday_date: date,
         is_collective_leave: isCollectiveLeave
       };
 
@@ -114,7 +114,7 @@ export function HolidayPage() {
       const current = staleDetails.current as Holiday;
       setSelectedHoliday(current);
       setName(current.name);
-      const dateStr = current.date || (current as any).holiday_date || '';
+      const dateStr = current.holiday_date || '';
       setDate(dateStr.substring(0, 10));
       setIsCollectiveLeave(current.is_collective_leave);
     }
@@ -191,7 +191,7 @@ export function HolidayPage() {
                     <td>
                       <div style={{ fontWeight: 600 }}>
                         {(() => {
-                          const rawDate = holiday.date || (holiday as any).holiday_date;
+                          const rawDate = holiday.holiday_date;
                           if (!rawDate) return '-';
                           try {
                             return format(parseISO(rawDate), 'dd MMMM yyyy');
