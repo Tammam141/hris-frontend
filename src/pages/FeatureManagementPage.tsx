@@ -147,19 +147,19 @@ export function FeatureManagementPage() {
       </div>
 
       <div className="dashboard-card" style={{ padding: '0', overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-        <table className="employee-table" style={{ width: '100%', minWidth: '800px', borderCollapse: 'separate', borderSpacing: 0 }}>
+        <table className="employee-table matrix-table" style={{ width: '100%', minWidth: '800px', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th style={{ minWidth: '220px', position: 'sticky', left: 0, zIndex: 10, backgroundColor: '#f1f5f9', borderRight: '2px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', boxShadow: '4px 0 8px rgba(0,0,0,0.05)', padding: '16px', color: '#334155' }}>Jabatan</th>
+              <th className="matrix-th-position">Jabatan</th>
               {matrixData.categories.map(cat => (
                 <th key={cat.category} colSpan={cat.features.length} style={{ textAlign: 'center', backgroundColor: '#f8fafc', borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #e2e8f0', padding: '12px 8px', color: '#475569', fontWeight: 600 }}>
                   {cat.label}
                 </th>
               ))}
-              <th style={{ minWidth: '120px', position: 'sticky', right: 0, zIndex: 10, backgroundColor: '#f1f5f9', borderLeft: '2px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', boxShadow: '-4px 0 8px rgba(0,0,0,0.05)', padding: '16px', color: '#334155', textAlign: 'center' }}>Aksi</th>
+              <th className="matrix-th-action">Aksi</th>
             </tr>
             <tr>
-              <th style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: '#f8fafc', borderRight: '2px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', boxShadow: '4px 0 8px rgba(0,0,0,0.05)' }}></th>
+              <th className="matrix-th-position" style={{ borderBottom: '1px solid #e2e8f0' }}></th>
               {matrixData.categories.flatMap(cat => 
                 cat.features.map((f, index) => {
                   const isLastInCategory = index === cat.features.length - 1;
@@ -180,7 +180,7 @@ export function FeatureManagementPage() {
                   );
                 })
               )}
-              <th style={{ position: 'sticky', right: 0, zIndex: 10, backgroundColor: '#f8fafc', borderLeft: '2px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', boxShadow: '-4px 0 8px rgba(0,0,0,0.05)' }}></th>
+              <th className="matrix-th-action" style={{ borderBottom: '1px solid #e2e8f0' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -188,11 +188,7 @@ export function FeatureManagementPage() {
               const isLastRow = pIndex === matrixData.positions.length - 1;
               return (
                 <tr key={position.id} className="matrix-row" style={{ transition: 'background-color 0.2s' }}>
-                  <td style={{ 
-                    position: 'sticky', left: 0, zIndex: 5, backgroundColor: '#fff', 
-                    borderRight: '2px solid #cbd5e1', borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0',
-                    boxShadow: '4px 0 8px rgba(0,0,0,0.05)', fontWeight: 600, color: '#1e293b', padding: '16px' 
-                  }}>
+                  <td className="matrix-td-position" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0' }}>
                     {position.name}
                   </td>
                   {matrixData.categories.flatMap(cat => 
@@ -220,11 +216,7 @@ export function FeatureManagementPage() {
                       );
                     })
                   )}
-                  <td style={{ 
-                    position: 'sticky', right: 0, zIndex: 5, backgroundColor: '#fff', 
-                    borderLeft: '2px solid #cbd5e1', borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0',
-                    boxShadow: '-4px 0 8px rgba(0,0,0,0.05)', textAlign: 'center', padding: '16px' 
-                  }}>
+                  <td className="matrix-td-action" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0' }}>
                     <button 
                       className="btn btn-primary" 
                       style={{ 

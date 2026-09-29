@@ -3,6 +3,8 @@ import { Department, Position, UpdateEmployeePayload, EmployeeListItem, Employee
 import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';
+import { validateFullName } from '../../utils/nameValidation';
+import { compressImage } from '../../utils/imageCompressor';
 import { Avatar } from '../../components/ui/Avatar';
 import './employee-modal.css';
 
@@ -19,6 +21,8 @@ interface EmployeeModalProps {
 export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departments, positions, managers }: EmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   
   // Form State
   const [fullName, setFullName] = useState('');
@@ -130,8 +134,18 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNameError('');
+    setPhoneError('');
 
     try {
+      const nameErr = validateFullName(fullName);
+      if (nameErr) {
+        setNameError(nameErr);
+        setError(nameErr);
+        setLoading(false);
+        return;
+      }
+
       const dateErrors = validateEmployeeDates(birthDate, joinDate);
       if (dateErrors.length > 0) {
         setError(dateErrors[0].message);
@@ -165,6 +179,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       if ((err as any)?.status === 409 && (err as any)?.code === 'STALE_DATA') {
         throw err;
       }
+      if ((err as any)?.status === 409) {
+        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
+          setPhoneError('Nomor telepon sudah terdaftar');
+          setError('Nomor telepon sudah terdaftar');
+          return;
+        }
+      }
       setError((err as any)?.message || 'Terjadi kesalahan saat menyimpan data');
     } finally {
       setLoading(false);
@@ -172,15 +193,24 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   }
 
   // Handle Photo specific actions
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhotoMessage(null);
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+      let file = e.target.files[0];
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         setPhotoMessage({ text: 'Foto profil harus berupa gambar JPEG, PNG, atau WebP yang sah', type: 'error' });
         return;
       }
+
+      setIsUploadingPhoto(true);
+      try {
+        file = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7, convertToJpeg: true });
+      } catch (err) {
+        console.error('Gagal mengompresi gambar:', err);
+      }
+      setIsUploadingPhoto(false);
+
       if (file.size > 5 * 1024 * 1024) {
         setPhotoMessage({ text: 'Ukuran berkas maksimal 5 MB', type: 'error' });
         return;
@@ -303,10 +333,15 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <input 
                   type="text" 
                   className="input-field" 
+                  style={nameError ? { borderColor: '#ef4444' } : undefined}
                   value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  onChange={e => {
+                    setFullName(e.target.value);
+                    setNameError('');
+                  }}
                   required
                 />
+                {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
               </div>
 
               <div className="form-group">
@@ -316,7 +351,10 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                     className="input-field"
                     style={{ width: '110px' }}
                     value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
+                    onChange={(e) => {
+                      setCountryCode(e.target.value);
+                      setPhoneError('');
+                    }}
                   >
                     <option value="+62">+62 (ID)</option>
                     <option value="+1">+1 (US)</option>
@@ -326,11 +364,16 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                   <input 
                     type="tel" 
                     className="input-field" 
+                    style={phoneError ? { borderColor: '#ef4444' } : undefined}
                     value={phoneNumber}
-                    onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                    onChange={e => {
+                      setPhoneNumber(e.target.value.replace(/\D/g, ''));
+                      setPhoneError('');
+                    }}
                     placeholder="812345678"
                   />
                 </div>
+                {phoneError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{phoneError}</span>}
               </div>
 
               <div className="form-group">

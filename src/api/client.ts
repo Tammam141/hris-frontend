@@ -9,7 +9,8 @@ export interface ApiError extends Error {
   retryAfter?: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+// Gunakan VITE_API_BASE_URL di lokal (npm run dev), dan gunakan relative path di Vercel agar ter-proxy lewat vercel.json
+const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_API_BASE_URL ?? '') : '';
 const API_URL = API_BASE + '/api/v1';
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {

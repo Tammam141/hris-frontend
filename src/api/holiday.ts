@@ -3,7 +3,7 @@ import { apiRequest } from './client';
 export interface Holiday {
   id: string;
   name: string;
-  date: string; // YYYY-MM-DD
+  holiday_date: string; // YYYY-MM-DD
   is_collective_leave: boolean;
   created_at?: string;
   updated_at: string;
@@ -39,7 +39,7 @@ export async function getHolidayDetail(id: string): Promise<{ data: Holiday }> {
 
 export async function createHoliday(data: {
   name: string;
-  date: string;
+  holiday_date: string;
   is_collective_leave: boolean;
 }): Promise<{ success: boolean; message: string }> {
   return apiRequest('/holidays', 'POST', data);
@@ -47,7 +47,7 @@ export async function createHoliday(data: {
 
 export async function updateHoliday(
   id: string,
-  data: Partial<{ name: string; date: string; is_collective_leave: boolean; updated_at: string }>
+  data: Partial<{ name: string; holiday_date: string; is_collective_leave: boolean; updated_at: string }>
 ): Promise<{ success: boolean; message: string }> {
   return apiRequest(`/holidays/${id}`, 'PATCH', data);
 }

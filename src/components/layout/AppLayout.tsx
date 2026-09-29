@@ -10,6 +10,9 @@ import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { UserCheckIcon } from '../icons/UserCheckIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 import { BellIcon } from '../icons/BellIcon';
+import { KeyIcon } from '../icons/KeyIcon';
+import { MailIcon } from '../icons/MailIcon';
+import { GithubIcon } from '../icons/GithubIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
@@ -92,36 +95,43 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </button>
           <div className="navbar-brand">HRIS</div>
         </div>
-        <div className="navbar-right">
-          {/* Tombol Lonceng Notifikasi */}
-          <div className="notif-bell-wrapper">
-            <button 
-              className="notif-bell-btn" 
-              onClick={() => navigate('/notifications')}
-              title="Notifikasi"
-            >
-              <BellIcon size={22} />
-              {unreadCount > 0 && (
-                <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-              )}
-            </button>
-          </div>
 
+        <div className="navbar-right">
           <div className="navbar-user">
             <span>Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
             <Avatar 
               photoUrl={user?.employee?.photo_url} 
               name={user?.full_name || ''} 
-              size="36px" 
+              size="34px" 
               fontSize="14px"
             />
           </div>
-          <button onClick={() => setIsChangePasswordOpen(true)} className="btn-logout btn-change-password">
-            Ganti Password
-          </button>
-          <button onClick={handleLogout} className="btn-logout">
-            Logout
-          </button>
+
+          <div className="navbar-actions">
+            <div className="notif-bell-wrapper">
+              <button 
+                className="notif-bell-btn" 
+                onClick={() => navigate('/notifications')}
+                title="Notifikasi"
+              >
+                <BellIcon size={20} />
+                {unreadCount > 0 && (
+                  <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setIsChangePasswordOpen(true)} 
+              className="btn-change-password-icon" 
+              title="Ganti Password"
+            >
+              <KeyIcon size={18} />
+            </button>
+            <button onClick={handleLogout} className="btn-logout">
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -272,9 +282,38 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </nav>
         </aside>
 
-        {/* content */}
-        <main className="app-content">
-          {children}
+        <main className="app-content" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 70px)' }}>
+          <div style={{ flex: 1 }}>
+            {children}
+          </div>
+          <footer className="app-footer">
+            <div className="app-footer-accent-bar" />
+            <div className="app-footer-content">
+              <div className="app-footer-brand">
+                <span className="app-footer-title">HRIS</span>
+                <span className="app-footer-divider">—</span>
+                <span className="app-footer-desc">Aplikasi Human Resource Information System</span>
+              </div>
+              <div className="app-footer-devs">
+                <div className="app-footer-dev-card">
+                  <span className="app-footer-role">Backend Developer</span>
+                  <div className="app-footer-dev-info">
+                    <span className="app-footer-name">Ismail Muhammad</span>
+                    <a href="mailto:Ismailmail290@gmail.com" title="Email" className="app-footer-social-link"><MailIcon size={14} /></a>
+                    <a href="https://github.com/ismailmail290" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
+                  </div>
+                </div>
+                <div className="app-footer-dev-card">
+                  <span className="app-footer-role">Frontend Developer</span>
+                  <div className="app-footer-dev-info">
+                    <span className="app-footer-name">Muhammad Tammam Tanjung</span>
+                    <a href="mailto:tammamtanjung1405@gmail.com" title="Email" className="app-footer-social-link"><MailIcon size={14} /></a>
+                    <a href="https://github.com/Tammam141" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </footer>
         </main>
 
       </div>

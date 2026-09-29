@@ -244,5 +244,75 @@
   font-weight: 500;
   color: #475569;
   margin-bottom: 8px;
-}  
- 
+}
+
+/* Feature Matrix Table Responsiveness */
+.matrix-table {
+  width: 100%;
+  min-width: 800px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.matrix-th-position,
+.matrix-td-position {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: #f1f5f9;
+  border-right: 2px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  box-shadow: 4px 0 8px rgba(0,0,0,0.05);
+  padding: 16px;
+  color: #334155;
+  min-width: 220px;
+}
+
+.matrix-td-position {
+  z-index: 5;
+  background-color: #ffffff;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.matrix-th-action,
+.matrix-td-action {
+  position: sticky;
+  right: 0;
+  z-index: 10;
+  background-color: #f1f5f9;
+  border-left: 2px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  box-shadow: -4px 0 8px rgba(0,0,0,0.05);
+  padding: 16px;
+  color: #334155;
+  text-align: center;
+  min-width: 120px;
+}
+
+.matrix-td-action {
+  z-index: 5;
+  background-color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .matrix-th-position,
+  .matrix-td-position {
+    min-width: 120px !important;
+    max-width: 130px !important;
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  /* Release sticky right positioning on mobile so feature checkboxes are 100% visible and un-obscured */
+  .matrix-th-action,
+  .matrix-td-action {
+    position: static !important;
+    box-shadow: none !important;
+    border-left: 1px solid #e2e8f0 !important;
+    min-width: 85px !important;
+    padding: 8px 6px !important;
+  }
+}

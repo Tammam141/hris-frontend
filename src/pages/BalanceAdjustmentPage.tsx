@@ -62,10 +62,26 @@ export function BalanceAdjustmentPage() {
     }
   }, [selectedEmployeeId, selectedLeaveTypeId, periodYear]);
 
+  // Client-side validation for amount
+  let amountValidationError = '';
+  if (amount !== '') {
+    const numAmount = Number(amount);
+    if (Math.abs(numAmount) > 365) {
+      amountValidationError = 'Jumlah penyesuaian maksimal 365 hari (antara -365 dan 365 hari).';
+    } else if (numAmount < 0 && currentBalanceInfo && Math.abs(numAmount) > (currentBalanceInfo.balance ?? 0)) {
+      const curBal = currentBalanceInfo.balance ?? 0;
+      amountValidationError = `Pengurangan melebihi sisa saldo saat ini (${curBal} hari). Maksimal pengurangan adalah ${curBal > 0 ? `-${curBal}` : '0'} hari.`;
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployeeId || !selectedLeaveTypeId || amount === '' || !reason.trim()) {
       setAlertInfo({ open: true, title: 'Error', message: 'Harap lengkapi semua field.', type: 'error' });
+      return;
+    }
+    if (amountValidationError) {
+      setAlertInfo({ open: true, title: 'Error', message: amountValidationError, type: 'error' });
       return;
     }
     setIsConfirmOpen(true);
@@ -93,11 +109,43 @@ export function BalanceAdjustmentPage() {
       setTimeout(() => setSelectedEmployeeId(currentEmployee), 100);
       
     } catch (err: any) {
-      setAlertInfo({ open: true, title: 'Gagal', message: err.message || 'Gagal menyesuaikan saldo cuti.', type: 'error' });
+      if (err.status === 400 && err.details?.max_deduction !== undefined) {
+        const curBal = err.details.current_balance ?? err.details.max_deduction;
+        const maxDed = err.details.max_deduction;
+        setAlertInfo({
+          open: true,
+          title: 'Gagal',
+          message: `Saldo tidak cukup. Sisa saldo saat ini ${curBal} hari, jadi pengurangan paling banyak ${maxDed} hari.`,
+          type: 'error'
+        });
+      } else if (err.code === 'VALIDATION_ERROR' && (err.message?.includes('365') || String(err.details?.amount || '').includes('365'))) {
+        setAlertInfo({
+          open: true,
+          title: 'Gagal',
+          message: 'Jumlah penyesuaian harus antara -365 dan 365 hari.',
+          type: 'error'
+        });
+      } else {
+        setAlertInfo({ open: true, title: 'Gagal', message: err.message || 'Gagal menyesuaikan saldo cuti.', type: 'error' });
+      }
     } finally {
       setIsSubmitting(false);
       setIsConfirmOpen(false);
     }
+  };
+
+  const getConfirmMessage = () => {
+    const numAmount = Number(amount);
+    const isAdd = numAmount > 0;
+    const action = isAdd ? 'menambahkan' : 'mengurangi';
+    const absDays = Math.abs(numAmount);
+    
+    if (currentBalanceInfo && typeof currentBalanceInfo.balance === 'number') {
+      const projectedBalance = currentBalanceInfo.balance + numAmount;
+      return `Anda akan ${action} ${absDays} hari saldo cuti untuk karyawan ini. Sisa saldo akan menjadi ${projectedBalance} hari. Lanjutkan?`;
+    }
+    
+    return `Anda akan ${action} ${absDays} hari saldo cuti untuk karyawan ini. Lanjutkan?`;
   };
 
   return (
@@ -158,12 +206,18 @@ export function BalanceAdjustmentPage() {
               <input 
                 type="number" 
                 className="input-field" 
+                style={amountValidationError ? { borderColor: '#ef4444' } : undefined}
                 value={amount} 
                 onChange={e => setAmount(e.target.value !== '' ? Number(e.target.value) : '')} 
                 required 
                 placeholder="Gunakan angka negatif untuk mengurangi saldo (contoh: -2)"
               />
               <span style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'block' }}>Contoh: 5 (menambah 5 hari), -2 (mengurangi 2 hari)</span>
+              {amountValidationError && (
+                <span style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: 500 }}>
+                  {amountValidationError}
+                </span>
+              )}
             </div>
 
             <div className="form-group">
@@ -178,7 +232,12 @@ export function BalanceAdjustmentPage() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }} disabled={isSubmitting}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '16px' }} 
+              disabled={isSubmitting || Boolean(amountValidationError)}
+            >
               {isSubmitting ? 'Menyimpan...' : 'Simpan Penyesuaian'}
             </button>
           </form>
@@ -188,7 +247,7 @@ export function BalanceAdjustmentPage() {
       <ConfirmModal
         isOpen={isConfirmOpen}
         title="Konfirmasi Penyesuaian"
-        message={`Anda akan ${Number(amount) > 0 ? 'menambahkan' : 'mengurangi'} ${Math.abs(Number(amount))} hari saldo cuti untuk karyawan ini. Lanjutkan?`}
+        message={getConfirmMessage()}
         confirmText="Ya, Lanjutkan"
         isDestructive={false}
         onConfirm={confirmSubmit}
