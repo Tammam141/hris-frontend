@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { forgotPasswordApi } from '../api/auth';
 import '../components/ui/auth.css';
@@ -8,9 +8,19 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (countdown > 0) return;
     setError('');
     setSuccess('');
 
@@ -22,8 +32,9 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       await forgotPasswordApi(email);
-      // Pesan selalu sama, terdaftar maupun tidak
-      setSuccess('Instruksi untuk reset password telah dikirim ke email Anda. Silakan cek inbox (atau folder spam).');
+      // Set cooldown 60 detik agar tidak spam request
+      setCountdown(60);
+      setSuccess('Instruksi untuk reset password telah dikirim ke email Anda. Cek juga folder spam.');
     } catch (err: any) {
       setError(err.message || 'Gagal mengirim instruksi reset password');
     } finally {
@@ -40,7 +51,16 @@ export function ForgotPasswordPage() {
         </p>
 
         {error && <div className="alert-error">{error}</div>}
-        {success && <div className="alert-success">{success}</div>}
+        {success && (
+          <div className="alert-success">
+            {success}
+            {countdown > 0 && (
+              <span style={{ display: 'block', marginTop: '6px', fontSize: '13px', fontWeight: 500 }}>
+                Kirim ulang dalam {countdown} detik.
+              </span>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label htmlFor="email" className="input-label">Email</label>
@@ -55,8 +75,13 @@ export function ForgotPasswordPage() {
             required
           />
 
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }} disabled={loading || !email}>
-            {loading ? 'Memproses...' : 'Kirim Instruksi'}
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ marginTop: '16px' }} 
+            disabled={loading || !email || countdown > 0}
+          >
+            {loading ? 'Memproses...' : countdown > 0 ? `Kirim Ulang (${countdown}s)` : 'Kirim Instruksi'}
           </button>
         </form>
 
