@@ -21,6 +21,8 @@ export function RegisterForm() {
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -31,6 +33,8 @@ export function RegisterForm() {
     setError('');
     setNameError('');
     setPhoneError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
     setSuccess('');
 
     // fungsi untuk menggabungkan kode negara dengan nomor telepon
@@ -55,6 +59,10 @@ export function RegisterForm() {
         setNameError(firstIssue.message);
       } else if (firstIssue.path[0] === 'phone') {
         setPhoneError(firstIssue.message);
+      } else if (firstIssue.path[0] === 'password') {
+        setPasswordError(firstIssue.message);
+      } else if (firstIssue.path[0] === 'confirmPassword') {
+        setConfirmPasswordError(firstIssue.message);
       }
       return;
     }
@@ -131,26 +139,34 @@ export function RegisterForm() {
             id="password"
             type="password"
             className="input-field"
-            placeholder="Min. 8 karakter"
+            style={passwordError ? { borderColor: '#ef4444' } : undefined}
+            placeholder="Min. 8 karakter (huruf besar, kecil & angka)"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setPasswordError('');
+            }}
             disabled={loading}
             required
           />
+          {passwordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{passwordError}</span>}
 
           <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>
           <input
             id="confirmPassword"
             type="password"
             className="input-field"
+            style={confirmPasswordError ? { borderColor: '#ef4444' } : undefined}
             placeholder="Ulangi password di atas"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={8}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              setConfirmPasswordError('');
+            }}
             disabled={loading}
             required
           />
+          {confirmPasswordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{confirmPasswordError}</span>}
 
           <label className="input-label">Nomor Telepon</label>
           <div style={{ display: 'flex', gap: '8px' }}>
