@@ -10,14 +10,24 @@ import { XIcon } from '../components/icons/XIcon';
 import { getLeaveApprovals, approveLeaveRequest, rejectLeaveRequest, LeaveRequest } from '../api/leave';
 
 export function LeaveManagementPage() {
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [leaveResponse, setLeaveResponse] = useState({
+    data: [] as LeaveRequest[],
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 1
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
   
-  // Pagination & Filter
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // Pagination & Filter (page/limit diambil dari state leaveResponse)
+  const page = leaveResponse.page;
+  const totalPages = leaveResponse.total_pages;
+  const limit = leaveResponse.limit;
+  const setPage = (updater: number | ((p: number) => number)) =>
+    setLeaveResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
   const [statusFilter, setStatusFilter] = useState('pending');
-  const limit = 10;
 
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string; action: 'approve' | 'reject'; name: string }>({ isOpen: false, id: '', action: 'approve', name: '' });
   const [decisionNote, setDecisionNote] = useState('');
@@ -28,12 +38,43 @@ export function LeaveManagementPage() {
 
   const fetchApprovals = useCallback(() => {
     setIsLoading(true);
+    const cacheKey = `cached_leave_approvals_${statusFilter}`;
     getLeaveApprovals({ page, limit, status: statusFilter === 'all' ? undefined : statusFilter })
       .then(res => {
-        setRequests(res.data);
-        if (res.meta) setTotalPages(res.meta.total_pages || 1);
+        const newData = {
+          data: res.data || [],
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        };
+        // 2. Data respon backend dibungkus ke state leaveResponse
+        setLeaveResponse(prev => ({ ...prev, ...newData }));
+        setIsOfflineMode(false);
+        // Simpan cadangan ke localStorage saat BE sukses
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ ...newData, page, limit }));
+        } catch {}
       })
-      .catch(err => console.error(err))
+      .catch(err => {
+        // Jika BE mati / down: ambil data cadangan dari localStorage
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+              setLeaveResponse(prev => ({
+                ...prev,
+                data: parsed.data,
+                total: parsed.total ?? 0,
+                total_pages: parsed.total_pages ?? 1
+              }));
+              setIsOfflineMode(true);
+              return;
+            }
+          }
+        } catch {}
+        setIsOfflineMode(false);
+        console.error(err);
+      })
       .finally(() => setIsLoading(false));
   }, [page, limit, statusFilter]);
 
@@ -99,6 +140,13 @@ export function LeaveManagementPage() {
           </div>
         </div>
 
+        {isOfflineMode && (
+          <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data pengajuan cuti lokal terakhir yang tersimpan di perangkat.</span>
+          </div>
+        )}
+
         {/* Filter Tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {['pending', 'approved', 'rejected', 'cancelled', 'all'].map(status => (
@@ -129,6 +177,7 @@ export function LeaveManagementPage() {
           <table className="employee-table">
             <thead>
               <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                 <th>Nama Karyawan</th>
                 <th>Jenis Cuti</th>
                 <th>Tanggal</th>
@@ -141,15 +190,19 @@ export function LeaveManagementPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '24px' }}>Memuat data...</td>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Memuat data...</td>
                 </tr>
-              ) : requests.length === 0 ? (
+              ) : !leaveResponse.data || leaveResponse.data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '24px' }}>Tidak ada pengajuan cuti saat ini.</td>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Tidak ada pengajuan cuti saat ini.</td>
                 </tr>
               ) : (
-                requests.map((req) => (
+                // 3. Map dipanggil dari leaveResponse.data untuk memunculkan baris tabel
+                leaveResponse.data.map((req, index) => (
                   <tr key={req.id}>
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((leaveResponse.page - 1) * leaveResponse.limit) + index + 1}.
+                    </td>
                     <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.employee_name}</div></td>
                     <td>{req.leave_type_name}</td>
                     <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>

@@ -6,39 +6,76 @@ import '../components/ui/attendance.css';
 import { AlertModal } from '../components/ui/AlertModal';
 
 export function AttendanceEventsLogPage() {
-  const [events, setEvents] = useState<AttendanceEvent[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [eventResponse, setEventResponse] = useState({
+    data: [] as AttendanceEvent[],
+    page: 1,
+    limit: 20,
+    total: 0,
+    total_pages: 1
+  });
   const [loading, setLoading] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
   const [errorMsg, setErrorMsg] = useState('');
   
   // Filters
   const [onlyRejected, setOnlyRejected] = useState(false);
   const [kind, setKind] = useState<'check_in' | 'check_out' | ''>('');
   
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
+  // Pagination (diambil dari state eventResponse)
+  const page = eventResponse.page;
+  const totalPages = eventResponse.total_pages;
+  const setPage = (updater: number | ((p: number) => number)) =>
+    setEventResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const params: GetAttendanceEventsParams = { page, limit: 20 };
+      const params: GetAttendanceEventsParams = { page, limit: eventResponse.limit };
       if (onlyRejected) params.only_rejected = true;
       if (kind) params.kind = kind;
 
       const res = await getAttendanceEvents(params);
       if (res.success) {
-        setEvents(res.data);
-        setTotalPages(res.meta.total_pages);
-        setTotalRecords(res.meta.total);
+        const newData = {
+          data: res.data || [],
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        };
+        // 2. Data respon backend dibungkus ke state eventResponse
+        setEventResponse(prev => ({ ...prev, ...newData }));
+        setIsOfflineMode(false);
+        // Simpan cadangan ke localStorage saat BE sukses
+        try {
+          localStorage.setItem('cached_attendance_events', JSON.stringify({ ...newData, page, limit: eventResponse.limit }));
+        } catch {}
       }
     } catch (err: any) {
+      // Jika BE mati / down: ambil data cadangan dari localStorage
+      try {
+        const cached = localStorage.getItem('cached_attendance_events');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            setEventResponse(prev => ({
+              ...prev,
+              data: parsed.data,
+              total: parsed.total ?? 0,
+              total_pages: parsed.total_pages ?? 1
+            }));
+            setIsOfflineMode(true);
+            return;
+          }
+        }
+      } catch {}
+
+      setIsOfflineMode(false);
       setErrorMsg(err.message || 'Gagal memuat log absensi');
     } finally {
       setLoading(false);
     }
-  }, [page, onlyRejected, kind]);
+  }, [page, onlyRejected, kind, eventResponse.limit]);
 
   useEffect(() => {
     fetchEvents();
@@ -74,6 +111,13 @@ export function AttendanceEventsLogPage() {
         </div>
       </div>
 
+      {isOfflineMode && (
+        <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data log absensi lokal terakhir yang tersimpan di perangkat.</span>
+        </div>
+      )}
+
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px', display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div>
           <label className="form-label" style={{ marginBottom: '8px' }}>Filter Jenis</label>
@@ -105,12 +149,13 @@ export function AttendanceEventsLogPage() {
       <div className="attendance-table-wrapper" style={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Memuat log data...</div>
-        ) : events.length === 0 ? (
+        ) : !eventResponse.data || eventResponse.data.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Tidak ada rekaman absensi yang ditemukan.</div>
         ) : (
           <table className="attendance-table" style={{ margin: 0 }}>
             <thead>
               <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                 <th>Karyawan</th>
                 <th>Jenis</th>
                 <th>Waktu Ditekan (Occurred At)</th>
@@ -121,8 +166,12 @@ export function AttendanceEventsLogPage() {
               </tr>
             </thead>
             <tbody>
-              {events.map((evt) => (
+              {/* 3. Map dipanggil dari eventResponse.data untuk memunculkan baris tabel */}
+              {eventResponse.data.map((evt, index) => (
                 <tr key={evt.id} style={{ backgroundColor: evt.rejection_reason ? '#fef2f2' : 'transparent' }}>
+                  <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                    {((eventResponse.page - 1) * eventResponse.limit) + index + 1}.
+                  </td>
                   <td>
                     <div style={{ fontWeight: 500, color: '#0f172a' }}>{evt.employee_name}</div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>{evt.employee_number}</div>
@@ -176,7 +225,7 @@ export function AttendanceEventsLogPage() {
       {!loading && totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
           <div style={{ fontSize: '14px', color: '#64748b' }}>
-            Total {totalRecords} data
+            Total {eventResponse.total} data
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
