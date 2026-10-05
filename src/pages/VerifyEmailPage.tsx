@@ -50,7 +50,9 @@ export function VerifyEmailPage() {
     try {
       await verifyEmailApi(email, code);
       navigate('/login', {
-        state: { message: 'Verifikasi berhasil! Silakan login dengan akun Anda.' }
+        state: { 
+          message: 'Email berhasil diverifikasi. Akun Anda sekarang menunggu persetujuan HR. Anda akan menerima email begitu akun disetujui, setelah itu Anda bisa login.' 
+        }
       });
     } catch (err: any) {
       setError(err.message || 'Gagal memverifikasi email');

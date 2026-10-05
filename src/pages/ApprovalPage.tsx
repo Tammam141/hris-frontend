@@ -54,7 +54,14 @@ export function ApprovalPage() {
         loadUsers();
       }
     } catch (err: any) {
-      setAlertMessage(err.message || 'Gagal menyetujui akun');
+      if (
+        err.message === 'This account cannot be approved until its email has been verified' ||
+        err.message?.toLowerCase().includes('cannot be approved until its email')
+      ) {
+        setAlertMessage('Akun ini belum bisa disetujui karena pemiliknya belum memverifikasi email.');
+      } else {
+        setAlertMessage(err.message || 'Gagal menyetujui akun');
+      }
       setAlertOpen(true);
     } finally {
       setSelectedUser(null);
@@ -67,7 +74,7 @@ export function ApprovalPage() {
         <div className="employee-header-actions">
           <div>
             <h1 className="dashboard-title">Persetujuan Akun Baru</h1>
-            <p className="dashboard-subtitle">Daftar pengguna yang mendaftar mandiri dan menunggu persetujuan HR.</p>
+            <p className="dashboard-subtitle">Daftar pengguna yang mendaftar mandiri, sudah memverifikasi email, dan menunggu persetujuan HR.</p>
           </div>
         </div>
 
