@@ -6,6 +6,12 @@ import { validateEmployeeDates } from '../../utils/dateValidation';
 import { validateFullName } from '../../utils/nameValidation';
 import { compressImage } from '../../utils/imageCompressor';
 import { Avatar } from '../../components/ui/Avatar';
+import { 
+  isPhoneAlreadyRegisteredError, 
+  isPhoneFormatValidationError, 
+  PHONE_ALREADY_REGISTERED_MSG, 
+  PHONE_FORMAT_INVALID_MSG 
+} from '../../utils/phoneValidation';
 import './employee-modal.css';
 
 interface EmployeeModalProps {
@@ -179,12 +185,15 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       if ((err as any)?.status === 409 && (err as any)?.code === 'STALE_DATA') {
         throw err;
       }
-      if ((err as any)?.status === 409) {
-        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
-          setPhoneError('Nomor telepon sudah terdaftar');
-          setError('Nomor telepon sudah terdaftar');
-          return;
-        }
+      if (isPhoneAlreadyRegisteredError(err)) {
+        setPhoneError(PHONE_ALREADY_REGISTERED_MSG);
+        setError(PHONE_ALREADY_REGISTERED_MSG);
+        return;
+      }
+      if (isPhoneFormatValidationError(err)) {
+        setPhoneError(PHONE_FORMAT_INVALID_MSG);
+        setError(PHONE_FORMAT_INVALID_MSG);
+        return;
       }
       setError((err as any)?.message || 'Terjadi kesalahan saat menyimpan data');
     } finally {

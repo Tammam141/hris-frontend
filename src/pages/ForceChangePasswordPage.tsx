@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { clearSession } from '../utils/session';
 import { changePasswordApi } from '../api/auth';
+import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../utils/passwordValidation';
 import { useAuth } from '../hooks/useAuth';
 
 export function ForceChangePasswordPage() {
@@ -11,11 +12,19 @@ export function ForceChangePasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [currentPasswordError, setCurrentPasswordError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setCurrentPasswordError('');
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError('Password baru dan konfirmasi tidak cocok');
@@ -31,7 +40,11 @@ export function ForceChangePasswordPage() {
         window.location.href = '/login';
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Gagal mengubah password');
+      if (isWrongCurrentPasswordError(err)) {
+        setCurrentPasswordError(WRONG_CURRENT_PASSWORD_MSG);
+      } else {
+        setError(err.message || 'Gagal mengubah password');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,12 +68,13 @@ export function ForceChangePasswordPage() {
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Password Saat Ini</label>
             <input 
               type="password" 
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: currentPasswordError ? '1px solid #ef4444' : '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
               value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)}
+              onChange={e => { setCurrentPassword(e.target.value); setCurrentPasswordError(''); }}
               required
               disabled={loading || !!success}
             />
+            {currentPasswordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{currentPasswordError}</span>}
           </div>
           
           <div style={{ marginBottom: '16px' }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { changePasswordApi } from '../../api/auth';
 import { clearSession } from '../../utils/session';
+import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../../utils/passwordValidation';
 import '../employee/employee-modal.css'; // Reusing the same modal CSS
 
 interface ChangePasswordModalProps {
@@ -16,6 +17,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [currentPasswordError, setCurrentPasswordError] = useState('');
 
   if (!isOpen) return null;
 
@@ -23,6 +25,13 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
     e.preventDefault();
     setError('');
     setSuccess('');
+    setCurrentPasswordError('');
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError('Password baru dan konfirmasi tidak cocok');
@@ -38,7 +47,11 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
         window.location.href = '/login';
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Gagal mengubah password');
+      if (isWrongCurrentPasswordError(err)) {
+        setCurrentPasswordError(WRONG_CURRENT_PASSWORD_MSG);
+      } else {
+        setError(err.message || 'Gagal mengubah password');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,6 +63,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
     setConfirmPassword('');
     setError('');
     setSuccess('');
+    setCurrentPasswordError('');
     onClose();
   }
 
@@ -73,11 +87,13 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
               <input 
                 type="password" 
                 className="input-field" 
+                style={currentPasswordError ? { borderColor: '#ef4444' } : undefined}
                 value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
+                onChange={e => { setCurrentPassword(e.target.value); setCurrentPasswordError(''); }}
                 required
                 disabled={loading || !!success}
               />
+              {currentPasswordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{currentPasswordError}</span>}
             </div>
             
             <div className="form-group" style={{ marginBottom: '16px' }}>

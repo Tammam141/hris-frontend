@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { FULL_NAME_REGEX, FULL_NAME_INVALID_MSG } from '../../utils/nameValidation';
 import {
   PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MAX_MSG,
   PASSWORD_UPPERCASE_REGEX,
   PASSWORD_UPPERCASE_MSG,
   PASSWORD_LOWERCASE_REGEX,
@@ -26,6 +28,7 @@ export const registerSchema = z.object({
   password: z
     .string()
     .min(PASSWORD_MIN_LENGTH, `Password minimal ${PASSWORD_MIN_LENGTH} karakter`)
+    .max(PASSWORD_MAX_LENGTH, PASSWORD_MAX_MSG)
     .regex(PASSWORD_UPPERCASE_REGEX, PASSWORD_UPPERCASE_MSG)
     .regex(PASSWORD_LOWERCASE_REGEX, PASSWORD_LOWERCASE_MSG)
     .regex(PASSWORD_NUMBER_REGEX, PASSWORD_NUMBER_MSG),
