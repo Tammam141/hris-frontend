@@ -7,13 +7,21 @@ import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 export function ActivityLogPage() {
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [logResponse, setLogResponse] = useState({
+    data: [] as ActivityLog[],
+    page: 1,
+    limit: 50,
+    total: 0,
+    total_pages: 1
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
-  
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalData, setTotalData] = useState(0);
+
+  const page = logResponse.page;
+  const setPage = (updater: number | ((p: number) => number)) =>
+    setLogResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
 
   // Filters
   const [filters, setFilters] = useState({
@@ -37,18 +45,44 @@ export function ActivityLogPage() {
       const params: GetActivityLogsParams = {
         ...filters,
         page,
-        limit: 50 // Standardize on 50 or 20 for log views
+        limit: logResponse.limit
       };
       const res = await getActivityLogsApi(params);
       if (res.success) {
-        setLogs(res.data);
-        if (res.meta) {
-          setTotalPages(res.meta.total_pages || 1);
-          setTotalData(res.meta.total || 0);
-        }
+        const newData = {
+          data: res.data || [],
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        };
+        // 2. Data respon backend dibungkus ke state logResponse
+        setLogResponse(prev => ({ ...prev, ...newData }));
+        setIsOfflineMode(false);
+        // Simpan cadangan ke localStorage saat BE sukses
+        try {
+          localStorage.setItem('cached_activity_logs', JSON.stringify({ ...newData, page, limit: logResponse.limit }));
+        } catch {}
       }
     } catch (error) {
+      // Jika BE mati / down: ambil data cadangan dari localStorage
+      try {
+        const cached = localStorage.getItem('cached_activity_logs');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            setLogResponse(prev => ({
+              ...prev,
+              data: parsed.data,
+              total: parsed.total ?? 0,
+              total_pages: parsed.total_pages ?? 1
+            }));
+            setIsOfflineMode(true);
+            return;
+          }
+        }
+      } catch {}
+
       const e = error as ApiError;
+      setIsOfflineMode(false);
       setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat log aktivitas.', type: 'error' });
     } finally {
       setIsLoading(false);
@@ -89,6 +123,13 @@ export function ActivityLogPage() {
         </div>
       </div>
 
+      {isOfflineMode && (
+        <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginTop: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data log lokal terakhir yang tersimpan di perangkat.</span>
+        </div>
+      )}
+
       <div className="attendance-history-card" style={{ marginTop: '24px' }}>
         
         {/* Filters */}
@@ -125,7 +166,7 @@ export function ActivityLogPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 className="attendance-history-title" style={{ margin: 0 }}>Data Log</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
-            Menampilkan {logs.length} dari {totalData} data
+            Menampilkan {logResponse.data.length} dari {logResponse.total} data
           </span>
         </div>
         
@@ -136,6 +177,7 @@ export function ActivityLogPage() {
             <table className="attendance-table">
               <thead>
                 <tr>
+                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                   <th>Waktu</th>
                   <th>Aktor</th>
                   <th>Tindakan</th>
@@ -146,8 +188,12 @@ export function ActivityLogPage() {
                 </tr>
               </thead>
               <tbody>
-                {logs.map(log => (
+                {/* 3. Map dipanggil dari logResponse.data untuk memunculkan baris tabel */}
+                {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => (
                   <tr key={log.id}>
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((logResponse.page - 1) * logResponse.limit) + index + 1}.
+                    </td>
                     <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
                       {formatPlainDate(log.created_at)}<br/>
                       <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
@@ -168,9 +214,9 @@ export function ActivityLogPage() {
                     </td>
                   </tr>
                 ))}
-                {logs.length === 0 && (
+                {logResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="table-cell-no-data">Belum ada data log aktivitas.</td>
+                    <td colSpan={8} className="table-cell-no-data">Belum ada data log aktivitas.</td>
                   </tr>
                 )}
               </tbody>
@@ -178,7 +224,7 @@ export function ActivityLogPage() {
           </div>
         )}
         
-        {totalPages > 1 && (
+        {logResponse.total_pages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
             <button 
               disabled={page === 1} 
@@ -187,11 +233,11 @@ export function ActivityLogPage() {
             >
               Prev
             </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
+            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {logResponse.total_pages}</span>
             <button 
-              disabled={page === totalPages} 
+              disabled={page === logResponse.total_pages} 
               onClick={() => setPage(p => p + 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === logResponse.total_pages ? '#f1f5f9' : '#fff', cursor: page === logResponse.total_pages ? 'not-allowed' : 'pointer' }}
             >
               Next
             </button>

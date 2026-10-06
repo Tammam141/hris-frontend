@@ -12,15 +12,25 @@ import { parseISO, format } from 'date-fns';
 import { ApiError } from '../api/client';
 
 export function HolidayPage() {
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [holidayResponse, setHolidayResponse] = useState({
+    data: [] as Holiday[],
+    page: 1,
+    limit: 15,
+    total: 0,
+    total_pages: 1
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
 
-  // Pagination & Filter
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // Pagination & Filter (page/limit diambil dari state holidayResponse)
+  const page = holidayResponse.page;
+  const totalPages = holidayResponse.total_pages;
+  const limit = holidayResponse.limit;
+  const setPage = (updater: number | ((p: number) => number)) =>
+    setHolidayResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
-  const limit = 15;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,14 +54,44 @@ export function HolidayPage() {
   const loadHolidays = useCallback(async () => {
     setLoading(true);
     setError('');
+    const cacheKey = `cached_holidays_${yearFilter}`;
     try {
       const res = await getHolidays({ page, limit, year: yearFilter });
       if (res.data) {
-        setHolidays(res.data);
-        if (res.meta) setTotalPages(res.meta.total_pages || 1);
+        const newData = {
+          data: res.data || [],
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        };
+        // 2. Data respon backend dibungkus ke state holidayResponse
+        setHolidayResponse(prev => ({ ...prev, ...newData }));
+        setIsOfflineMode(false);
+        // Simpan cadangan ke localStorage saat BE sukses
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ ...newData, page, limit }));
+        } catch {}
       }
     } catch (e: any) {
+      // Jika BE mati / down: ambil data cadangan dari localStorage
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            setHolidayResponse(prev => ({
+              ...prev,
+              data: parsed.data,
+              total: parsed.total ?? 0,
+              total_pages: parsed.total_pages ?? 1
+            }));
+            setIsOfflineMode(true);
+            return;
+          }
+        }
+      } catch {}
+
       const err = e as ApiError;
+      setIsOfflineMode(false);
       setError(err.message || 'Gagal memuat data hari libur');
     } finally {
       setLoading(false);
@@ -168,12 +208,20 @@ export function HolidayPage() {
           </select>
         </div>
 
+        {isOfflineMode && (
+          <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data hari libur lokal terakhir yang tersimpan di perangkat.</span>
+          </div>
+        )}
+
         {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
         <div className="employee-table-wrapper">
           <table className="employee-table">
             <thead>
               <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                 <th>Tanggal</th>
                 <th>Nama Hari Libur</th>
                 <th>Tipe</th>
@@ -182,12 +230,16 @@ export function HolidayPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
-              ) : holidays.length === 0 ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data hari libur pada tahun ini.</td></tr>
+                <tr><td colSpan={5} className="text-center empty-table-cell">Memuat data...</td></tr>
+              ) : !holidayResponse.data || holidayResponse.data.length === 0 ? (
+                <tr><td colSpan={5} className="text-center empty-table-cell">Belum ada data hari libur pada tahun ini.</td></tr>
               ) : (
-                holidays.map(holiday => (
+                // 3. Map dipanggil dari holidayResponse.data untuk memunculkan baris tabel
+                holidayResponse.data.map((holiday, index) => (
                   <tr key={holiday.id}>
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((holidayResponse.page - 1) * holidayResponse.limit) + index + 1}.
+                    </td>
                     <td>
                       <div style={{ fontWeight: 600 }}>
                         {(() => {

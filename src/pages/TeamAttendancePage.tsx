@@ -8,13 +8,22 @@ import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 export function TeamAttendancePage() {
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [teamAttendanceResponse, setTeamAttendanceResponse] = useState({
+    data: [] as Attendance[],
+    page: 1,
+    limit: 20,
+    total: 0,
+    total_pages: 1
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
 
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalData, setTotalData] = useState(0);
+  const page = teamAttendanceResponse.page;
+  const totalPages = teamAttendanceResponse.total_pages;
+  const setPage = (updater: number | ((p: number) => number)) =>
+    setTeamAttendanceResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
 
   useEffect(() => {
     loadData();
@@ -24,16 +33,42 @@ export function TeamAttendancePage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await getTeamAttendancesApi({ page, limit: 20 });
+      const res = await getTeamAttendancesApi({ page, limit: teamAttendanceResponse.limit });
       if (res.success) {
-        setAttendances(res.data);
-        if (res.meta) {
-          setTotalPages(res.meta.total_pages || 1);
-          setTotalData(res.meta.total || 0);
-        }
+        const newData = {
+          data: res.data || [],
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        };
+        // 2. Data respon backend dibungkus ke state teamAttendanceResponse
+        setTeamAttendanceResponse(prev => ({ ...prev, ...newData }));
+        setIsOfflineMode(false);
+        // Simpan cadangan ke localStorage saat BE sukses
+        try {
+          localStorage.setItem('cached_team_attendances', JSON.stringify({ ...newData, page, limit: teamAttendanceResponse.limit }));
+        } catch {}
       }
     } catch (error) {
+      // Jika BE mati / down: ambil data cadangan dari localStorage
+      try {
+        const cached = localStorage.getItem('cached_team_attendances');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            setTeamAttendanceResponse(prev => ({
+              ...prev,
+              data: parsed.data,
+              total: parsed.total ?? 0,
+              total_pages: parsed.total_pages ?? 1
+            }));
+            setIsOfflineMode(true);
+            return;
+          }
+        }
+      } catch {}
+
       const e = error as ApiError;
+      setIsOfflineMode(false);
       setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi tim.', type: 'error' });
     } finally {
       setIsLoading(false);
@@ -63,11 +98,18 @@ export function TeamAttendancePage() {
         </button>
       </div>
 
+      {isOfflineMode && (
+        <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginTop: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data absensi tim lokal terakhir yang tersimpan di perangkat.</span>
+        </div>
+      )}
+
       <div className="attendance-history-card" style={{ marginTop: '24px' }}>
         <div className="attendance-card-header">
           <h2 className="attendance-history-title">Data Absensi Tim</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
-            Menampilkan {attendances.length} dari {totalData} data
+            Menampilkan {teamAttendanceResponse.data.length} dari {teamAttendanceResponse.total} data
           </span>
         </div>
 
@@ -78,6 +120,7 @@ export function TeamAttendancePage() {
             <table className="attendance-table">
               <thead>
                 <tr>
+                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                   <th>Tanggal</th>
                   <th>Karyawan</th>
                   <th>Departemen</th>
@@ -88,8 +131,12 @@ export function TeamAttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {attendances.map(row => (
+                {/* 3. Map dipanggil dari teamAttendanceResponse.data untuk memunculkan baris tabel */}
+                {teamAttendanceResponse.data && teamAttendanceResponse.data.length > 0 && teamAttendanceResponse.data.map((row, index) => (
                   <tr key={row.id}>
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((teamAttendanceResponse.page - 1) * teamAttendanceResponse.limit) + index + 1}.
+                    </td>
                     <td className="table-cell-date">{formatPlainDate(row.attendance_date)}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.employee_name || '-'}</div>
@@ -118,9 +165,9 @@ export function TeamAttendancePage() {
                     </td>
                   </tr>
                 ))}
-                {attendances.length === 0 && (
+                {teamAttendanceResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
+                    <td colSpan={8} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
                   </tr>
                 )}
               </tbody>

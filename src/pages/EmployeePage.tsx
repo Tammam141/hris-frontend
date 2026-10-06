@@ -23,12 +23,21 @@ export function EmployeePage() {
   const { hasFeature } = useAuth();
   const bisaAksi = hasFeature('employee.update') || hasFeature('employee.delete');
 
-  const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
+  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+  const [employeeResponse, setEmployeeResponse] = useState({
+    data: [] as EmployeeListItem[],
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 1
+  });
+
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda apakah data berasal dari local cache saat server BE down
   const navigate = useNavigate();
 
   // state filter
@@ -36,12 +45,6 @@ export function EmployeePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [isActive, setIsActive] = useState<string>(''); // '', 'true', 'false'
-
-  // state paginasi
-  const [page, setPage] = useState(1);
-  const [limit] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetail | null>(null);
@@ -61,7 +64,7 @@ export function EmployeePage() {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState<React.ReactNode>('');
 
-  // muat data departemen saat halaman dibuka
+  // muat data departemen & posisi saat halaman dibuka (dengan fallback cache lokal)
   useEffect(() => {
     async function loadReferences() {
       try {
@@ -69,11 +72,26 @@ export function EmployeePage() {
           getDepartments(),
           getPositions()
         ]);
-        if (depRes.success) setDepartments(depRes.data);
-        if (posRes.success) setPositions(posRes.data);
+        if (depRes.success) {
+          setDepartments(depRes.data);
+          try {
+            localStorage.setItem('cached_departments', JSON.stringify(depRes.data));
+          } catch {}
+        }
+        if (posRes.success) {
+          setPositions(posRes.data);
+          try {
+            localStorage.setItem('cached_positions', JSON.stringify(posRes.data));
+          } catch {}
+        }
       } catch (e: any) {
-      const err = e as ApiError;
-        setError(err.message || 'Gagal memuat data referensi');
+        // Fallback jika BE mati: coba baca data dari localStorage
+        try {
+          const cachedDep = localStorage.getItem('cached_departments');
+          const cachedPos = localStorage.getItem('cached_positions');
+          if (cachedDep) setDepartments(JSON.parse(cachedDep));
+          if (cachedPos) setPositions(JSON.parse(cachedPos));
+        } catch {}
       }
     }
     loadReferences();
@@ -87,21 +105,56 @@ export function EmployeePage() {
         search: searchQuery || undefined,
         department_id: departmentId || undefined,
         is_active: isActive === '' ? undefined : isActive === 'true',
-        page,
-        limit,
+        page: employeeResponse.page,
+        limit: employeeResponse.limit,
       });
-      setEmployees(res.data);
-      if (res.meta) {
-        setTotal(res.meta.total);
-        setTotalPages(res.meta.total_pages || 1);
-      }
+
+      // 2. Data respon backend/offline dibungkus ke state employeeResponse
+      setEmployeeResponse(prev => ({
+        ...prev,
+        data: res.data || [],
+        total: res.meta?.total ?? 0,
+        total_pages: res.meta?.total_pages ?? 1
+      }));
+      setIsOfflineMode(false);
+
+      // 2. Simpan cadangan ke localStorage saat BE sukses
+      try {
+        localStorage.setItem('cached_employees', JSON.stringify({
+          data: res.data || [],
+          page: employeeResponse.page,
+          limit: employeeResponse.limit,
+          total: res.meta?.total ?? 0,
+          total_pages: res.meta?.total_pages ?? 1
+        }));
+      } catch {}
     } catch (e: any) {
+      // 3. JIKA BE MATI / DOWN: Cek apakah ada data cadangan di localStorage
+      try {
+        const cached = localStorage.getItem('cached_employees');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            setEmployeeResponse(prev => ({
+              ...prev,
+              data: parsed.data,
+              total: parsed.total ?? 0,
+              total_pages: parsed.total_pages ?? 1
+            }));
+            setIsOfflineMode(true);
+            return;
+          }
+        }
+      } catch {}
+
+      // Jika di local belum ada cache sama sekali
       const err = e as ApiError;
       setError(err.message || 'Gagal memuat data karyawan');
+      setIsOfflineMode(false);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, departmentId, isActive, page, limit]);
+  }, [searchQuery, departmentId, isActive, employeeResponse.page, employeeResponse.limit]);
 
   // muat ulang data saat parameter berubah
   useEffect(() => {
@@ -111,8 +164,7 @@ export function EmployeePage() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearchQuery(searchInput);
-    setPage(1);
-    loadEmployees();
+    setEmployeeResponse(prev => ({ ...prev, page: 1 }));
   }
 
   async function openEditModal(emp: EmployeeListItem) {
@@ -238,6 +290,13 @@ export function EmployeePage() {
         <h1 className="dashboard-title">Daftar Karyawan</h1>
         <p className="dashboard-subtitle">Kelola data seluruh karyawan perusahaan di sini.</p>
 
+        {isOfflineMode && (
+          <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data karyawan lokal terakhir yang tersimpan di perangkat.</span>
+          </div>
+        )}
+
         {error && <div className="alert-error">{error}</div>}
 
         {/* Form Pencarian & Filter */}
@@ -253,7 +312,7 @@ export function EmployeePage() {
           <select
             className="input-field employee-filter-select"
             value={departmentId}
-            onChange={(e) => { setDepartmentId(e.target.value); setPage(1); }}
+            onChange={(e) => { setDepartmentId(e.target.value); setEmployeeResponse(prev => ({ ...prev, page: 1 })); }}
           >
             <option value="">Semua Departemen</option>
             {departments.map(d => (
@@ -263,7 +322,7 @@ export function EmployeePage() {
           <select
             className="input-field employee-filter-select"
             value={isActive}
-            onChange={(e) => { setIsActive(e.target.value); setPage(1); }}
+            onChange={(e) => { setIsActive(e.target.value); setEmployeeResponse(prev => ({ ...prev, page: 1 })); }}
           >
             <option value="">Semua Status</option>
             <option value="true">Aktif</option>
@@ -300,6 +359,7 @@ export function EmployeePage() {
           <table className="employee-table">
             <thead>
               <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
                 <th>FOTO</th>
                 <th>ID KARYAWAN</th>
                 <th>NAMA LENGKAP</th>
@@ -314,19 +374,18 @@ export function EmployeePage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 10 : 9} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
-              ) : employees.length === 0 ? (
-                <tr>
-                  <td colSpan={bisaAksi ? 9 : 8} className="empty-table-cell">
-                    Tidak ada data karyawan ditemukan.
-                  </td>
-                </tr>
-              ) : (
-                employees.map(emp => (
+              // 3. Map dipanggil dari employeeResponse.data untuk memunculkan baris tabel
+              ) : employeeResponse.data && employeeResponse.data.length > 0 ? (
+                employeeResponse.data.map((emp, index) => (
                   <tr key={emp.id}>
+                    {/* Rumus nomor paginasi dari : ((page - 1) * limit) + index + 1 */}
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((employeeResponse.page - 1) * employeeResponse.limit) + index + 1}.
+                    </td>
                     <td>
                       <Avatar 
                         photoUrl={emp.photo_url} 
@@ -351,40 +410,48 @@ export function EmployeePage() {
                         {emp.is_active ? 'Aktif' : 'Non-aktif'}
                       </button>
                     </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
-                        <button className="btn-icon btn-delete" onClick={() => handleDelete(emp)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
-                      </div>
-                    </td>
+                    {bisaAksi && (
+                      <td>
+                        <div className="action-buttons">
+                          <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                          <button className="btn-icon btn-delete" onClick={() => handleDelete(emp)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={bisaAksi ? 10 : 9} className="empty-table-cell">
+                    Tidak ada data karyawan ditemukan.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
 
         {/* Kontrol Paginasi */}
-        {!loading && employees.length > 0 && (
+        {!loading && employeeResponse.data.length > 0 && (
           <div className="employee-pagination">
             <div className="pagination-info">
-              Menampilkan total <strong>{total}</strong> karyawan
+              Menampilkan total <strong>{employeeResponse.total}</strong> karyawan
             </div>
             <div className="pagination-controls">
               <button
                 className="pagination-btn"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
+                onClick={() => setEmployeeResponse(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                disabled={employeeResponse.page === 1}
               >
                 Previous
               </button>
               <span className="pagination-page-text">
-                Halaman {page} dari {totalPages}
+                Halaman {employeeResponse.page} dari {employeeResponse.total_pages}
               </span>
               <button
                 className="pagination-btn"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                onClick={() => setEmployeeResponse(prev => ({ ...prev, page: Math.min(prev.total_pages, prev.page + 1) }))}
+                disabled={employeeResponse.page === employeeResponse.total_pages}
               >
                 Next
               </button>
@@ -401,7 +468,7 @@ export function EmployeePage() {
         employeeData={selectedEmployee}
         departments={departments}
         positions={positions}
-        managers={employees}
+        managers={employeeResponse.data}
       />
 
       {/* Delete Confirmation Modal */}
