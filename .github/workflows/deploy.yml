@@ -56,7 +56,7 @@ jobs:
     needs: image
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
+    environment: vm-production
     steps:
       - name: Siapkan kunci SSH
         run: |
