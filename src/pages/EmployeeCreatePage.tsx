@@ -16,9 +16,9 @@ import { isRateLimited } from '../utils/rateLimit';
 import { validatePassword, PASSWORD_MAX_LENGTH } from '../utils/passwordValidation';
 import { 
   PHONE_ALREADY_REGISTERED_MSG, 
-  PHONE_ALREADY_REGISTERED_API_MSG, 
-  PHONE_FORMAT_INVALID_MSG, 
-  isPhoneAlreadyRegisteredError 
+  isPhoneAlreadyRegisteredError,
+  phoneRowErrorMessage,
+  emailRowErrorMessage
 } from '../utils/phoneValidation';
 
 interface EmployeeFormState {
@@ -315,8 +315,13 @@ export function EmployeeCreatePage() {
         err.errors.forEach((e: any) => {
           if (e.field) {
             // Karena ini single object, indexnya selalu 0
-            // Error validasi telepon = kesalahan FORMAT, bukan nomor kembar
-            parsedErrors[`0-${e.field}`] = e.field === 'phone' ? PHONE_FORMAT_INVALID_MSG : e.message;
+            let msg = e.message;
+            if (e.field === 'phone') {
+              msg = phoneRowErrorMessage(e.message);
+            } else if (e.field === 'email') {
+              msg = emailRowErrorMessage(e.message);
+            }
+            parsedErrors[`0-${e.field}`] = msg;
           }
         });
         errorParsed = true;
@@ -327,10 +332,10 @@ export function EmployeeCreatePage() {
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
               let msg = e.message;
-              if (msg === PHONE_ALREADY_REGISTERED_API_MSG) {
-                msg = PHONE_ALREADY_REGISTERED_MSG;
-              } else if (e.field === 'phone') {
-                msg = PHONE_FORMAT_INVALID_MSG;
+              if (e.field === 'phone') {
+                msg = phoneRowErrorMessage(e.message);
+              } else if (e.field === 'email') {
+                msg = emailRowErrorMessage(e.message);
               }
               parsedErrors[`${row.index}-${e.field}`] = msg;
             });

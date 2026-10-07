@@ -42,6 +42,9 @@ export function ForceChangePasswordPage() {
     } catch (err: any) {
       if (isWrongCurrentPasswordError(err)) {
         setCurrentPasswordError(WRONG_CURRENT_PASSWORD_MSG);
+      } else if (err.status === 401) {
+        await clearSession();
+        window.location.href = '/login';
       } else {
         setError(err.message || 'Gagal mengubah password');
       }
