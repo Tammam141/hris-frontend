@@ -48,7 +48,6 @@ export const WRONG_CURRENT_PASSWORD_MSG = 'Password lama salah';
 
 export function isWrongCurrentPasswordError(err: { status?: number; message?: string } | null | undefined): boolean {
   if (!err) return false;
-  if (err.message === 'Current password is incorrect') return true;
-  return err.status === 401;
+  return err.message === 'Current password is incorrect';
 }
 
