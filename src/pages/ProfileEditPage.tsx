@@ -10,6 +10,12 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { validateFullName } from '../utils/nameValidation';
 import { compressImage } from '../utils/imageCompressor';
+import { 
+  isPhoneAlreadyRegisteredError, 
+  isPhoneFormatValidationError, 
+  PHONE_ALREADY_REGISTERED_MSG, 
+  PHONE_FORMAT_INVALID_MSG 
+} from '../utils/phoneValidation';
 import '../components/ui/dashboard.css';
 
 export function ProfileEditPage() {
@@ -159,9 +165,12 @@ export function ProfileEditPage() {
       if (isStaleData(e)) {
         setStaleDetails(e.details);
         setIsStaleModalOpen(true);
-      } else if (e.status === 409 && (e.message === 'Phone number is already registered' || e.message?.toLowerCase().includes('phone'))) {
-        setPhoneError('Nomor telepon sudah terdaftar');
-        setAlertInfo({ open: true, title: 'Gagal', message: 'Nomor telepon sudah terdaftar', type: 'error' });
+      } else if (isPhoneAlreadyRegisteredError(e)) {
+        setPhoneError(PHONE_ALREADY_REGISTERED_MSG);
+        setAlertInfo({ open: true, title: 'Gagal', message: PHONE_ALREADY_REGISTERED_MSG, type: 'error' });
+      } else if (isPhoneFormatValidationError(e)) {
+        setPhoneError(PHONE_FORMAT_INVALID_MSG);
+        setAlertInfo({ open: true, title: 'Gagal', message: PHONE_FORMAT_INVALID_MSG, type: 'error' });
       } else {
         setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal memperbarui profil.', type: 'error' });
       }

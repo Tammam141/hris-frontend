@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { resetPasswordApi } from '../api/auth';
+import { validatePassword } from '../utils/passwordValidation';
 import '../components/ui/auth.css';
 
 export function ResetPasswordPage() {
@@ -21,6 +22,12 @@ export function ResetPasswordPage() {
 
     if (!email || !token) {
       setError('Tautan reset password tidak valid atau tidak lengkap. Pastikan Anda mengklik tautan dari email.');
+      return;
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 

@@ -1,0 +1,34 @@
+# Log container dibatasi 5 berkas x 20 MB supaya disk VM tidak penuh
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  frontend:
+    # Untuk build manual di VM (darurat), isi VITE_API_BASE_URL dan
+    # VITE_WS_URL di file .env di samping compose ini
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_WS_URL: ${VITE_WS_URL:-}
+    # IMAGE_TAG diisi scripts/deploy.sh dengan sha commit
+    image: ghcr.io/tammam141/hris-frontend:${IMAGE_TAG:-latest}
+    container_name: hris-frontend
+    restart: unless-stopped
+    # Hanya untuk pengecekan dari dalam VM. Akses publik lewat Cloudflare
+    # Tunnel ke hris-frontend:8080, bukan lewat port ini
+    ports:
+      - "127.0.0.1:3000:8080"
+    logging: *logging
+
+# Bergabung ke jaringan milik backend supaya Cloudflare Tunnel (container
+# cloudflared di compose backend) bisa menjangkau hris-frontend:8080.
+# Jaringan ini dibuat oleh compose backend, jadi backend harus sudah
+# menyala lebih dulu
+networks:
+  default:
+    name: hris-backend_default
+    external: true

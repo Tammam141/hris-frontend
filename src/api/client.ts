@@ -9,9 +9,15 @@ export interface ApiError extends Error {
   retryAfter?: number;
 }
 
-// Gunakan VITE_API_BASE_URL di lokal (npm run dev), dan gunakan relative path di Vercel agar ter-proxy lewat vercel.json
-const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_API_BASE_URL ?? '') : '';
+// API dipanggil langsung ke domain backend (VITE_API_BASE_URL), baik saat DEV maupun production.
+// Saat development, kosongkan VITE_API_BASE_URL di .env lokal agar request lewat proxy Vite (vite.config.js).
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 const API_URL = API_BASE + '/api/v1';
+
+// Endpoint yang 401-nya BUKAN berarti sesi habis, jadi tidak boleh memicu logout otomatis.
+// - /auth/login    : 401 = email/password salah
+// - /auth/password : 401 = password lama salah ("Current password is incorrect")
+const NO_AUTO_LOGOUT = ['/auth/login', '/auth/password'];
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
   const token = localStorage.getItem('token');
@@ -65,7 +71,7 @@ export async function apiRequest(endpoint: string, method: string, body?: object
       throw err;
     }
 
-    if (response.status === 401 && endpoint !== '/auth/login') {
+    if (response.status === 401 && !NO_AUTO_LOGOUT.includes(endpoint)) {
       clearSession().then(() => {
         window.location.href = '/login';
       });

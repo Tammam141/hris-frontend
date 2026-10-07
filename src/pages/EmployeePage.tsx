@@ -84,7 +84,7 @@ export function EmployeePage() {
             localStorage.setItem('cached_positions', JSON.stringify(posRes.data));
           } catch {}
         }
-      } catch (e: any) {
+      } catch {
         // Fallback jika BE mati: coba baca data dari localStorage
         try {
           const cachedDep = localStorage.getItem('cached_departments');

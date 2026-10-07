@@ -13,6 +13,13 @@ import '../components/ui/employee.css';
 import '../components/ui/create-employee.css';
 
 import { isRateLimited } from '../utils/rateLimit';
+import { validatePassword, PASSWORD_MAX_LENGTH } from '../utils/passwordValidation';
+import { 
+  PHONE_ALREADY_REGISTERED_MSG, 
+  isPhoneAlreadyRegisteredError,
+  phoneRowErrorMessage,
+  emailRowErrorMessage
+} from '../utils/phoneValidation';
 
 interface EmployeeFormState {
   id: string; // Internal ID for React key
@@ -208,8 +215,9 @@ export function EmployeeCreatePage() {
           newErrors[`${i}-full_name`] = nameErr;
           localErrors++;
         }
-        if (f.password.length < 8) {
-          newErrors[`${i}-password`] = 'Minimal 8 karakter';
+        const passwordErr = validatePassword(f.password);
+        if (passwordErr) {
+          newErrors[`${i}-password`] = passwordErr;
           localErrors++;
         }
       }
@@ -307,7 +315,13 @@ export function EmployeeCreatePage() {
         err.errors.forEach((e: any) => {
           if (e.field) {
             // Karena ini single object, indexnya selalu 0
-            parsedErrors[`0-${e.field}`] = e.message;
+            let msg = e.message;
+            if (e.field === 'phone') {
+              msg = phoneRowErrorMessage(e.message);
+            } else if (e.field === 'email') {
+              msg = emailRowErrorMessage(e.message);
+            }
+            parsedErrors[`0-${e.field}`] = msg;
           }
         });
         errorParsed = true;
@@ -318,8 +332,10 @@ export function EmployeeCreatePage() {
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
               let msg = e.message;
-              if (msg === 'Phone number is already registered' || msg?.toLowerCase().includes('phone number is already')) {
-                msg = 'Nomor telepon sudah terdaftar';
+              if (e.field === 'phone') {
+                msg = phoneRowErrorMessage(e.message);
+              } else if (e.field === 'email') {
+                msg = emailRowErrorMessage(e.message);
               }
               parsedErrors[`${row.index}-${e.field}`] = msg;
             });
@@ -328,8 +344,8 @@ export function EmployeeCreatePage() {
         errorParsed = true;
       } else if (err.code === 'CONFLICT' || err.status === 409) {
         // Objek tunggal conflict, arahkan ke field yang sesuai
-        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
-          parsedErrors['0-phone'] = 'Nomor telepon sudah terdaftar';
+        if (isPhoneAlreadyRegisteredError(err)) {
+          parsedErrors['0-phone'] = PHONE_ALREADY_REGISTERED_MSG;
         } else {
           parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
         }
@@ -476,7 +492,7 @@ export function EmployeeCreatePage() {
                   </div>
                   <div>
                     <label className="form-label">Kata Sandi Akun *</label>
-                    <input type="password" className="input-field" style={getError(index, 'password') ? { borderColor: '#ef4444' } : {}} required placeholder="Min. 8 karakter" minLength={8} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
+                    <input type="password" className="input-field" style={getError(index, 'password') ? { borderColor: '#ef4444' } : {}} required placeholder="Min. 8 karakter" minLength={8} maxLength={PASSWORD_MAX_LENGTH} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
                     {getError(index, 'password') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'password')}</span>}
                   </div>
                   <div>

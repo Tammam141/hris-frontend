@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { registerApi } from '../../api/auth';
 import { registerSchema } from './authSchema';
+import { PASSWORD_MAX_LENGTH } from '../../utils/passwordValidation';
+import { 
+  isPhoneAlreadyRegisteredError, 
+  isPhoneFormatValidationError, 
+  PHONE_ALREADY_REGISTERED_MSG, 
+  PHONE_FORMAT_INVALID_MSG 
+} from '../../utils/phoneValidation';
 import '../../components/ui/auth.css';
 
 export function RegisterForm() {
@@ -83,12 +90,15 @@ export function RegisterForm() {
         });
       }
     } catch (err: any) {
-      if (err.status === 409) {
-        if (err.message === 'Phone number is already registered' || err.message?.toLowerCase().includes('phone')) {
-          setPhoneError('Nomor telepon sudah terdaftar');
-          setError('Nomor telepon sudah terdaftar');
-          return;
-        }
+      if (isPhoneAlreadyRegisteredError(err)) {
+        setPhoneError(PHONE_ALREADY_REGISTERED_MSG);
+        setError(PHONE_ALREADY_REGISTERED_MSG);
+        return;
+      }
+      if (isPhoneFormatValidationError(err)) {
+        setPhoneError(PHONE_FORMAT_INVALID_MSG);
+        setError(PHONE_FORMAT_INVALID_MSG);
+        return;
       }
       setError(err.message || 'Gagal terhubung ke server');
     } finally {
@@ -142,6 +152,7 @@ export function RegisterForm() {
             style={passwordError ? { borderColor: '#ef4444' } : undefined}
             placeholder="Min. 8 karakter (huruf besar, kecil & angka)"
             value={password}
+            maxLength={PASSWORD_MAX_LENGTH}
             onChange={(e) => {
               setPassword(e.target.value);
               setPasswordError('');
@@ -159,6 +170,7 @@ export function RegisterForm() {
             style={confirmPasswordError ? { borderColor: '#ef4444' } : undefined}
             placeholder="Ulangi password di atas"
             value={confirmPassword}
+            maxLength={PASSWORD_MAX_LENGTH}
             onChange={(e) => {
               setConfirmPassword(e.target.value);
               setConfirmPasswordError('');
