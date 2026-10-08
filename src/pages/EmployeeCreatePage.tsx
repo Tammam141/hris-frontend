@@ -11,6 +11,7 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import '../components/ui/create-employee.css';
+import { PasswordRequirements } from '../components/ui/PasswordRequirements';
 
 import { isRateLimited } from '../utils/rateLimit';
 import { validatePassword, PASSWORD_MAX_LENGTH } from '../utils/passwordValidation';
@@ -401,7 +402,7 @@ export function EmployeeCreatePage() {
           <h1 className="dashboard-title">Tambah Karyawan Baru</h1>
           <p className="dashboard-subtitle">Anda dapat menambahkan banyak karyawan sekaligus.</p>
         </div>
-        <div className="create-employee-actions" style={{ display: 'flex', gap: '8px' }}>
+        <div className="create-employee-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           <button 
             type="button" 
             className="btn" 
@@ -480,19 +481,20 @@ export function EmployeeCreatePage() {
                   </div>
                   <div>
                     <label className="form-label">Nomor Telepon *</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <select className="input-field" style={{ width: '90px', borderColor: getError(index, 'phone') ? '#ef4444' : undefined }} value={form.country_code} onChange={e => updateForm(form.id, 'country_code', e.target.value)}>
                         <option value="+62">+62</option>
                         <option value="+1">+1</option>
                         <option value="+44">+44</option>
                       </select>
-                      <input type="tel" className="input-field" required placeholder="8123456789" style={{ flex: 1, borderColor: getError(index, 'phone') ? '#ef4444' : undefined }} value={form.phone_number} onChange={e => updateForm(form.id, 'phone_number', e.target.value.replace(/\D/g, ''))} />
+                      <input type="tel" className="input-field" required placeholder="8123456789" style={{ flex: 1, minWidth: 0, borderColor: getError(index, 'phone') ? '#ef4444' : undefined }} value={form.phone_number} onChange={e => updateForm(form.id, 'phone_number', e.target.value.replace(/\D/g, ''))} />
                     </div>
                     {getError(index, 'phone') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'phone')}</span>}
                   </div>
                   <div>
                     <label className="form-label">Kata Sandi Akun *</label>
-                    <input type="password" className="input-field" style={getError(index, 'password') ? { borderColor: '#ef4444' } : {}} required placeholder="Min. 8 karakter" minLength={8} maxLength={PASSWORD_MAX_LENGTH} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
+                    <input type="password" className="input-field" style={getError(index, 'password') ? { borderColor: '#ef4444' } : {}} required placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)" minLength={8} maxLength={PASSWORD_MAX_LENGTH} value={form.password} onChange={e => updateForm(form.id, 'password', e.target.value)} />
+                    <PasswordRequirements password={form.password} />
                     {getError(index, 'password') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'password')}</span>}
                   </div>
                   <div>

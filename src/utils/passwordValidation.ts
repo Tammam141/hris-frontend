@@ -12,10 +12,12 @@ export const PASSWORD_MAX_MSG = `Password maksimal ${PASSWORD_MAX_LENGTH} karakt
 export const PASSWORD_UPPERCASE_REGEX = /[A-Z]/;
 export const PASSWORD_LOWERCASE_REGEX = /[a-z]/;
 export const PASSWORD_NUMBER_REGEX = /[0-9]/;
+export const PASSWORD_SYMBOL_REGEX = /[^A-Za-z0-9]/;
 
 export const PASSWORD_UPPERCASE_MSG = 'Password harus mengandung setidaknya satu huruf besar (A-Z)';
 export const PASSWORD_LOWERCASE_MSG = 'Password harus mengandung setidaknya satu huruf kecil (a-z)';
 export const PASSWORD_NUMBER_MSG = 'Password harus mengandung setidaknya satu angka (0-9)';
+export const PASSWORD_SYMBOL_MSG = 'Password harus mengandung setidaknya satu simbol (contoh: ! @ # $ %)';
 
 export function validatePassword(password: string): string | null {
   if (!password) {
@@ -36,7 +38,46 @@ export function validatePassword(password: string): string | null {
   if (!PASSWORD_NUMBER_REGEX.test(password)) {
     return PASSWORD_NUMBER_MSG;
   }
+  if (!PASSWORD_SYMBOL_REGEX.test(password)) {
+    return PASSWORD_SYMBOL_MSG;
+  }
   return null;
+}
+
+export interface PasswordRuleCheck {
+  id: string;
+  label: string;
+  met: boolean;
+}
+
+export function checkPasswordRules(password: string): PasswordRuleCheck[] {
+  return [
+    {
+      id: 'length',
+      label: '8–72 karakter',
+      met: password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH,
+    },
+    {
+      id: 'uppercase',
+      label: 'Huruf besar (A-Z)',
+      met: PASSWORD_UPPERCASE_REGEX.test(password),
+    },
+    {
+      id: 'lowercase',
+      label: 'Huruf kecil (a-z)',
+      met: PASSWORD_LOWERCASE_REGEX.test(password),
+    },
+    {
+      id: 'number',
+      label: 'Angka (0-9)',
+      met: PASSWORD_NUMBER_REGEX.test(password),
+    },
+    {
+      id: 'symbol',
+      label: 'Simbol (! @ # $ % dll.)',
+      met: PASSWORD_SYMBOL_REGEX.test(password),
+    },
+  ];
 }
 
 /**

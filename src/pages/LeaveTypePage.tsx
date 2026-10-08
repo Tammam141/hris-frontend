@@ -317,7 +317,7 @@ export function LeaveTypePage() {
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="leave-type-form-grid">
                   <div className="form-group">
                     <label className="form-label">Maks. Hari per Pengajuan</label>
                     <input type="number" min={1} className="input-field" value={maxDaysPerRequest} onChange={e => setMaxDaysPerRequest(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Tidak ada batas" />
@@ -328,7 +328,7 @@ export function LeaveTypePage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="leave-type-form-grid">
                   <div className="form-group">
                     <label className="form-label">Batasan Gender</label>
                     <select className="input-field" value={genderRestriction} onChange={e => setGenderRestriction(e.target.value as any)}>
@@ -338,7 +338,7 @@ export function LeaveTypePage() {
                     </select>
                   </div>
                   
-                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '32px' }}>
+                  <div className="form-group checkbox-align-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input type="checkbox" id="isActive" checked={isActive} onChange={e => setIsActive(e.target.checked)} style={{ width: '18px', height: '18px' }} />
                     <label htmlFor="isActive" className="form-label" style={{ margin: 0 }}>Aktif (Bisa Dipilih)</label>
                   </div>

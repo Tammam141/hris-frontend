@@ -9,6 +9,7 @@ import {
   PHONE_ALREADY_REGISTERED_MSG, 
   PHONE_FORMAT_INVALID_MSG 
 } from '../../utils/phoneValidation';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import '../../components/ui/auth.css';
 
 export function RegisterForm() {
@@ -150,7 +151,7 @@ export function RegisterForm() {
             type="password"
             className="input-field"
             style={passwordError ? { borderColor: '#ef4444' } : undefined}
-            placeholder="Min. 8 karakter (huruf besar, kecil & angka)"
+            placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
             value={password}
             maxLength={PASSWORD_MAX_LENGTH}
             onChange={(e) => {
@@ -160,6 +161,7 @@ export function RegisterForm() {
             disabled={loading}
             required
           />
+          <PasswordRequirements password={password} />
           {passwordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{passwordError}</span>}
 
           <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>

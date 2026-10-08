@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { changePasswordApi } from '../../api/auth';
 import { clearSession } from '../../utils/session';
 import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../../utils/passwordValidation';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import '../employee/employee-modal.css'; // Reusing the same modal CSS
 
 interface ChangePasswordModalProps {
@@ -108,9 +109,10 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
                 onChange={e => setNewPassword(e.target.value)}
                 required
                 minLength={8}
-                placeholder="Min. 8 karakter"
+                placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
                 disabled={loading || !!success}
               />
+              <PasswordRequirements password={newPassword} />
             </div>
 
             <div className="form-group">

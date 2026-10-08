@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { clearSession } from '../utils/session';
 import { changePasswordApi } from '../api/auth';
 import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../utils/passwordValidation';
+import { PasswordRequirements } from '../components/ui/PasswordRequirements';
 import { useAuth } from '../hooks/useAuth';
 
 export function ForceChangePasswordPage() {
@@ -89,9 +90,10 @@ export function ForceChangePasswordPage() {
               onChange={e => setNewPassword(e.target.value)}
               required
               minLength={8}
-              placeholder="Min. 8 karakter"
+              placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
               disabled={loading || !!success}
             />
+            <PasswordRequirements password={newPassword} />
           </div>
 
           <div style={{ marginBottom: '24px' }}>

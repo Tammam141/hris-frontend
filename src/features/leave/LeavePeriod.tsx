@@ -258,6 +258,19 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         setIsAlertOpen(true);
         return;
       }
+
+      // Validasi Saldo Cuti untuk jenis cuti yang memotong saldo
+      if (selectedType.deducts_balance) {
+        const sisa = balances[selectedType.id] ?? 0;
+        if (totalDays > sisa) {
+          setAlertType('error');
+          setAlertMessage(
+            `Saldo ${selectedType.name} Anda tersisa ${sisa} hari, sedangkan pengajuan ini ${totalDays} hari kerja. Hubungi HR bila saldo Anda seharusnya belum habis.`
+          );
+          setIsAlertOpen(true);
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
@@ -311,17 +324,28 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       if (onSuccess) onSuccess();
     } catch (err: unknown) {
       setAlertType('error');
-      // Handle Specific Backend Errors
-      if ((err as any)?.status === 409 && (err as any)?.details?.conflicting_request_id) {
+      const apiErr = err as any;
+      if (apiErr?.details?.balance !== undefined) {
+        const sisa = apiErr.details.balance;
+        const requested = apiErr.details.requested ?? totalDays;
+        const typeName = selectedType?.name || 'Cuti';
+        setAlertMessage(
+          `Saldo ${typeName} Anda tersisa ${sisa} hari, sedangkan pengajuan ini ${requested} hari kerja. Hubungi HR bila saldo Anda seharusnya belum habis.`
+        );
+      } else if (apiErr?.status === 409 && apiErr?.details?.conflicting_request_id) {
         setAlertMessage(`Tanggal yang Anda pilih bertabrakan dengan pengajuan cuti Anda yang lain.`);
       } else {
-        setAlertMessage((err as any)?.message || 'Gagal mengajukan cuti.');
+        setAlertMessage(apiErr?.message || 'Gagal mengajukan cuti.');
       }
       setIsAlertOpen(true);
     } finally {
       setIsLoading(false);
     }
   }
+
+  const selectedTypeObj = leaveTypes.find(t => t.id.toString() === leaveType);
+  const currentBalance = selectedTypeObj ? (balances[selectedTypeObj.id] ?? 0) : 0;
+  const isInsufficientBalance = Boolean(selectedTypeObj?.deducts_balance && totalDays > currentBalance);
 
   return (
     <div className="leave-container">
@@ -503,9 +527,22 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
             <span className="leave-optional-text">hari kerja (estimasi)</span>
           </div>
           
-          <button type="submit" disabled={isLoading} className="btn btn-primary leave-submit-btn" style={{ opacity: isLoading ? 0.7 : 1 }}>
+          <button 
+            type="submit" 
+            disabled={isLoading || isInsufficientBalance} 
+            className="btn btn-primary leave-submit-btn" 
+            style={{ 
+              opacity: (isLoading || isInsufficientBalance) ? 0.6 : 1,
+              cursor: isInsufficientBalance ? 'not-allowed' : undefined 
+            }}
+          >
             {isLoading ? 'Mengirim...' : 'Ajukan Cuti'}
           </button>
+          {isInsufficientBalance && (
+            <span style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', display: 'block', marginTop: '6px', fontWeight: 500 }}>
+              Saldo tidak cukup
+            </span>
+          )}
         </div>
       </form>
 

@@ -3,6 +3,25 @@
   max-width: 100%;
 }
 
+.leave-type-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.leave-type-form-grid .checkbox-align-group {
+  padding-top: 32px;
+}
+
+@media (max-width: 640px) {
+  .leave-type-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .leave-type-form-grid .checkbox-align-group {
+    padding-top: 8px;
+  }
+}
+
 .employee-card {
   padding: 32px;
 }

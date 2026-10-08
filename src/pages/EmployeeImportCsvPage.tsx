@@ -140,7 +140,7 @@ export function EmployeeImportCsvPage() {
   const handleDownloadTemplate = () => {
     const headers = "full_name,email,phone,password,gender,role,birth_date,address,join_date,employment_status,department,position,manager";
     const rows = [
-      "John Doe,john@company.com,+628123456789,Password123,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,2022-01-10,permanent,Engineering,Frontend Developer,"
+      "John Doe,john@company.com,+628123456789,Password123!,male,employee,1995-03-15,Jl. Merdeka No. 10 Jakarta,2022-01-10,permanent,Engineering,Frontend Developer,"
     ];
     const csvContent = [headers, ...rows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -740,7 +740,7 @@ export function EmployeeImportCsvPage() {
               <li><strong>full_name</strong> — Nama lengkap <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>email</strong> — Email karyawan <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>phone</strong> — No. telepon <span style={{ color: '#dc2626' }}>*</span></li>
-              <li><strong>password</strong> — 8–72 karakter, mengandung huruf besar, huruf kecil, dan angka <span style={{ color: '#dc2626' }}>*</span></li>
+              <li><strong>password</strong> — 8–72 karakter, huruf besar, huruf kecil, angka, dan simbol <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>gender</strong> — male / female <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>role</strong> — employee / admin <span style={{ color: '#dc2626' }}>*</span></li>
               <li><strong>birth_date</strong> — Format YYYY-MM-DD</li>

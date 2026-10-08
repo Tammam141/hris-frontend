@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { resetPasswordApi } from '../api/auth';
 import { validatePassword } from '../utils/passwordValidation';
+import { PasswordRequirements } from '../components/ui/PasswordRequirements';
 import '../components/ui/auth.css';
 
 export function ResetPasswordPage() {
@@ -82,13 +83,14 @@ export function ResetPasswordPage() {
             id="password"
             type="password"
             className="input-field"
-            placeholder="Min. 8 karakter"
+            placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             minLength={8}
             disabled={loading}
             required
           />
+          <PasswordRequirements password={password} />
 
           <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password Baru</label>
           <input
