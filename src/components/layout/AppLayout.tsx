@@ -63,6 +63,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [isAuthenticated, dispatch, isConnected]);
 
+  // Kunci scroll halaman di belakang saat sidebar mobile terbuka
+  useEffect(() => {
+    document.body.style.overflow = isSidebarOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
+
 
 
   function handleLogout() {
