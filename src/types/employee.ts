@@ -3,6 +3,7 @@ export interface Department {
   code: string;
   name: string;
   is_active: boolean;
+  max_concurrent_leave?: number | null;
   updated_at: string;
 }
 

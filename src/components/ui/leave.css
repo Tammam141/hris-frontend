@@ -466,3 +466,17 @@
   font-size: 16px;
   font-weight: 600;
 }
+
+/* Penanda kuota cuti bersamaan departemen penuh di DatePicker */
+.react-datepicker__day.day-staffing-full {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  position: relative;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.react-datepicker__day.day-staffing-full:hover {
+  background-color: #fca5a5 !important;
+}
+

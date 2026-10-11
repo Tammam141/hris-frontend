@@ -3,10 +3,22 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO, eachDayOfInterval, startOfDay, addDays, isBefore } from 'date-fns';
 import { AlertModal } from '../../components/ui/AlertModal';
-import { getLeaveTypes, createLeaveRequest, uploadLeaveAttachment, cancelLeaveRequest, getMyLeaveBalances, getMyLeaveRequests, LeaveType, LeaveRequest } from '../../api/leave';
+import { 
+  getLeaveTypes, 
+  createLeaveRequest, 
+  uploadLeaveAttachment, 
+  cancelLeaveRequest, 
+  getMyLeaveBalances, 
+  getMyLeaveRequests, 
+  getDepartmentLeaveCalendar,
+  DepartmentCalendarResponse,
+  LeaveType, 
+  LeaveRequest 
+} from '../../api/leave';
 import { getHolidays, Holiday } from '../../api/holiday';
 import { useAuth } from '../../hooks/useAuth';
 import { compressImage } from '../../utils/imageCompressor';
+import { isStaffingLimitError, formatStaffingLimitMessage } from '../../utils/staffingLimit';
 import '../../components/ui/leave.css';
 
 interface LeavePeriodProps {
@@ -28,6 +40,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   const [balances, setBalances] = useState<Record<string, number>>({});
   const [attachment, setAttachment] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // State kalender batas cuti bersamaan departemen
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [deptCalendar, setDeptCalendar] = useState<DepartmentCalendarResponse['data'] | null>(null);
 
   const { user } = useAuth();
   
@@ -96,6 +112,45 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       .catch(err => console.error(err));
   }, [user?.employee?.gender]);
 
+  // Ambil data kalender kuota cuti bersamaan departemen (rentang maks 62 hari)
+  const fetchDepartmentCalendar = useCallback((targetMonth: Date) => {
+    const start = startOfDay(new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1));
+    const end = addDays(start, 61); // Tepat 62 hari inklusif
+    getDepartmentLeaveCalendar(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
+      .then(res => {
+        if (res && res.data) {
+          setDeptCalendar(res.data);
+        }
+      })
+      .catch(() => {
+        // Abaikan bila user tanpa departemen atau error non-fatal
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchDepartmentCalendar(calendarMonth);
+  }, [fetchDepartmentCalendar, calendarMonth]);
+
+  // Cek apakah jenis cuti saat ini dikecualikan dari batas staffing
+  const selectedType = useMemo(
+    () => leaveTypes.find(t => t.id.toString() === leaveType),
+    [leaveTypes, leaveType]
+  );
+  const isExemptFromStaffing = Boolean(selectedType?.exempt_from_staffing_limit);
+
+  // Kumpulan tanggal yang kuotanya penuh di departemen
+  const fullDatesMap = useMemo(() => {
+    const map = new Map<string, { on_leave: number }>();
+    if (deptCalendar?.days) {
+      deptCalendar.days.forEach(d => {
+        if (d.is_full) {
+          map.set(d.date.substring(0, 10), { on_leave: d.on_leave });
+        }
+      });
+    }
+    return map;
+  }, [deptCalendar]);
+
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
@@ -145,7 +200,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     return holidays.filter(h => h && h.holiday_date).map(h => format(parseISO(h.holiday_date), 'yyyy-MM-dd'));
   }, [holidays]);
 
-  // Blokir hari Sabtu (6), Minggu (0), libur nasional, dan tanggal cuti yang sudah ada
+  // Blokir hari Sabtu (6), Minggu (0), libur nasional, tanggal cuti yang sudah ada, dan kuota penuh departemen
   const isDateAvailable = useCallback((date: Date) => {
     const day = date.getDay();
     if (day === 0 || day === 6) return false;
@@ -155,8 +210,24 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
     // Cek apakah tanggal ini sudah ada di cuti yang disetujui/pending
     const isDisabled = disabledDates.some(d => format(d, 'yyyy-MM-dd') === dateStr);
-    return !isDisabled;
-  }, [holidayDates, disabledDates]);
+    if (isDisabled) return false;
+
+    // Jika jenis cuti TIDAK dikecualikan dari batas staf, tanggal dengan kuota penuh dinonaktifkan
+    if (!isExemptFromStaffing && fullDatesMap.has(dateStr)) {
+      return false;
+    }
+
+    return true;
+  }, [holidayDates, disabledDates, isExemptFromStaffing, fullDatesMap]);
+
+  // Berikan class penanda merah untuk tanggal kuota penuh pada DatePicker
+  const getDayClassName = useCallback((date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (!isExemptFromStaffing && fullDatesMap.has(dateStr)) {
+      return 'day-staffing-full';
+    }
+    return '';
+  }, [isExemptFromStaffing, fullDatesMap]);
 
   // Kalkulasi total hari kerja otomatis (estimasi frontend)
   useEffect(() => {
@@ -271,6 +342,24 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           return;
         }
       }
+
+      // Validasi Batas Cuti Bersamaan Departemen
+      if (!isExemptFromStaffing && fullDatesMap.size > 0 && startDate) {
+        const end = endDate || startDate;
+        const days = eachDayOfInterval({ start: startDate, end });
+        const conflictedDays = days.filter(d => fullDatesMap.has(format(d, 'yyyy-MM-dd')));
+        if (conflictedDays.length > 0) {
+          const formattedDates = conflictedDays.map(d => format(d, 'd MMM yyyy')).join(', ');
+          const deptName = deptCalendar?.department?.name ? ` ${deptCalendar.department.name}` : '';
+          const maxLimit = typeof deptCalendar?.department?.max_concurrent_leave === 'number'
+            ? ` (maksimal ${deptCalendar.department.max_concurrent_leave} orang)`
+            : '';
+          setAlertType('error');
+          setAlertMessage(`Kuota cuti departemen${deptName}${maxLimit} sudah penuh pada ${formattedDates}. Pilih tanggal lain.`);
+          setIsAlertOpen(true);
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
@@ -307,6 +396,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           );
           setIsAlertOpen(true);
           fetchInitialData();
+          fetchDepartmentCalendar(calendarMonth);
           setIsLoading(false);
           return;
         }
@@ -321,11 +411,14 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       setReason('');
       handleFileSelect(null);
       fetchInitialData();
+      fetchDepartmentCalendar(calendarMonth);
       if (onSuccess) onSuccess();
     } catch (err: unknown) {
       setAlertType('error');
       const apiErr = err as any;
-      if (apiErr?.details?.balance !== undefined) {
+      if (isStaffingLimitError(apiErr)) {
+        setAlertMessage(formatStaffingLimitMessage(apiErr.details));
+      } else if (apiErr?.details?.balance !== undefined) {
         const sisa = apiErr.details.balance;
         const requested = apiErr.details.requested ?? totalDays;
         const typeName = selectedType?.name || 'Cuti';
@@ -377,6 +470,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               endDate={endDate ?? undefined}
               onChange={(update) => setDateRange(update)}
               filterDate={isDateAvailable}
+              dayClassName={getDayClassName}
+              onMonthChange={(monthDate) => setCalendarMonth(monthDate)}
               minDate={new Date()} 
               showDisabledMonthNavigation
               placeholderText="Pilih rentang tanggal cuti..."
@@ -388,8 +483,20 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                   setDateRange([startDate, startDate]);
                 }
               }}
-              onChangeRaw={(e) => { if (e) e.preventDefault(); }}
             />
+            {deptCalendar?.department && deptCalendar.department.max_concurrent_leave !== null && (
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🏢</span>
+                <span>
+                  Batas cuti bersamaan Dept. <strong>{deptCalendar.department.name}</strong>: <strong>{deptCalendar.department.max_concurrent_leave} orang/hari</strong>.
+                  {isExemptFromStaffing ? (
+                    <strong style={{ color: '#0284c7', marginLeft: '4px' }}>(Jenis cuti ini bebas batas kuota)</strong>
+                  ) : (
+                    <span style={{ color: '#dc2626', marginLeft: '4px' }}>(Tanggal kuota penuh bertanda merah dan dinonaktifkan)</span>
+                  )}
+                </span>
+              </div>
+            )}
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
               width="20" 

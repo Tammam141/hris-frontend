@@ -13,6 +13,7 @@ export interface LeaveType {
   max_days_per_request: number | null;
   min_notice_days: number | null;
   gender_restriction: 'male' | 'female' | null;
+  exempt_from_staffing_limit?: boolean;
   is_active: boolean;
   updated_at: string;
 }
@@ -181,8 +182,12 @@ export async function getLeaveApprovals(params?: {
   return apiRequest(`/leave-requests/approvals${qs ? '?' + qs : ''}`, 'GET');
 }
 
-export async function approveLeaveRequest(id: string, decisionNote?: string): Promise<any> {
-  return apiRequest(`/leave-requests/${id}/approve`, 'PATCH', decisionNote ? { decision_note: decisionNote } : undefined);
+export async function approveLeaveRequest(
+  id: string,
+  data?: string | { decision_note?: string; override_staffing_limit?: boolean }
+): Promise<any> {
+  const payload = typeof data === 'string' ? { decision_note: data } : data;
+  return apiRequest(`/leave-requests/${id}/approve`, 'PATCH', payload);
 }
 
 export async function rejectLeaveRequest(id: string, decisionNote?: string): Promise<any> {
@@ -191,6 +196,31 @@ export async function rejectLeaveRequest(id: string, decisionNote?: string): Pro
 
 export async function cancelLeaveRequest(id: string): Promise<any> {
   return apiRequest(`/leave-requests/${id}/cancel`, 'PATCH');
+}
+
+// DEPARTMENT LEAVE CALENDAR (STAFFING LIMIT)
+
+export interface DepartmentCalendarDay {
+  date: string;
+  on_leave: number;
+  is_full: boolean;
+}
+
+export interface DepartmentCalendarResponse {
+  success?: boolean;
+  data: {
+    department: {
+      id: string;
+      name: string;
+      max_concurrent_leave: number | null;
+    } | null;
+    days: DepartmentCalendarDay[];
+  };
+}
+
+export async function getDepartmentLeaveCalendar(startDate: string, endDate: string): Promise<DepartmentCalendarResponse> {
+  const query = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  return apiRequest(`/leave-requests/department-calendar?${query.toString()}`, 'GET');
 }
 
 // ATTACHMENTS

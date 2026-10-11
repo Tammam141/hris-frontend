@@ -7,7 +7,10 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { LeaveDetailModal } from '../components/ui/LeaveDetailModal';
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { XIcon } from '../components/icons/XIcon';
+import { format, parseISO } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import { getLeaveApprovals, approveLeaveRequest, rejectLeaveRequest, LeaveRequest } from '../api/leave';
+import { isStaffingLimitError, formatStaffingLimitMessage } from '../utils/staffingLimit';
 
 export function LeaveManagementPage() {
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
@@ -32,6 +35,22 @@ export function LeaveManagementPage() {
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string; action: 'approve' | 'reject'; name: string }>({ isOpen: false, id: '', action: 'approve', name: '' });
   const [decisionNote, setDecisionNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State untuk dialog paksa setujui (override batas kuota departemen)
+  const [overrideModal, setOverrideModal] = useState<{
+    isOpen: boolean;
+    id: string;
+    name: string;
+    fullDatesStr: string;
+    note: string;
+  }>({
+    isOpen: false,
+    id: '',
+    name: '',
+    fullDatesStr: '',
+    note: '',
+  });
+  const [overrideError, setOverrideError] = useState('');
 
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({ isOpen: false, title: '', message: '', type: 'success' });
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -106,12 +125,76 @@ export function LeaveManagementPage() {
       fetchApprovals();
       setConfirmModal({ ...confirmModal, isOpen: false });
     } catch (err: any) {
+      if (confirmModal.action === 'approve' && isStaffingLimitError(err)) {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        if (err.details?.can_override) {
+          let dateList = '';
+          if (err.details?.full_dates && err.details.full_dates.length > 0) {
+            dateList = err.details.full_dates.map((d: any) => {
+              try {
+                return format(parseISO(d.date.substring(0, 10)), 'd MMM yyyy', { locale: idLocale });
+              } catch {
+                return d.date;
+              }
+            }).join(', ');
+          } else {
+            dateList = 'tanggal yang diajukan';
+          }
+
+          setOverrideModal({
+            isOpen: true,
+            id: confirmModal.id,
+            name: confirmModal.name,
+            fullDatesStr: dateList,
+            note: decisionNote || '',
+          });
+          setOverrideError('');
+          return;
+        } else {
+          // can_override === false
+          setAlertModal({
+            isOpen: true,
+            title: 'Kuota Cuti Departemen Penuh',
+            message: `${formatStaffingLimitMessage(err.details)} Pengajuan ini tidak dapat disetujui.`,
+            type: 'error'
+          });
+          return;
+        }
+      }
+
       setAlertModal({
         isOpen: true,
         title: 'Gagal',
         message: err.message || 'Terjadi kesalahan.',
         type: 'error'
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOverrideSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (overrideModal.note.trim().length < 10) {
+      setOverrideError('Alasan persetujuan wajib diisi minimal 10 karakter.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await approveLeaveRequest(overrideModal.id, {
+        override_staffing_limit: true,
+        decision_note: overrideModal.note.trim()
+      });
+      setOverrideModal(prev => ({ ...prev, isOpen: false }));
+      setAlertModal({
+        isOpen: true,
+        title: 'Berhasil',
+        message: `Cuti untuk ${overrideModal.name} berhasil disetujui (override kuota cuti departemen).`,
+        type: 'success'
+      });
+      fetchApprovals();
+    } catch (err: any) {
+      setOverrideError(err.message || 'Gagal menyetujui pengajuan cuti.');
     } finally {
       setIsSubmitting(false);
     }
@@ -309,6 +392,68 @@ export function LeaveManagementPage() {
                   }}
                 >
                   {isSubmitting ? 'Memproses...' : (confirmModal.action === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Override Staffing Limit Modal */}
+      {overrideModal.isOpen && (
+        <div className="modal-overlay" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>
+          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ color: '#b45309' }}>Konfirmasi Paksa Setujui (Override)</h2>
+              <button type="button" className="modal-close-btn" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>&times;</button>
+            </div>
+            <form onSubmit={handleOverrideSubmit}>
+              <div className="modal-body">
+                <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', lineHeight: '1.5' }}>
+                  Kuota cuti departemen penuh pada <strong>{overrideModal.fullDatesStr}</strong>. Tetap setujui pengajuan cuti untuk <strong>{overrideModal.name}</strong>?
+                </div>
+
+                {overrideError && (
+                  <div style={{ color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', marginBottom: '12px' }}>
+                    {overrideError}
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Alasan Tetap Menyetujui <span style={{ color: '#dc2626' }}>*</span> (Min. 10 karakter)
+                  </label>
+                  <textarea 
+                    className="input-field" 
+                    rows={3} 
+                    required
+                    minLength={10}
+                    placeholder="Masukkan alasan mengapa kuota departemen dilewati..."
+                    value={overrideModal.note}
+                    onChange={(e) => {
+                      setOverrideModal({ ...overrideModal, note: e.target.value });
+                      if (e.target.value.trim().length >= 10) setOverrideError('');
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: overrideModal.note.trim().length < 10 ? '#dc2626' : '#16a34a', display: 'block', marginTop: '4px' }}>
+                    {overrideModal.note.trim().length}/10 karakter minimal
+                  </span>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>Batal</button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || overrideModal.note.trim().length < 10}
+                  className="btn" 
+                  style={{ 
+                    backgroundColor: '#d97706',
+                    color: '#fff',
+                    opacity: (isSubmitting || overrideModal.note.trim().length < 10) ? 0.6 : 1,
+                    cursor: overrideModal.note.trim().length < 10 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isSubmitting ? 'Memproses...' : 'Ya, Tetap Setujui'}
                 </button>
               </div>
             </form>
