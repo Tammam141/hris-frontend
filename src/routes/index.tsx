@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
@@ -34,6 +35,8 @@ import { ActivityLogPage } from '../pages/ActivityLogPage';
 // Feature-based AC
 import { FeatureProtectedRoute } from './FeatureProtectedRoute';
 import { ROUTE_PERMISSIONS } from '../config/permissions';
+
+const ApiDocsPage = lazy(() => import('../pages/ApiDocsPage'));
 
 export function AppRoutes() {
   return (
@@ -132,6 +135,10 @@ export function AppRoutes() {
 
           <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/activity-logs']} />}>
             <Route path="/activity-logs" element={<ActivityLogPage />} />
+          </Route>
+
+          <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/api-docs']} />}>
+            <Route path="/api-docs" element={<Suspense fallback={<p>Memuat…</p>}><ApiDocsPage /></Suspense>} />
           </Route>
 
         </Route>

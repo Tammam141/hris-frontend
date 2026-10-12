@@ -13,6 +13,7 @@ import { BellIcon } from '../icons/BellIcon';
 import { KeyIcon } from '../icons/KeyIcon';
 import { MailIcon } from '../icons/MailIcon';
 import { GithubIcon } from '../icons/GithubIcon';
+import { BookOpenIcon } from '../icons/BookOpenIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
@@ -285,6 +286,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <ShowIf feature={ROUTE_PERMISSIONS['/activity-logs'].features}>
               <NavLink to="/activity-logs" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BriefcaseIcon /> Log Aktivitas
+              </NavLink>
+            </ShowIf>
+
+            <ShowIf feature={ROUTE_PERMISSIONS['/api-docs'].features}>
+              <NavLink to="/api-docs" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BookOpenIcon /> Dokumentasi API
               </NavLink>
             </ShowIf>
           </nav>

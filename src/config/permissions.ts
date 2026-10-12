@@ -25,6 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/attendance/events': { features: ['attendance.report'] },
   '/employee/import-csv': { features: ['employee.create'] },
   '/activity-logs': { features: ['system.view_log'] },
+  '/api-docs': { features: ['system.view_api_docs'] },
 };
 
 export function hasRouteAccess(
