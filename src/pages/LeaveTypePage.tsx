@@ -30,6 +30,7 @@ export function LeaveTypePage() {
   const [maxDaysPerRequest, setMaxDaysPerRequest] = useState<number | ''>('');
   const [minNoticeDays, setMinNoticeDays] = useState<number | ''>('');
   const [genderRestriction, setGenderRestriction] = useState<'male' | 'female' | ''>('');
+  const [exemptFromStaffingLimit, setExemptFromStaffingLimit] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
@@ -76,6 +77,7 @@ export function LeaveTypePage() {
     setMaxDaysPerRequest('');
     setMinNoticeDays('');
     setGenderRestriction('');
+    setExemptFromStaffingLimit(false);
     setIsActive(true);
     setIsModalOpen(true);
   }
@@ -92,6 +94,7 @@ export function LeaveTypePage() {
     setMaxDaysPerRequest(type.max_days_per_request ?? '');
     setMinNoticeDays(type.min_notice_days ?? '');
     setGenderRestriction(type.gender_restriction ?? '');
+    setExemptFromStaffingLimit(type.exempt_from_staffing_limit ?? false);
     setIsActive(type.is_active);
     setIsModalOpen(true);
   }
@@ -109,6 +112,7 @@ export function LeaveTypePage() {
         max_days_per_request: maxDaysPerRequest === '' ? null : Number(maxDaysPerRequest),
         min_notice_days: minNoticeDays === '' ? null : Number(minNoticeDays),
         gender_restriction: genderRestriction === '' ? null : genderRestriction as 'male' | 'female',
+        exempt_from_staffing_limit: exemptFromStaffingLimit,
         is_active: isActive
       };
 
@@ -144,6 +148,7 @@ export function LeaveTypePage() {
       setMaxDaysPerRequest(current.max_days_per_request ?? '');
       setMinNoticeDays(current.min_notice_days ?? '');
       setGenderRestriction(current.gender_restriction ?? '');
+      setExemptFromStaffingLimit(current.exempt_from_staffing_limit ?? false);
       setIsActive(current.is_active);
     }
     setIsStaleModalOpen(false);
@@ -249,6 +254,11 @@ export function LeaveTypePage() {
                         {type.gender_restriction && (
                           <span>Khusus: {type.gender_restriction === 'male' ? 'Laki-laki' : 'Perempuan'}</span>
                         )}
+                        {type.exempt_from_staffing_limit && (
+                          <span style={{ color: '#0369a1', fontSize: '12px', fontWeight: 500 }}>
+                            Bebas Batas Departemen
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -341,6 +351,24 @@ export function LeaveTypePage() {
                   <div className="form-group checkbox-align-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input type="checkbox" id="isActive" checked={isActive} onChange={e => setIsActive(e.target.checked)} style={{ width: '18px', height: '18px' }} />
                     <label htmlFor="isActive" className="form-label" style={{ margin: 0 }}>Aktif (Bisa Dipilih)</label>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <input 
+                    type="checkbox" 
+                    id="exemptFromStaffingLimit" 
+                    checked={exemptFromStaffingLimit} 
+                    onChange={e => setExemptFromStaffingLimit(e.target.checked)} 
+                    style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }} 
+                  />
+                  <div>
+                    <label htmlFor="exemptFromStaffingLimit" className="form-label" style={{ margin: 0, cursor: 'pointer', fontWeight: 600 }}>
+                      Tidak terkena batas cuti bersamaan departemen
+                    </label>
+                    <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginTop: '2px' }}>
+                      Untuk cuti darurat seperti sakit, duka, melahirkan
+                    </span>
                   </div>
                 </div>
 

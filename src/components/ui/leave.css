@@ -466,3 +466,35 @@
   font-size: 16px;
   font-weight: 600;
 }
+
+/* Penanda kuota cuti bersamaan departemen penuh di DatePicker */
+.react-datepicker__day.day-staffing-full {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  position: relative;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.react-datepicker__day.day-staffing-full:hover {
+  background-color: #fca5a5 !important;
+}
+
+/* Penanda ada rekan satu divisi yang cuti / pengajuannya pending di DatePicker (titik kuning) */
+.react-datepicker__day.day-staffing-warning {
+  position: relative;
+}
+
+.react-datepicker__day.day-staffing-warning::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  background-color: #f59e0b;
+  border-radius: 50%;
+  pointer-events: none;
+}
+

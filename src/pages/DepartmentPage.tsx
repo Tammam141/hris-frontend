@@ -25,6 +25,7 @@ export function DepartmentPage() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState('');
+  const [maxConcurrentLeave, setMaxConcurrentLeave] = useState<number | ''>('');
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
@@ -61,6 +62,7 @@ export function DepartmentPage() {
     setCode('');
     setName('');
     setNameError('');
+    setMaxConcurrentLeave('');
     setIsModalOpen(true);
   }
 
@@ -70,6 +72,7 @@ export function DepartmentPage() {
     setCode(dept.code);
     setName(dept.name);
     setNameError('');
+    setMaxConcurrentLeave(dept.max_concurrent_leave ?? '');
     setIsModalOpen(true);
   }
 
@@ -77,10 +80,16 @@ export function DepartmentPage() {
     e.preventDefault();
     setNameError('');
     try {
+      const payload = {
+        code,
+        name,
+        max_concurrent_leave: maxConcurrentLeave === '' ? null : Number(maxConcurrentLeave)
+      };
+
       if (modalMode === 'create') {
-        await createDepartment({ code, name });
+        await createDepartment(payload);
       } else if (selectedDept) {
-        await updateDepartment(selectedDept.id, { code, name, updated_at: selectedDept.updated_at });
+        await updateDepartment(selectedDept.id, { ...payload, updated_at: selectedDept.updated_at });
       }
       setIsModalOpen(false);
       loadDepartments();
@@ -104,6 +113,7 @@ export function DepartmentPage() {
       setSelectedDept(current);
       setCode(current.code);
       setName(current.name);
+      setMaxConcurrentLeave(current.max_concurrent_leave ?? '');
     }
     setIsStaleModalOpen(false);
   };
@@ -152,19 +162,21 @@ export function DepartmentPage() {
               <tr>
                 <th>Kode</th>
                 <th>Nama Departemen</th>
+                <th>Maks. Cuti Bersamaan</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={3} className="text-center empty-table-cell">Memuat data...</td></tr>
+                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
               ) : departments.length === 0 ? (
-                <tr><td colSpan={3} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
+                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
               ) : (
                 departments.map(dept => (
                   <tr key={dept.id}>
                     <td className="employee-name">{dept.code}</td>
                     <td>{dept.name}</td>
+                    <td>{dept.max_concurrent_leave ? `${dept.max_concurrent_leave} orang` : 'Tanpa batas'}</td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
@@ -208,6 +220,21 @@ export function DepartmentPage() {
                     placeholder="Contoh: Information Technology" 
                   />
                   {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Maksimal Karyawan Cuti Bersamaan</label>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    max={1000} 
+                    className="input-field" 
+                    value={maxConcurrentLeave} 
+                    onChange={e => setMaxConcurrentLeave(e.target.value === '' ? '' : Number(e.target.value))} 
+                    placeholder="Kosongkan jika tanpa batas (1–1000)" 
+                  />
+                  <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                    Batas jumlah rekan satu departemen yang boleh cuti di hari yang sama (1–1000). Kosongkan untuk tanpa batas.
+                  </span>
                 </div>
               </div>
               <div className="modal-footer">
