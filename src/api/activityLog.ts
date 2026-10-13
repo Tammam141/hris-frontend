@@ -9,6 +9,8 @@ export interface ActivityLog {
   entity_id: string | null;
   status: 'success' | 'failed' | 'rejected' | string;
   description: string | null;
+  metadata?: Record<string, any>;
+  occurred_at?: string;
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;

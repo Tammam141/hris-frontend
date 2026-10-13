@@ -33,6 +33,14 @@ export interface LeaveAttachment {
   created_at?: string;
 }
 
+export interface LeaveColleagueOnLeave {
+  employee_name: string;
+  leave_type_name: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+}
+
 export interface LeaveRequest {
   id: string;
   employee_id: string;
@@ -45,10 +53,12 @@ export interface LeaveRequest {
   employee_name: string;
   leave_type_name: string;
   approver_id: string | null;
+  approver_name?: string;
   attachment_required: boolean;
   attachments?: LeaveAttachment[];
   decision_note?: string;
   created_at?: string;
+  colleagues_on_leave?: LeaveColleagueOnLeave[];
 }
 
 export interface LeaveBalance {
@@ -203,6 +213,7 @@ export async function cancelLeaveRequest(id: string): Promise<any> {
 export interface DepartmentCalendarDay {
   date: string;
   on_leave: number;
+  pending?: number;
   is_full: boolean;
 }
 

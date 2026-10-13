@@ -1,11 +1,13 @@
 import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
 
+/** Data tanggal yang kuota cuti bersamaannya sudah penuh */
 export interface StaffingLimitFullDate {
   date: string;
   on_leave?: number;
 }
 
+/** Struktur detail error batas cuti dari backend */
 export interface StaffingLimitDetails {
   department_name?: string;
   max_concurrent_leave?: number;
@@ -13,11 +15,13 @@ export interface StaffingLimitDetails {
   can_override?: boolean;
 }
 
+/** Cek apakah error 409 disebabkan oleh kuota cuti bersamaan departemen penuh */
 export function isStaffingLimitError(err: any): boolean {
   if (!err) return false;
   return err.status === 409 && (err.code === 'STAFFING_LIMIT_REACHED' || err.error?.code === 'STAFFING_LIMIT_REACHED');
 }
 
+/** Format pesan error kuota cuti departemen untuk ditampilkan ke pengguna */
 export function formatStaffingLimitMessage(details?: StaffingLimitDetails): string {
   if (!details) {
     return 'Kuota cuti bersamaan departemen sudah penuh. Silakan pilih tanggal lain.';
