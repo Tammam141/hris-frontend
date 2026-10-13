@@ -19,12 +19,11 @@ import {
   LeaveColleagueOnLeave 
 } from '../api/leave';
 import { getActivityLogsApi, ActivityLog } from '../api/activityLog';
-import { ShowIf } from '../components/ShowIf';
 import { useAuth } from '../hooks/useAuth';
 import { formatPlainDate, formatToJakartaTime } from '../utils/dateFormatter';
 import { isStaffingLimitError, formatStaffingLimitMessage } from '../utils/staffingLimit';
 
-type StatusFilterType = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'all' | 'failed';
+type StatusFilterType = 'pending' | 'my_pending' | 'approved' | 'rejected' | 'cancelled' | 'failed' | 'all';
 
 function formatShortDateRange(startStr: string, endStr: string): string {
   try {
@@ -164,15 +163,25 @@ export function LeaveManagementPage() {
       return;
     }
 
-    // Jika canViewAll (HR) dan statusFilter !== 'pending', ambil dari getAllLeaveRequests agar rekap semua pengajuan muncul
-    const useAllRequests = canViewAll && statusFilter !== 'pending';
-    const cacheKey = useAllRequests
-      ? `cached_leave_all_${statusFilter}`
-      : `cached_leave_approvals_${statusFilter}`;
+    // Untuk HR (canViewAll): jika statusFilter === 'my_pending', ambil dari kotak persetujuan pribadi
+    // Untuk filter lainnya (pending, approved, rejected, cancelled, all), ambil dari getAllLeaveRequests agar rekap seluruh divisi muncul
+    const isMyApprovalsOnly = statusFilter === 'my_pending' || (!canViewAll);
+    const apiStatus = (statusFilter === 'all' || statusFilter === 'my_pending') ? undefined : statusFilter;
+    const cacheKey = isMyApprovalsOnly
+      ? `cached_leave_approvals_${statusFilter}`
+      : `cached_leave_all_${statusFilter}`;
     
-    const apiCall = useAllRequests
-      ? getAllLeaveRequests({ page: leaveResponse.page, limit: leaveResponse.limit, status: statusFilter === 'all' ? undefined : statusFilter })
-      : getLeaveApprovals({ page: leaveResponse.page, limit: leaveResponse.limit, status: statusFilter === 'all' ? undefined : statusFilter });
+    const apiCall = isMyApprovalsOnly
+      ? getLeaveApprovals({ 
+          page: leaveResponse.page, 
+          limit: leaveResponse.limit, 
+          status: statusFilter === 'my_pending' ? 'pending' : (statusFilter === 'all' ? undefined : statusFilter) 
+        })
+      : getAllLeaveRequests({ 
+          page: leaveResponse.page, 
+          limit: leaveResponse.limit, 
+          status: apiStatus 
+        });
 
     apiCall
       .then(res => {
@@ -371,51 +380,46 @@ export function LeaveManagementPage() {
         {/* Filter Status Berbentuk Pill */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           {[
-            { id: 'pending', label: 'Menunggu' },
+            { id: 'pending', label: canViewAll ? 'Semua Menunggu' : 'Menunggu' },
+            ...(canViewAll ? [{ id: 'my_pending', label: 'Persetujuan Saya' }] : []),
             { id: 'approved', label: 'Disetujui' },
             { id: 'rejected', label: 'Ditolak' },
             { id: 'cancelled', label: 'Dibatalkan' },
+            ...((canViewAll || hasFeature('system.view_log')) ? [{ id: 'failed', label: 'Gagal' }] : []),
             { id: 'all', label: 'Semua' },
-          ].map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => handleFilterClick(item.id as StatusFilterType)}
-              style={{
-                padding: '6px 16px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: statusFilter === item.id ? 'none' : '1px solid #cbd5e1',
-                backgroundColor: statusFilter === item.id ? '#1a78d7' : '#fff',
-                color: statusFilter === item.id ? '#fff' : '#475569',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          ].map(item => {
+            const isItemFailed = item.id === 'failed';
+            const isActive = statusFilter === item.id;
 
-          <ShowIf feature={['system.view_log']}>
-            <button
-              type="button"
-              onClick={() => handleFilterClick('failed')}
-              style={{
-                padding: '6px 16px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: statusFilter === 'failed' ? 'none' : '1px solid #fca5a5',
-                backgroundColor: statusFilter === 'failed' ? '#dc2626' : '#fff',
-                color: statusFilter === 'failed' ? '#fff' : '#b91c1c',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Pengajuan Gagal
-            </button>
-          </ShowIf>
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleFilterClick(item.id as StatusFilterType)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: isActive 
+                    ? 'none' 
+                    : isItemFailed 
+                      ? '1px solid #fca5a5' 
+                      : '1px solid #cbd5e1',
+                  backgroundColor: isActive 
+                    ? (isItemFailed ? '#dc2626' : '#1a78d7') 
+                    : '#fff',
+                  color: isActive 
+                    ? '#fff' 
+                    : (isItemFailed ? '#b91c1c' : '#475569'),
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* TABEL PENGAJUAN GAGAL */}

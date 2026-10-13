@@ -68,20 +68,56 @@ export function EmployeePage() {
   useEffect(() => {
     async function loadReferences() {
       try {
-        const [depRes, posRes] = await Promise.all([
+        const [depRes, posRes, empRes] = await Promise.allSettled([
           getDepartments(),
-          getPositions()
+          getPositions(),
+          getEmployees({ limit: 100, page: 1 })
         ]);
-        if (depRes.success) {
-          setDepartments(depRes.data);
+        if (depRes.status === 'fulfilled' && depRes.value.success) {
+          setDepartments(depRes.value.data);
           try {
-            localStorage.setItem('cached_departments', JSON.stringify(depRes.data));
+            localStorage.setItem('cached_departments', JSON.stringify(depRes.value.data));
+          } catch {}
+        } else {
+          try {
+            const cachedDep = localStorage.getItem('cached_departments');
+            if (cachedDep) setDepartments(JSON.parse(cachedDep));
           } catch {}
         }
-        if (posRes.success) {
-          setPositions(posRes.data);
+
+        if (posRes.status === 'fulfilled' && posRes.value.success) {
+          setPositions(posRes.value.data);
           try {
-            localStorage.setItem('cached_positions', JSON.stringify(posRes.data));
+            localStorage.setItem('cached_positions', JSON.stringify(posRes.value.data));
+          } catch {}
+        } else {
+          try {
+            const cachedPos = localStorage.getItem('cached_positions');
+            if (cachedPos) setPositions(JSON.parse(cachedPos));
+          } catch {}
+        }
+
+        if (empRes.status === 'fulfilled' && empRes.value.data) {
+          let allEmps = [...empRes.value.data];
+          const totalPages = empRes.value.meta?.total_pages || 1;
+          if (totalPages > 1) {
+            const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
+              getEmployees({ limit: 100, page: i + 2 })
+            );
+            const otherPagesRes = await Promise.allSettled(pagePromises);
+            otherPagesRes.forEach((res) => {
+              if (res.status === 'fulfilled' && res.value.data) {
+                allEmps = [...allEmps, ...res.value.data];
+              }
+            });
+          }
+          try {
+            const existingRaw = localStorage.getItem('cached_employees_all');
+            const existing: EmployeeListItem[] = existingRaw ? JSON.parse(existingRaw) : [];
+            const map = new Map<string, EmployeeListItem>();
+            existing.forEach(emp => map.set(emp.id, emp));
+            allEmps.forEach(emp => map.set(emp.id, emp));
+            localStorage.setItem('cached_employees_all', JSON.stringify(Array.from(map.values())));
           } catch {}
         }
       } catch {
@@ -109,7 +145,7 @@ export function EmployeePage() {
         limit: employeeResponse.limit,
       });
 
-      // 2. Data respon backend/offline dibungkus ke state employeeResponse
+      // 2. Data respon backend dibungkus ke state employeeResponse
       setEmployeeResponse(prev => ({
         ...prev,
         data: res.data || [],
@@ -118,8 +154,15 @@ export function EmployeePage() {
       }));
       setIsOfflineMode(false);
 
-      // 2. Simpan cadangan ke localStorage saat BE sukses
+      // Simpan cadangan ke master cache dan cache per-halaman di localStorage saat BE sukses
       try {
+        const cachedAllRaw = localStorage.getItem('cached_employees_all');
+        const existingAll: EmployeeListItem[] = cachedAllRaw ? JSON.parse(cachedAllRaw) : [];
+        const empMap = new Map<string, EmployeeListItem>();
+        existingAll.forEach(e => empMap.set(e.id, e));
+        (res.data || []).forEach(e => empMap.set(e.id, e));
+        localStorage.setItem('cached_employees_all', JSON.stringify(Array.from(empMap.values())));
+
         localStorage.setItem('cached_employees', JSON.stringify({
           data: res.data || [],
           page: employeeResponse.page,
@@ -131,19 +174,68 @@ export function EmployeePage() {
     } catch (e: any) {
       // 3. JIKA BE MATI / DOWN: Cek apakah ada data cadangan di localStorage
       try {
-        const cached = localStorage.getItem('cached_employees');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setEmployeeResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
+        const cachedAllRaw = localStorage.getItem('cached_employees_all');
+        let allEmployees: EmployeeListItem[] = [];
+        if (cachedAllRaw) {
+          try {
+            const parsed = JSON.parse(cachedAllRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              allEmployees = parsed;
+            }
+          } catch {}
+        }
+
+        // Fallback jika belum ada di master pool, ambil dari cached_employees lama
+        if (allEmployees.length === 0) {
+          const cached = localStorage.getItem('cached_employees');
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                allEmployees = parsed.data;
+              }
+            } catch {}
           }
+        }
+
+        if (allEmployees.length > 0) {
+          // Filter data lokal offline berdasarkan search query, department, dan status aktif
+          let filtered = allEmployees;
+          if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(emp =>
+              emp.full_name?.toLowerCase().includes(q) ||
+              emp.email?.toLowerCase().includes(q) ||
+              emp.employee_number?.toLowerCase().includes(q)
+            );
+          }
+          if (departmentId) {
+            const selectedDept = departments.find(d => d.id === departmentId);
+            if (selectedDept) {
+              filtered = filtered.filter(emp => emp.department_name === selectedDept.name);
+            }
+          }
+          if (isActive !== '') {
+            const activeBool = isActive === 'true';
+            filtered = filtered.filter(emp => emp.is_active === activeBool);
+          }
+
+          const total = filtered.length;
+          const limit = employeeResponse.limit || 10;
+          const totalPages = Math.max(1, Math.ceil(total / limit));
+          const currentPage = Math.min(Math.max(1, employeeResponse.page), totalPages);
+          const startIndex = (currentPage - 1) * limit;
+          const pageData = filtered.slice(startIndex, startIndex + limit);
+
+          setEmployeeResponse(prev => ({
+            ...prev,
+            page: currentPage,
+            data: pageData,
+            total,
+            total_pages: totalPages
+          }));
+          setIsOfflineMode(true);
+          return;
         }
       } catch {}
 
@@ -154,7 +246,7 @@ export function EmployeePage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, departmentId, isActive, employeeResponse.page, employeeResponse.limit]);
+  }, [searchQuery, departmentId, isActive, employeeResponse.page, employeeResponse.limit, departments]);
 
   // muat ulang data saat parameter berubah
   useEffect(() => {
