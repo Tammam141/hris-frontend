@@ -4,11 +4,14 @@ import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
 import { isRateLimited } from '../../utils/rateLimit';
+import { EyeIcon } from '../../components/icons/EyeIcon';
+import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 import '../../components/ui/auth.css';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [errorObj, setErrorObj] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -18,6 +21,15 @@ export function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = location.state?.message;
+
+  // Tampilkan pesan error ramah jika terjadi auto-logout / 401 dari server
+  useEffect(() => {
+    const authErr = sessionStorage.getItem('auth_error_message');
+    if (authErr) {
+      setErrorMsg(authErr);
+      sessionStorage.removeItem('auth_error_message');
+    }
+  }, []);
 
   // Rate Limit: Hitung mundur setiap 1 detik sampai tombol & form login aktif kembali
   useEffect(() => {
@@ -115,16 +127,41 @@ export function LoginForm() {
           />
 
           <label htmlFor="password" className="input-label">Password</label>
-          <input
-            id="password"
-            type="password"
-            className="input-field"
-            placeholder="Masukkan password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading || countdown > 0}
-            required
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              className="input-field"
+              style={{ paddingRight: '40px', width: '100%' }}
+              placeholder="Masukkan password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading || countdown > 0}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}
+              title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+              aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+            >
+              {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+            </button>
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px', marginBottom: '16px' }}>
             <Link to="/forgot-password" style={{ fontSize: '14px', color: '#1a78d7', textDecoration: 'none' }}>

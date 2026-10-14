@@ -10,6 +10,8 @@ import {
   PHONE_FORMAT_INVALID_MSG 
 } from '../../utils/phoneValidation';
 import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
+import { EyeIcon } from '../../components/icons/EyeIcon';
+import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 import '../../components/ui/auth.css';
 
 export function RegisterForm() {
@@ -18,6 +20,8 @@ export function RegisterForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // state untuk nomor telepon
   const [countryCode, setCountryCode] = useState('+62');
@@ -146,40 +150,96 @@ export function RegisterForm() {
           />
 
           <label htmlFor="password" className="input-label">Password</label>
-          <input
-            id="password"
-            type="password"
-            className="input-field"
-            style={passwordError ? { borderColor: '#ef4444' } : undefined}
-            placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
-            value={password}
-            maxLength={PASSWORD_MAX_LENGTH}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setPasswordError('');
-            }}
-            disabled={loading}
-            required
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              className="input-field"
+              style={{
+                paddingRight: '40px',
+                width: '100%',
+                ...(passwordError ? { borderColor: '#ef4444' } : {})
+              }}
+              placeholder="Min. 8 karakter (huruf besar, kecil, angka & simbol)"
+              value={password}
+              maxLength={PASSWORD_MAX_LENGTH}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError('');
+              }}
+              disabled={loading}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}
+              title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+              aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+            >
+              {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+            </button>
+          </div>
           <PasswordRequirements password={password} />
           {passwordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{passwordError}</span>}
 
           <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>
-          <input
-            id="confirmPassword"
-            type="password"
-            className="input-field"
-            style={confirmPasswordError ? { borderColor: '#ef4444' } : undefined}
-            placeholder="Ulangi password di atas"
-            value={confirmPassword}
-            maxLength={PASSWORD_MAX_LENGTH}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value);
-              setConfirmPasswordError('');
-            }}
-            disabled={loading}
-            required
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              id="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              className="input-field"
+              style={{
+                paddingRight: '40px',
+                width: '100%',
+                ...(confirmPasswordError ? { borderColor: '#ef4444' } : {})
+              }}
+              placeholder="Ulangi password di atas"
+              value={confirmPassword}
+              maxLength={PASSWORD_MAX_LENGTH}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setConfirmPasswordError('');
+              }}
+              disabled={loading}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(prev => !prev)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}
+              title={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Lihat konfirmasi password'}
+              aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Lihat konfirmasi password'}
+            >
+              {showConfirmPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+            </button>
+          </div>
           {confirmPasswordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{confirmPasswordError}</span>}
 
           <label className="input-label">Nomor Telepon</label>

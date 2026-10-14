@@ -17,7 +17,26 @@ const API_URL = API_BASE + '/api/v1';
 // Endpoint yang 401-nya BUKAN berarti sesi habis, jadi tidak boleh memicu logout otomatis.
 // - /auth/login    : 401 = email/password salah
 // - /auth/password : 401 = password lama salah ("Current password is incorrect")
-const NO_AUTO_LOGOUT = ['/auth/login', '/auth/password'];
+// - /auth/logout   : 401 = ditangani langsung oleh alur logout komponen
+const NO_AUTO_LOGOUT = ['/auth/login', '/auth/password', '/auth/logout'];
+
+export function format401Message(msg?: string): string {
+  if (!msg) return 'Sesi Anda sudah berakhir. Silakan login kembali.';
+  const lower = msg.toLowerCase();
+  if (lower.includes('deactivated')) {
+    return 'Akun Anda dinonaktifkan. Hubungi admin.';
+  }
+  if (lower.includes('no longer exists')) {
+    return 'Akun Anda sudah tidak terdaftar. Hubungi admin.';
+  }
+  if (lower.includes('password was changed') || lower.includes('password has been changed') || lower.includes('the password was changed')) {
+    return 'Password Anda telah diganti. Silakan login kembali.';
+  }
+  if (lower.includes('logged out') || lower.includes('session')) {
+    return 'Sesi Anda sudah berakhir. Silakan login kembali.';
+  }
+  return msg || 'Sesi Anda sudah berakhir. Silakan login kembali.';
+}
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
   const token = localStorage.getItem('token');
@@ -72,11 +91,16 @@ export async function apiRequest(endpoint: string, method: string, body?: object
     }
 
     if (response.status === 401 && !NO_AUTO_LOGOUT.includes(endpoint)) {
+      const friendlyMessage = format401Message(data?.message);
+      try {
+        sessionStorage.setItem('auth_error_message', friendlyMessage);
+      } catch {}
+
       clearSession().then(() => {
         window.location.href = '/login';
       });
       // Throw error anyway to stop execution chain
-      const err = new Error(data?.message || 'Sesi Anda telah berakhir, silakan login kembali') as ApiError;
+      const err = new Error(friendlyMessage) as ApiError;
       err.status = response.status;
       throw err;
     }

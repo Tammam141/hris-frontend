@@ -8,7 +8,7 @@ import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 // Ukuran data yang diambil per batch pada infinite scroll
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 
 export function ActivityLogPage() {
   const { user } = useAuth();
