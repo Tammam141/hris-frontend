@@ -531,8 +531,12 @@ export function EmployeeCreatePage() {
                     <label className="form-label">Manajer Atasan (Opsional)</label>
                     {managers.length > 0 ? (
                       <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
-                        <option value="">-- Pilih Manajer --</option>
-                        {managers.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
+                        <option value="">- Tanpa Manajer -</option>
+                        {managers.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
+                          </option>
+                        ))}
                       </select>
                     ) : (
                       <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: '#f8fafc', color: '#64748b', fontSize: '13px', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>

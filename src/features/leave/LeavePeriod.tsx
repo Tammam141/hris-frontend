@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { format, parseISO, eachDayOfInterval, startOfDay, addDays, isBefore } from 'date-fns';
+import { format, parseISO, eachDayOfInterval, startOfDay, addDays, subDays, isBefore } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { AlertModal } from '../../components/ui/AlertModal';
 import { 
@@ -13,6 +13,7 @@ import {
   getMyLeaveRequests, 
   getDepartmentLeaveCalendar,
   DepartmentCalendarResponse,
+  DepartmentCalendarDay,
   LeaveType, 
   LeaveRequest 
 } from '../../api/leave';
@@ -52,6 +53,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   const [existingLeaves, setExistingLeaves] = useState<LeaveRequest[]>([]);
   // State libur nasional
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  // Cache hari libur per tahun
+  const holidayCacheRef = useRef<Map<number, Holiday[]>>(new Map());
 
   // State notifikasi submit
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -65,26 +68,30 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     message: string;
   } | null>(null);
 
+  // State pesan banner peringatan visual jika ada rekan cuti di tanggal terpilih
+  const [colleagueWarning, setColleagueWarning] = useState<string>('');
+
+  // Helper untuk mengekstrak array days dari respon kalender secara aman
+  const getCalendarDays = useCallback((data: any): DepartmentCalendarDay[] => {
+    if (!data) return [];
+    if (Array.isArray(data.days)) return data.days;
+    if (Array.isArray(data.data?.days)) return data.data.days;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data)) return data;
+    return [];
+  }, []);
+
   // Ambil tipe cuti, saldo, cuti yang sudah ada
   const fetchInitialData = useCallback(() => {
-    const fetchAllLeaves = async () => {
-      let all: LeaveRequest[] = [];
-      let p = 1;
-      while (true) {
-        const res = await getMyLeaveRequests({ limit: 100, page: p }).catch(() => ({ data: [], meta: { total_pages: 1 } }));
-        if (res.data) all = [...all, ...res.data];
-        if (!res.meta || p >= res.meta.total_pages) break;
-        p++;
-      }
-      return { data: all };
-    };
-
     Promise.all([
       getLeaveTypes(), 
       getMyLeaveBalances().catch(() => null),
-      fetchAllLeaves()
+      Promise.all([
+        getMyLeaveRequests({ status: 'pending', limit: 100 }).catch(() => ({ data: [] })),
+        getMyLeaveRequests({ status: 'approved', limit: 100 }).catch(() => ({ data: [] }))
+      ])
     ])
-      .then(([typesRes, balRes, leavesRes]) => {
+      .then(([typesRes, balRes, [pendingRes, approvedRes]]) => {
         // Filter leave types: active only, and match gender if restricted
         const validTypes = typesRes.data.filter(t => {
           if (!t.is_active) return false;
@@ -103,18 +110,26 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         }
 
         // Simpan cuti yang approved atau pending untuk cek overlap
-        const activeLeaves = (leavesRes.data || []).filter(
-          (l: LeaveRequest) => l.status === 'approved' || l.status === 'pending'
-        );
+        const activeLeaves = [
+          ...(pendingRes.data || []),
+          ...(approvedRes.data || [])
+        ];
         setExistingLeaves(activeLeaves);
 
         // Muat hari libur tahun berjalan saat pertama kali halaman dibuka
         const currentYear = new Date().getFullYear();
-        getHolidays({ year: currentYear, limit: 100 })
-          .then(holsRes => {
-            if (holsRes.data) setHolidays(holsRes.data);
-          })
-          .catch(() => {});
+        if (holidayCacheRef.current.has(currentYear)) {
+          setHolidays(holidayCacheRef.current.get(currentYear)!);
+        } else {
+          getHolidays({ year: currentYear, limit: 100 })
+            .then(holsRes => {
+              if (holsRes.data) {
+                holidayCacheRef.current.set(currentYear, holsRes.data);
+                setHolidays(holsRes.data);
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch(err => console.error(err));
   }, [user?.employee?.gender]);
@@ -148,37 +163,71 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   // Kumpulan tanggal yang kuotanya penuh di departemen
   const fullDatesMap = useMemo(() => {
     const map = new Map<string, { on_leave: number }>();
-    if (deptCalendar?.days) {
-      deptCalendar.days.forEach(d => {
-        if (d.is_full) {
-          map.set(d.date.substring(0, 10), { on_leave: d.on_leave });
-        }
-      });
-    }
+    const days = getCalendarDays(deptCalendar);
+    days.forEach(d => {
+      if (d && d.is_full && d.date) {
+        map.set(d.date.substring(0, 10), { on_leave: d.on_leave || 0 });
+      }
+    });
     return map;
-  }, [deptCalendar]);
+  }, [deptCalendar, getCalendarDays]);
 
   // Kumpulan tanggal yang ada rekan satu divisi cuti (on_leave > 0) atau pengajuannya pending (pending > 0)
   const colleagueDaysMap = useMemo(() => {
     const map = new Map<string, { on_leave: number; pending: number }>();
-    if (deptCalendar?.days) {
-      deptCalendar.days.forEach(d => {
+    const days = getCalendarDays(deptCalendar);
+    days.forEach(d => {
+      if (d && d.date) {
         const dateKey = d.date.substring(0, 10);
         const onLeave = d.on_leave || 0;
         const pending = d.pending || 0;
         if (onLeave > 0 || pending > 0) {
           map.set(dateKey, { on_leave: onLeave, pending });
         }
-      });
-    }
+      }
+    });
     return map;
-  }, [deptCalendar]);
+  }, [deptCalendar, getCalendarDays]);
+
+  // Banner peringatan visual instan saat tanggal dipilih di kalender
+  useEffect(() => {
+    if (!startDate) {
+      setColleagueWarning('');
+      return;
+    }
+    const end = endDate || startDate;
+    try {
+      const days = eachDayOfInterval({ start: startDate, end });
+      const conflicted = days
+        .map(d => ({ date: d, info: colleagueDaysMap.get(format(d, 'yyyy-MM-dd')) }))
+        .filter((item): item is { date: Date; info: { on_leave: number; pending: number } } =>
+          Boolean(item.info && (item.info.on_leave > 0 || item.info.pending > 0))
+        );
+
+      if (conflicted.length > 0) {
+        if (conflicted.length === 1) {
+          const item = conflicted[0];
+          const dStr = format(item.date, 'd MMM yyyy', { locale: idLocale });
+          const parts: string[] = [];
+          if (item.info.on_leave > 0) parts.push(`${item.info.on_leave} rekan sudah cuti`);
+          if (item.info.pending > 0) parts.push(`${item.info.pending} rekan menunggu persetujuan`);
+          setColleagueWarning(`Pada tanggal ${dStr} ada ${parts.join(' dan ')} di divisi Anda.`);
+        } else {
+          setColleagueWarning(`Terdapat ${conflicted.length} hari yang beririsan dengan jadwal cuti rekan satu divisi Anda.`);
+        }
+      } else {
+        setColleagueWarning('');
+      }
+    } catch {
+      setColleagueWarning('');
+    }
+  }, [startDate, endDate, colleagueDaysMap]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Fetch holidays based on selected dateRange
+  // Fetch holidays based on selected dateRange (cached per year)
   useEffect(() => {
     if (!startDate) return;
     const end = endDate || startDate;
@@ -186,12 +235,30 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     const endY = end.getFullYear();
     
     const fetchHols = async () => {
-      let allHols: Holiday[] = [];
+      const neededYears: number[] = [];
       for (let y = startY; y <= endY; y++) {
-        const res = await getHolidays({ year: y, limit: 100 }).catch(() => ({ data: [] }));
-        if (res.data) allHols = [...allHols, ...res.data];
+        if (!holidayCacheRef.current.has(y)) {
+          neededYears.push(y);
+        }
       }
-      setHolidays(allHols);
+
+      if (neededYears.length > 0) {
+        await Promise.all(
+          neededYears.map(async y => {
+            const res = await getHolidays({ year: y, limit: 100 }).catch(() => ({ data: [] }));
+            if (res.data) {
+              holidayCacheRef.current.set(y, res.data);
+            }
+          })
+        );
+      }
+
+      // Gabungkan semua tahun yang sudah ter-cache
+      const allCached: Holiday[] = [];
+      holidayCacheRef.current.forEach(hList => {
+        allCached.push(...hList);
+      });
+      setHolidays(allCached);
     };
     fetchHols();
   }, [startDate, endDate]);
@@ -205,22 +272,28 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   // Set tanggal-tanggal yang sudah dipakai cuti (disabled di kalender)
   const disabledDates = useMemo(() => {
-    const dates: Date[] = [];
+    const set = new Set<string>();
     existingLeaves.forEach(leave => {
       try {
         if (!leave.start_date || !leave.end_date) return;
         const start = parseISO(leave.start_date.substring(0, 10));
         const end = parseISO(leave.end_date.substring(0, 10));
         const days = eachDayOfInterval({ start, end });
-        dates.push(...days);
+        days.forEach(d => set.add(format(d, 'yyyy-MM-dd')));
       } catch { /* ignore parse errors */ }
     });
-    return dates;
+    return set;
   }, [existingLeaves]);
 
   // Set tanggal libur nasional
   const holidayDates = useMemo(() => {
-    return holidays.filter(h => h && h.holiday_date).map(h => format(parseISO(h.holiday_date), 'yyyy-MM-dd'));
+    const set = new Set<string>();
+    holidays.forEach(h => {
+      if (h && h.holiday_date) {
+        set.add(h.holiday_date.substring(0, 10));
+      }
+    });
+    return set;
   }, [holidays]);
 
   // Blokir hari Sabtu (6), Minggu (0), libur nasional, tanggal cuti yang sudah ada, dan kuota penuh departemen
@@ -229,11 +302,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     if (day === 0 || day === 6) return false;
     
     const dateStr = format(date, 'yyyy-MM-dd');
-    if (holidayDates.includes(dateStr)) return false;
+    if (holidayDates.has(dateStr)) return false;
 
     // Cek apakah tanggal ini sudah ada di cuti yang disetujui/pending
-    const isDisabled = disabledDates.some(d => format(d, 'yyyy-MM-dd') === dateStr);
-    if (isDisabled) return false;
+    if (disabledDates.has(dateStr)) return false;
 
     // Jika jenis cuti TIDAK dikecualikan dari batas staf, tanggal dengan kuota penuh dinonaktifkan
     if (!isExemptFromStaffing && fullDatesMap.has(dateStr)) {
@@ -257,7 +329,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     return '';
   }, [isExemptFromStaffing, fullDatesMap, colleagueDaysMap]);
 
-  // Kalkulasi total hari kerja otomatis (estimasi frontend)
+  // Kalkulasi total hari kerja otomatis (Senin-Jumat dikurangi hari libur nasional)
   useEffect(() => {
     if (startDate && endDate) {
       // Cek apakah dalam rentang ada hari yang sudah diambil cutinya
@@ -266,7 +338,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         const days = eachDayOfInterval({ start: startDate, end: endDate });
         for (const d of days) {
           const dateStr = format(d, 'yyyy-MM-dd');
-          if (disabledDates.some(dd => format(dd, 'yyyy-MM-dd') === dateStr)) {
+          if (disabledDates.has(dateStr)) {
             hasOverlap = true;
             break;
           }
@@ -289,7 +361,12 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         let count = 0;
         const days = eachDayOfInterval({ start: startDate, end });
         days.forEach(d => {
-          if (isDateAvailable(d)) count++;
+          const day = d.getDay();
+          const dateStr = format(d, 'yyyy-MM-dd');
+          // Hitungan backend: Hari kerja (Senin-Jumat) dikurangi libur nasional
+          if (day >= 1 && day <= 5 && !holidayDates.has(dateStr)) {
+            count++;
+          }
         });
         setTotalDays(count);
       } catch {
@@ -298,7 +375,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     } else {
       setTotalDays(0);
     }
-  }, [startDate, endDate, disabledDates, isDateAvailable]);
+  }, [startDate, endDate, disabledDates, holidayDates]);
 
   function handleFileSelect(file: File | null) {
     // Revoke old preview URL
@@ -329,7 +406,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     }
     
     // Cek jika tipe cuti ini butuh lampiran di frontend (opsional, karena backend juga memvalidasi)
-    const selectedType = leaveTypes.find(t => t.id.toString() === leaveType);
     if (selectedType?.requires_attachment && !attachment) {
       if (!selectedType.attachment_required_after || totalDays > selectedType.attachment_required_after) {
         setAlertType('error');
@@ -376,9 +452,34 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         const end = endDate || startDate;
         const days = eachDayOfInterval({ start: startDate, end });
 
+        // Selalu ambil data kalender departemen terbaru untuk rentang tanggal pengajuan
+        let currentFullDates = fullDatesMap;
+        let currentColleagueDays = colleagueDaysMap;
+        try {
+          const freshRes = await getDepartmentLeaveCalendar(format(startDate, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
+          if (freshRes?.data) {
+            const freshDays = getCalendarDays(freshRes.data);
+            const freshFull = new Map<string, { on_leave: number }>();
+            const freshColleague = new Map<string, { on_leave: number; pending: number }>();
+            freshDays.forEach(d => {
+              if (d?.date) {
+                const dateKey = d.date.substring(0, 10);
+                if (d.is_full) freshFull.set(dateKey, { on_leave: d.on_leave || 0 });
+                const onLeave = d.on_leave || 0;
+                const pending = d.pending || 0;
+                if (onLeave > 0 || pending > 0) freshColleague.set(dateKey, { on_leave: onLeave, pending });
+              }
+            });
+            currentFullDates = freshFull;
+            currentColleagueDays = freshColleague;
+          }
+        } catch {
+          // fallback ke map yang sudah tersimpan jika koneksi terganggu
+        }
+
         // Pemeriksaan is_full yang sudah ada TETAP (tolak bila penuh)
-        if (fullDatesMap.size > 0) {
-          const conflictedDays = days.filter(d => fullDatesMap.has(format(d, 'yyyy-MM-dd')));
+        if (currentFullDates.size > 0) {
+          const conflictedDays = days.filter(d => currentFullDates.has(format(d, 'yyyy-MM-dd')));
           if (conflictedDays.length > 0) {
             const formattedDates = conflictedDays.map(d => format(d, 'd MMM yyyy', { locale: idLocale })).join(', ');
             const deptName = deptCalendar?.department?.name ? ` ${deptCalendar.department.name}` : '';
@@ -394,7 +495,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
         // Tambahan: bila tidak penuh tetapi ada tanggal dalam rentang dengan on_leave > 0 atau pending > 0:
         const colleagueDays = days
-          .map(d => ({ date: d, info: colleagueDaysMap.get(format(d, 'yyyy-MM-dd')) }))
+          .map(d => ({ date: d, info: currentColleagueDays.get(format(d, 'yyyy-MM-dd')) }))
           .filter((item): item is { date: Date; info: { on_leave: number; pending: number } } => 
             Boolean(item.info && (item.info.on_leave > 0 || item.info.pending > 0))
           );
@@ -512,9 +613,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     }
   };
 
-  const selectedTypeObj = leaveTypes.find(t => t.id.toString() === leaveType);
-  const currentBalance = selectedTypeObj ? (balances[selectedTypeObj.id] ?? 0) : 0;
-  const isInsufficientBalance = Boolean(selectedTypeObj?.deducts_balance && totalDays > currentBalance);
+  const currentBalance = selectedType ? (balances[selectedType.id] ?? 0) : 0;
+  const isInsufficientBalance = Boolean(selectedType?.deducts_balance && totalDays > currentBalance);
 
   return (
     <div className="leave-container">
@@ -548,7 +648,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               filterDate={isDateAvailable}
               dayClassName={getDayClassName}
               onMonthChange={(monthDate) => setCalendarMonth(monthDate)}
-              minDate={new Date()} 
+              minDate={selectedType?.code === 'SICK' ? subDays(new Date(), 30) : new Date()} 
               showDisabledMonthNavigation
               placeholderText="Pilih rentang tanggal cuti..."
               className="custom-datepicker-input"
@@ -560,35 +660,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                 }
               }}
             />
-            {deptCalendar?.department && deptCalendar.department.max_concurrent_leave !== null && (
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🏢</span>
-                  <span>
-                    Batas cuti bersamaan Dept. <strong>{deptCalendar.department.name}</strong>: <strong>{deptCalendar.department.max_concurrent_leave} orang/hari</strong>.
-                    {isExemptFromStaffing ? (
-                      <strong style={{ color: '#0284c7', marginLeft: '4px' }}>(Jenis cuti ini bebas batas kuota)</strong>
-                    ) : null}
-                  </span>
-                </div>
-                {!isExemptFromStaffing && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '2px', fontSize: '11px', color: '#64748b' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#fee2e2', border: '1px solid #ef4444', borderRadius: '2px' }}></span>
-                      Merah: Kuota penuh
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: '#f59e0b', borderRadius: '50%' }}></span>
-                      Titik kuning: Ada rekan satu divisi cuti / pending
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
-              width="20" 
-              height="20" 
+              width="18" 
+              height="18" 
               viewBox="0 0 24 24" 
               fill="none" 
               stroke="#64748b" 
@@ -604,31 +679,97 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
             </svg>
           </div>
 
+          {/* Batas kuota departemen */}
+          {deptCalendar?.department && deptCalendar.department.max_concurrent_leave !== null && (
+            <div className="leave-dept-info-card">
+              <div className="leave-dept-info-header">
+                <div className="leave-dept-info-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 21h18"/>
+                    <path d="M5 21V7l8-4v18"/>
+                    <path d="M19 21V11l-6-4"/>
+                    <path d="M9 9h1"/>
+                    <path d="M9 13h1"/>
+                    <path d="M9 17h1"/>
+                  </svg>
+                </div>
+                <div>
+                  Batas cuti bersamaan Dept. <strong>{deptCalendar.department.name}</strong>:
+                  <span className="leave-dept-quota-badge">{deptCalendar.department.max_concurrent_leave} orang/hari</span>
+                  {isExemptFromStaffing && (
+                    <span className="leave-exempt-tag">Bebas Kuota</span>
+                  )}
+                </div>
+              </div>
+
+              {!isExemptFromStaffing && (
+                <div className="leave-dept-legend">
+                  <span className="leave-legend-item">
+                    <span className="legend-indicator legend-indicator--full"></span>
+                    <span>Merah: Kuota penuh</span>
+                  </span>
+                  <span className="leave-legend-item">
+                    <span className="legend-indicator legend-indicator--warning"></span>
+                    <span>Kuning: Ada rekan cuti / pending</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Peringatan jadwal cuti bersamaan rekan satu divisi */}
+          {colleagueWarning && (
+            <div className="leave-overlap-warning" style={{ backgroundColor: '#fffdf0', borderColor: '#fef08a' }}>
+              <div className="leave-overlap-icon" style={{ color: '#ca8a04' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div className="leave-overlap-content">
+                <h4 className="leave-overlap-title" style={{ color: '#854d0e' }}>Peringatan Jadwal Divisi</h4>
+                <p className="leave-overlap-desc" style={{ color: '#a16207' }}>{colleagueWarning}</p>
+              </div>
+            </div>
+          )}
+
           {/* Info cuti yang sudah ada */}
           {existingLeaves.length > 0 && (
             <div className="leave-overlap-warning">
               <div className="leave-overlap-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
               </div>
               <div className="leave-overlap-content">
-                <span className="leave-overlap-title">Tanggal tidak tersedia:</span>
-                <span className="leave-overlap-desc">
-                  Anda sudah memiliki cuti pada tanggal berikut (tidak bisa overlap):
-                </span>
+                <h4 className="leave-overlap-title">Tanggal Tidak Tersedia</h4>
+                <p className="leave-overlap-desc">
+                  Anda sudah memiliki pengajuan cuti pada tanggal berikut (tidak bisa bertabrakan):
+                </p>
                 <ul className="leave-overlap-list">
-                  {existingLeaves.map(l => (
-                    <li key={l.id}>
-                      <strong>{l.leave_type_name}</strong> — {l.start_date.substring(0, 10)} s/d {l.end_date.substring(0, 10)}
-                      {' '}
-                      <span className={`leave-overlap-status leave-overlap-status--${l.status}`}>
-                        {l.status === 'approved' ? 'Disetujui' : 'Menunggu'}
-                      </span>
-                    </li>
-                  ))}
+                  {existingLeaves.map(l => {
+                    let rangeStr = `${l.start_date.substring(0, 10)} s/d ${l.end_date.substring(0, 10)}`;
+                    try {
+                      const sDate = format(parseISO(l.start_date.substring(0, 10)), 'd MMM yyyy', { locale: idLocale });
+                      const eDate = format(parseISO(l.end_date.substring(0, 10)), 'd MMM yyyy', { locale: idLocale });
+                      rangeStr = sDate === eDate ? sDate : `${sDate} s/d ${eDate}`;
+                    } catch {}
+
+                    return (
+                      <li key={l.id}>
+                        <div className="leave-overlap-item-details">
+                          <strong>{l.leave_type_name}</strong>
+                          <span style={{ color: '#78350f' }}>— {rangeStr}</span>
+                        </div>
+                        <span className={`leave-overlap-status leave-overlap-status--${l.status}`}>
+                          {l.status === 'approved' ? 'Disetujui' : 'Menunggu'}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
@@ -647,7 +788,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
           {/* Tombol Upload selalu muncul, bersifat opsional/wajib sesuai kondisi, backend yg validasi akhir */}
           <div className="leave-upload-wrapper">
-            <label className="leave-label">Upload Foto Bukti {leaveTypes.find(t => t.id.toString() === leaveType)?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
+            <label className="leave-label">Upload Foto Bukti {selectedType?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
             <div className="file-upload-card">
               <input 
                 type="file" 

@@ -20,7 +20,7 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
 
 export function EmployeePage() {
-  const { hasFeature } = useAuth();
+  const { hasFeature, user } = useAuth();
   const bisaAksi = hasFeature('employee.update') || hasFeature('employee.delete');
 
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
@@ -34,6 +34,7 @@ export function EmployeePage() {
 
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [managerOptions, setManagerOptions] = useState<EmployeeListItem[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -65,39 +66,99 @@ export function EmployeePage() {
   const [alertMessage, setAlertMessage] = useState<React.ReactNode>('');
 
   // muat data departemen & posisi saat halaman dibuka (dengan fallback cache lokal)
-  useEffect(() => {
-    async function loadReferences() {
-      try {
-        const [depRes, posRes] = await Promise.all([
-          getDepartments(),
-          getPositions()
-        ]);
-        if (depRes.success) {
-          setDepartments(depRes.data);
-          try {
-            localStorage.setItem('cached_departments', JSON.stringify(depRes.data));
-          } catch {}
-        }
-        if (posRes.success) {
-          setPositions(posRes.data);
-          try {
-            localStorage.setItem('cached_positions', JSON.stringify(posRes.data));
-          } catch {}
-        }
-      } catch {
-        // Fallback jika BE mati: coba baca data dari localStorage
+  const loadReferences = useCallback(async () => {
+    try {
+      const [depRes, posRes, empRes] = await Promise.allSettled([
+        getDepartments(),
+        getPositions(),
+        getEmployees({ limit: 100, page: 1 })
+      ]);
+      if (depRes.status === 'fulfilled' && depRes.value.success) {
+        setDepartments(depRes.value.data);
+        try {
+          localStorage.setItem('cached_departments', JSON.stringify({ owner: user?.id, data: depRes.value.data }));
+        } catch {}
+      } else if (depRes.status === 'rejected' && (depRes.reason as ApiError)?.isNetworkError) {
         try {
           const cachedDep = localStorage.getItem('cached_departments');
-          const cachedPos = localStorage.getItem('cached_positions');
-          if (cachedDep) setDepartments(JSON.parse(cachedDep));
-          if (cachedPos) setPositions(JSON.parse(cachedPos));
+          if (cachedDep) {
+            const parsed = JSON.parse(cachedDep);
+            if (parsed?.owner === user?.id && Array.isArray(parsed.data)) {
+              setDepartments(parsed.data);
+            }
+          }
         } catch {}
       }
-    }
-    loadReferences();
-  }, []);
 
-  const loadEmployees = useCallback(async () => {
+      if (posRes.status === 'fulfilled' && posRes.value.success) {
+        setPositions(posRes.value.data);
+        try {
+          localStorage.setItem('cached_positions', JSON.stringify({ owner: user?.id, data: posRes.value.data }));
+        } catch {}
+      } else if (posRes.status === 'rejected' && (posRes.reason as ApiError)?.isNetworkError) {
+        try {
+          const cachedPos = localStorage.getItem('cached_positions');
+          if (cachedPos) {
+            const parsed = JSON.parse(cachedPos);
+            if (parsed?.owner === user?.id && Array.isArray(parsed.data)) {
+              setPositions(parsed.data);
+            }
+          }
+        } catch {}
+      }
+
+      if (empRes.status === 'fulfilled' && empRes.value.data) {
+        let allEmps = [...empRes.value.data];
+        const totalPages = empRes.value.meta?.total_pages || 1;
+        if (totalPages > 1) {
+          const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
+            getEmployees({ limit: 100, page: i + 2 })
+          );
+          const otherPagesRes = await Promise.allSettled(pagePromises);
+          otherPagesRes.forEach((res) => {
+            if (res.status === 'fulfilled' && res.value.data) {
+              allEmps = [...allEmps, ...res.value.data];
+            }
+          });
+        }
+        setManagerOptions(allEmps);
+        try {
+          // Menimpa (overwrite), bukan merge
+          localStorage.setItem('cached_employees_all', JSON.stringify({ owner: user?.id, data: allEmps }));
+        } catch {}
+      } else if (empRes.status === 'rejected' && (empRes.reason as ApiError)?.isNetworkError) {
+        try {
+          const cachedAllRaw = localStorage.getItem('cached_employees_all');
+          if (cachedAllRaw) {
+            const parsed = JSON.parse(cachedAllRaw);
+            if (parsed?.owner === user?.id && Array.isArray(parsed.data)) {
+              setManagerOptions(parsed.data);
+            }
+          }
+        } catch {}
+      }
+    } catch {
+      // Fallback jika BE mati: coba baca data dari localStorage
+      try {
+        const cachedDep = localStorage.getItem('cached_departments');
+        const cachedPos = localStorage.getItem('cached_positions');
+        if (cachedDep) {
+          const parsed = JSON.parse(cachedDep);
+          if (parsed?.owner === user?.id && Array.isArray(parsed.data)) setDepartments(parsed.data);
+        }
+        if (cachedPos) {
+          const parsed = JSON.parse(cachedPos);
+          if (parsed?.owner === user?.id && Array.isArray(parsed.data)) setPositions(parsed.data);
+        }
+      } catch {}
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadReferences();
+  }, [loadReferences]);
+
+  const loadEmployees = useCallback(async (isCancelled?: () => boolean) => {
     setLoading(true);
     setError('');
     try {
@@ -109,7 +170,9 @@ export function EmployeePage() {
         limit: employeeResponse.limit,
       });
 
-      // 2. Data respon backend/offline dibungkus ke state employeeResponse
+      if (isCancelled?.()) return;
+
+      // 2. Data respon backend dibungkus ke state employeeResponse
       setEmployeeResponse(prev => ({
         ...prev,
         data: res.data || [],
@@ -118,9 +181,10 @@ export function EmployeePage() {
       }));
       setIsOfflineMode(false);
 
-      // 2. Simpan cadangan ke localStorage saat BE sukses
+      // Simpan cadangan per-halaman di localStorage saat BE sukses
       try {
         localStorage.setItem('cached_employees', JSON.stringify({
+          owner: user?.id,
           data: res.data || [],
           page: employeeResponse.page,
           limit: employeeResponse.limit,
@@ -129,36 +193,91 @@ export function EmployeePage() {
         }));
       } catch {}
     } catch (e: any) {
-      // 3. JIKA BE MATI / DOWN: Cek apakah ada data cadangan di localStorage
-      try {
-        const cached = localStorage.getItem('cached_employees');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
+      if (isCancelled?.()) return;
+      const err = e as ApiError;
+      // 3. Fallback cache HANYA dipakai bila isNetworkError === true
+      if (err?.isNetworkError) {
+        try {
+          const cachedAllRaw = localStorage.getItem('cached_employees_all');
+          let allEmployees: EmployeeListItem[] = [];
+          if (cachedAllRaw) {
+            try {
+              const parsed = JSON.parse(cachedAllRaw);
+              if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                allEmployees = parsed.data;
+              }
+            } catch {}
+          }
+
+          // Fallback jika belum ada di master pool, ambil dari cached_employees lama milik user ini
+          if (allEmployees.length === 0) {
+            const cached = localStorage.getItem('cached_employees');
+            if (cached) {
+              try {
+                const parsed = JSON.parse(cached);
+                if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                  allEmployees = parsed.data;
+                }
+              } catch {}
+            }
+          }
+
+          if (allEmployees.length > 0) {
+            // Filter data lokal offline berdasarkan search query, department, dan status aktif
+            let filtered = allEmployees;
+            if (searchQuery) {
+              const q = searchQuery.toLowerCase();
+              filtered = filtered.filter(emp =>
+                emp.full_name?.toLowerCase().includes(q) ||
+                emp.email?.toLowerCase().includes(q) ||
+                emp.employee_number?.toLowerCase().includes(q)
+              );
+            }
+            if (departmentId) {
+              const selectedDept = departments.find(d => d.id === departmentId);
+              if (selectedDept) {
+                filtered = filtered.filter(emp => emp.department_name === selectedDept.name);
+              }
+            }
+            if (isActive !== '') {
+              const activeBool = isActive === 'true';
+              filtered = filtered.filter(emp => emp.is_active === activeBool);
+            }
+
+            const total = filtered.length;
+            const limit = employeeResponse.limit || 10;
+            const totalPages = Math.max(1, Math.ceil(total / limit));
+            const currentPage = Math.min(Math.max(1, employeeResponse.page), totalPages);
+            const startIndex = (currentPage - 1) * limit;
+            const pageData = filtered.slice(startIndex, startIndex + limit);
+
             setEmployeeResponse(prev => ({
               ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
+              page: currentPage,
+              data: pageData,
+              total,
+              total_pages: totalPages
             }));
             setIsOfflineMode(true);
             return;
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
-      // Jika di local belum ada cache sama sekali
-      const err = e as ApiError;
       setError(err.message || 'Gagal memuat data karyawan');
       setIsOfflineMode(false);
     } finally {
-      setLoading(false);
+      if (!isCancelled?.()) setLoading(false);
     }
-  }, [searchQuery, departmentId, isActive, employeeResponse.page, employeeResponse.limit]);
+  }, [searchQuery, departmentId, isActive, employeeResponse.page, employeeResponse.limit, departments, user?.id]);
 
   // muat ulang data saat parameter berubah
   useEffect(() => {
-    loadEmployees();
+    let ignore = false;
+    loadEmployees(() => ignore);
+    return () => {
+      ignore = true;
+    };
   }, [loadEmployees]);
 
   function handleSearch(e: React.FormEvent) {
@@ -189,6 +308,7 @@ export function EmployeePage() {
         await updateEmployee(selectedEmployee.id, { ...data, updated_at: selectedEmployee.updated_at });
         setIsModalOpen(false);
         loadEmployees();
+        loadReferences();
       } catch (e: any) {
       const err = e as ApiError;
         if (isStaleData(err)) {
@@ -234,6 +354,7 @@ export function EmployeePage() {
     try {
       await setUserActive(empToToggle.id, !empToToggle.currentStatus);
       loadEmployees();
+      loadReferences();
     } catch (e: any) {
       const err = e as ApiError;
       setAlertMessage(err.message || 'Gagal mengubah status pengguna');
@@ -253,6 +374,7 @@ export function EmployeePage() {
       try {
         await deleteEmployee(employeeToDelete.id);
         loadEmployees();
+        loadReferences();
         setIsDeleteConfirmOpen(false);
         setEmployeeToDelete(null);
       } catch (e: any) {
@@ -468,7 +590,7 @@ export function EmployeePage() {
         employeeData={selectedEmployee}
         departments={departments}
         positions={positions}
-        managers={employeeResponse.data}
+        managers={managerOptions}
       />
 
       {/* Delete Confirmation Modal */}

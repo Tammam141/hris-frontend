@@ -4,10 +4,12 @@ import { getTeamAttendancesApi } from '../api/attendance';
 import { Attendance } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
+import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 export function TeamAttendancePage() {
+  const { user } = useAuth();
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
   const [teamAttendanceResponse, setTeamAttendanceResponse] = useState({
     data: [] as Attendance[],
@@ -45,29 +47,31 @@ export function TeamAttendancePage() {
         setIsOfflineMode(false);
         // Simpan cadangan ke localStorage saat BE sukses
         try {
-          localStorage.setItem('cached_team_attendances', JSON.stringify({ ...newData, page, limit: teamAttendanceResponse.limit }));
+          localStorage.setItem('cached_team_attendances', JSON.stringify({ owner: user?.id, ...newData, page, limit: teamAttendanceResponse.limit }));
         } catch {}
       }
     } catch (error) {
-      // Jika BE mati / down: ambil data cadangan dari localStorage
-      try {
-        const cached = localStorage.getItem('cached_team_attendances');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setTeamAttendanceResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
-          }
-        }
-      } catch {}
-
       const e = error as ApiError;
+      // Jika BE mati / down (isNetworkError): ambil data cadangan dari localStorage
+      if (e?.isNetworkError) {
+        try {
+          const cached = localStorage.getItem('cached_team_attendances');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+              setTeamAttendanceResponse(prev => ({
+                ...prev,
+                data: parsed.data,
+                total: parsed.total ?? 0,
+                total_pages: parsed.total_pages ?? 1
+              }));
+              setIsOfflineMode(true);
+              return;
+            }
+          }
+        } catch {}
+      }
+
       setIsOfflineMode(false);
       setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi tim.', type: 'error' });
     } finally {

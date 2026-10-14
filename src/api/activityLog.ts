@@ -4,10 +4,12 @@ export interface ActivityLog {
   id: string;
   actor_user_id: string | null;
   actor_name: string | null;
+  actor_email?: string | null;
   action: string;
   entity: string;
   entity_id: string | null;
   status: 'success' | 'failed' | 'rejected' | string;
+  summary?: string | null;
   description: string | null;
   metadata?: Record<string, any>;
   occurred_at?: string;

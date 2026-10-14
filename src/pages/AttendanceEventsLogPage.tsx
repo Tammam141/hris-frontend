@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAttendanceEvents } from '../api/attendance';
 import { AttendanceEvent, GetAttendanceEventsParams } from '../types/attendance';
+import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 import { AlertModal } from '../components/ui/AlertModal';
 
 export function AttendanceEventsLogPage() {
+  const { user } = useAuth();
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
   const [eventResponse, setEventResponse] = useState({
     data: [] as AttendanceEvent[],
@@ -48,34 +50,36 @@ export function AttendanceEventsLogPage() {
         setIsOfflineMode(false);
         // Simpan cadangan ke localStorage saat BE sukses
         try {
-          localStorage.setItem('cached_attendance_events', JSON.stringify({ ...newData, page, limit: eventResponse.limit }));
+          localStorage.setItem('cached_attendance_events', JSON.stringify({ owner: user?.id, ...newData, page, limit: eventResponse.limit }));
         } catch {}
       }
     } catch (err: any) {
-      // Jika BE mati / down: ambil data cadangan dari localStorage
-      try {
-        const cached = localStorage.getItem('cached_attendance_events');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setEventResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
+      // Jika BE mati / down (isNetworkError): ambil data cadangan dari localStorage
+      if (err?.isNetworkError) {
+        try {
+          const cached = localStorage.getItem('cached_attendance_events');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+              setEventResponse(prev => ({
+                ...prev,
+                data: parsed.data,
+                total: parsed.total ?? 0,
+                total_pages: parsed.total_pages ?? 1
+              }));
+              setIsOfflineMode(true);
+              return;
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       setIsOfflineMode(false);
       setErrorMsg(err.message || 'Gagal memuat log absensi');
     } finally {
       setLoading(false);
     }
-  }, [page, onlyRejected, kind, eventResponse.limit]);
+  }, [page, onlyRejected, kind, eventResponse.limit, user?.id]);
 
   useEffect(() => {
     fetchEvents();

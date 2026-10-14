@@ -84,8 +84,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         const matchedPos = positions.find(p => p.name === employeeData.position_name);
         setPositionId(employeeData.position_id || (matchedPos ? matchedPos.id : ''));
         
-        const matchedMgr = managers.find(m => m.full_name === employeeData.manager_name);
-        setManagerId(employeeData.manager_id || (matchedMgr ? matchedMgr.id : ''));
+        setManagerId(employeeData.manager_id || '');
         
         setBirthDate(employeeData.birth_date ? employeeData.birth_date.split('T')[0] : '');
         setAddress(employeeData.address || '');
@@ -453,9 +452,16 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                   value={managerId}
                   onChange={e => setManagerId(e.target.value)}
                 >
-                  <option value="">- Pilih Manajer -</option>
+                  <option value="">- Tanpa Manajer -</option>
+                  {employeeData?.manager_id && !managers.some(m => m.id === employeeData.manager_id) && (
+                    <option value={employeeData.manager_id}>
+                      {employeeData.manager_name ? `${employeeData.manager_name} (saat ini)` : '(Manajer saat ini)'}
+                    </option>
+                  )}
                   {managers.filter(m => m.id !== employeeData?.id).map(m => (
-                    <option key={m.id} value={m.id}>{m.full_name}</option>
+                    <option key={m.id} value={m.id}>
+                      {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
+                    </option>
                   ))}
                 </select>
               </div>

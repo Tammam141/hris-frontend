@@ -10,8 +10,10 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { parseISO, format } from 'date-fns';
 import { ApiError } from '../api/client';
+import { useAuth } from '../hooks/useAuth';
 
 export function HolidayPage() {
+  const { user } = useAuth();
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
   const [holidayResponse, setHolidayResponse] = useState({
     data: [] as Holiday[],
@@ -68,35 +70,37 @@ export function HolidayPage() {
         setIsOfflineMode(false);
         // Simpan cadangan ke localStorage saat BE sukses
         try {
-          localStorage.setItem(cacheKey, JSON.stringify({ ...newData, page, limit }));
+          localStorage.setItem(cacheKey, JSON.stringify({ owner: user?.id, ...newData, page, limit }));
         } catch {}
       }
     } catch (e: any) {
-      // Jika BE mati / down: ambil data cadangan dari localStorage
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setHolidayResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
-          }
-        }
-      } catch {}
-
       const err = e as ApiError;
+      // Jika BE mati / down (isNetworkError): ambil data cadangan dari localStorage
+      if (err?.isNetworkError) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+              setHolidayResponse(prev => ({
+                ...prev,
+                data: parsed.data,
+                total: parsed.total ?? 0,
+                total_pages: parsed.total_pages ?? 1
+              }));
+              setIsOfflineMode(true);
+              return;
+            }
+          }
+        } catch {}
+      }
+
       setIsOfflineMode(false);
       setError(err.message || 'Gagal memuat data hari libur');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, yearFilter]);
+  }, [page, limit, yearFilter, user?.id]);
 
   useEffect(() => {
     loadHolidays();
