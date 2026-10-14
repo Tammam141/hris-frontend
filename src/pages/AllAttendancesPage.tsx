@@ -1,5 +1,5 @@
 import { ApiError } from '../api/client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAllAttendancesApi, correctAttendanceApi, CorrectAttendancePayload } from '../api/attendance';
 import { Attendance } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
@@ -10,7 +10,10 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
+import { useAuth } from '../hooks/useAuth';
+
 export function AllAttendancesPage() {
+  const { user } = useAuth();
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
   const [attendanceResponse, setAttendanceResponse] = useState({
     data: [] as Attendance[],
@@ -42,55 +45,65 @@ export function AllAttendancesPage() {
   const setPage = (updater: number | ((p: number) => number)) =>
     setAttendanceResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
-
-  const loadData = async () => {
+  const loadData = useCallback(() => {
+    let ignore = false;
     setIsLoading(true);
-    try {
-      const res = await getAllAttendancesApi({ page, limit: attendanceResponse.limit });
-      if (res.success) {
-        const newData = {
-          data: res.data || [],
-          total: res.meta?.total ?? 0,
-          total_pages: res.meta?.total_pages ?? 1
-        };
-        // 2. Data respon backend dibungkus ke state attendanceResponse
-        setAttendanceResponse(prev => ({ ...prev, ...newData }));
-        setIsOfflineMode(false);
-        // Simpan cadangan ke localStorage saat BE sukses
-        try {
-          localStorage.setItem('cached_all_attendances', JSON.stringify({ ...newData, page, limit: attendanceResponse.limit }));
-        } catch {}
-      }
-    } catch (error) {
-      // Jika BE mati / down: ambil data cadangan dari localStorage
-      try {
-        const cached = localStorage.getItem('cached_all_attendances');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setAttendanceResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
-          }
-        }
-      } catch {}
 
-      const e = error as ApiError;
-      setIsOfflineMode(false);
-      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi.', type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    getAllAttendancesApi({ page, limit: attendanceResponse.limit })
+      .then(res => {
+        if (ignore) return;
+        if (res.success) {
+          const newData = {
+            data: res.data || [],
+            total: res.meta?.total ?? 0,
+            total_pages: res.meta?.total_pages ?? 1
+          };
+          setAttendanceResponse(prev => ({ ...prev, ...newData }));
+          setIsOfflineMode(false);
+          try {
+            localStorage.setItem('cached_all_attendances', JSON.stringify({ owner: user?.id, ...newData, page, limit: attendanceResponse.limit }));
+          } catch {}
+        }
+      })
+      .catch(error => {
+        if (ignore) return;
+        const e = error as ApiError;
+        if (e?.isNetworkError) {
+          try {
+            const cached = localStorage.getItem('cached_all_attendances');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                setAttendanceResponse(prev => ({
+                  ...prev,
+                  data: parsed.data,
+                  total: parsed.total ?? 0,
+                  total_pages: parsed.total_pages ?? 1
+                }));
+                setIsOfflineMode(true);
+                return;
+              }
+            }
+          } catch {}
+        }
+
+        setIsOfflineMode(false);
+        setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi.', type: 'error' });
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [page, attendanceResponse.limit, user?.id]);
+
+  useEffect(() => {
+    const cleanup = loadData();
+    return cleanup;
+  }, [loadData]);
+
 
   const translateStatus = (status: string) => {
     switch (status) {

@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getActivityLogsApi, ActivityLog, GetActivityLogsParams } from '../api/activityLog';
 import { formatToJakartaTimeOnly, formatPlainDate } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ApiError } from '../api/client';
+import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 export function ActivityLogPage() {
+  const { user } = useAuth();
   // 1. State dibungkus ke dalam satu objek (data, pagination, total)
   const [logResponse, setLogResponse] = useState({
     data: [] as ActivityLog[],
@@ -34,60 +36,70 @@ export function ActivityLogPage() {
     end_date: ''
   });
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
-
-  const loadData = async () => {
+  const loadData = useCallback(() => {
+    let ignore = false;
     setIsLoading(true);
-    try {
-      const params: GetActivityLogsParams = {
-        ...filters,
-        page,
-        limit: logResponse.limit
-      };
-      const res = await getActivityLogsApi(params);
-      if (res.success) {
-        const newData = {
-          data: res.data || [],
-          total: res.meta?.total ?? 0,
-          total_pages: res.meta?.total_pages ?? 1
-        };
-        // 2. Data respon backend dibungkus ke state logResponse
-        setLogResponse(prev => ({ ...prev, ...newData }));
-        setIsOfflineMode(false);
-        // Simpan cadangan ke localStorage saat BE sukses
-        try {
-          localStorage.setItem('cached_activity_logs', JSON.stringify({ ...newData, page, limit: logResponse.limit }));
-        } catch {}
-      }
-    } catch (error) {
-      // Jika BE mati / down: ambil data cadangan dari localStorage
-      try {
-        const cached = localStorage.getItem('cached_activity_logs');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) {
-            setLogResponse(prev => ({
-              ...prev,
-              data: parsed.data,
-              total: parsed.total ?? 0,
-              total_pages: parsed.total_pages ?? 1
-            }));
-            setIsOfflineMode(true);
-            return;
-          }
-        }
-      } catch {}
 
-      const e = error as ApiError;
-      setIsOfflineMode(false);
-      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat log aktivitas.', type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const params: GetActivityLogsParams = {
+      ...filters,
+      page,
+      limit: logResponse.limit
+    };
+
+    getActivityLogsApi(params)
+      .then(res => {
+        if (ignore) return;
+        if (res.success) {
+          const newData = {
+            data: res.data || [],
+            total: res.meta?.total ?? 0,
+            total_pages: res.meta?.total_pages ?? 1
+          };
+          setLogResponse(prev => ({ ...prev, ...newData }));
+          setIsOfflineMode(false);
+          try {
+            localStorage.setItem('cached_activity_logs', JSON.stringify({ owner: user?.id, ...newData, page, limit: logResponse.limit }));
+          } catch {}
+        }
+      })
+      .catch(error => {
+        if (ignore) return;
+        const e = error as ApiError;
+        if (e?.isNetworkError) {
+          try {
+            const cached = localStorage.getItem('cached_activity_logs');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                setLogResponse(prev => ({
+                  ...prev,
+                  data: parsed.data,
+                  total: parsed.total ?? 0,
+                  total_pages: parsed.total_pages ?? 1
+                }));
+                setIsOfflineMode(true);
+                return;
+              }
+            }
+          } catch {}
+        }
+
+        setIsOfflineMode(false);
+        setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat log aktivitas.', type: 'error' });
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [page, filters, logResponse.limit, user?.id]);
+
+  useEffect(() => {
+    const cleanup = loadData();
+    return cleanup;
+  }, [loadData]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { format, parseISO, eachDayOfInterval, startOfDay, addDays, isBefore } from 'date-fns';
+import { format, parseISO, eachDayOfInterval, startOfDay, addDays, subDays, isBefore } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { AlertModal } from '../../components/ui/AlertModal';
 import { 
@@ -53,6 +53,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
   const [existingLeaves, setExistingLeaves] = useState<LeaveRequest[]>([]);
   // State libur nasional
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  // Cache hari libur per tahun
+  const holidayCacheRef = useRef<Map<number, Holiday[]>>(new Map());
 
   // State notifikasi submit
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -81,24 +83,15 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   // Ambil tipe cuti, saldo, cuti yang sudah ada
   const fetchInitialData = useCallback(() => {
-    const fetchAllLeaves = async () => {
-      let all: LeaveRequest[] = [];
-      let p = 1;
-      while (true) {
-        const res = await getMyLeaveRequests({ limit: 100, page: p }).catch(() => ({ data: [], meta: { total_pages: 1 } }));
-        if (res.data) all = [...all, ...res.data];
-        if (!res.meta || p >= res.meta.total_pages) break;
-        p++;
-      }
-      return { data: all };
-    };
-
     Promise.all([
       getLeaveTypes(), 
       getMyLeaveBalances().catch(() => null),
-      fetchAllLeaves()
+      Promise.all([
+        getMyLeaveRequests({ status: 'pending', limit: 100 }).catch(() => ({ data: [] })),
+        getMyLeaveRequests({ status: 'approved', limit: 100 }).catch(() => ({ data: [] }))
+      ])
     ])
-      .then(([typesRes, balRes, leavesRes]) => {
+      .then(([typesRes, balRes, [pendingRes, approvedRes]]) => {
         // Filter leave types: active only, and match gender if restricted
         const validTypes = typesRes.data.filter(t => {
           if (!t.is_active) return false;
@@ -117,18 +110,26 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         }
 
         // Simpan cuti yang approved atau pending untuk cek overlap
-        const activeLeaves = (leavesRes.data || []).filter(
-          (l: LeaveRequest) => l.status === 'approved' || l.status === 'pending'
-        );
+        const activeLeaves = [
+          ...(pendingRes.data || []),
+          ...(approvedRes.data || [])
+        ];
         setExistingLeaves(activeLeaves);
 
         // Muat hari libur tahun berjalan saat pertama kali halaman dibuka
         const currentYear = new Date().getFullYear();
-        getHolidays({ year: currentYear, limit: 100 })
-          .then(holsRes => {
-            if (holsRes.data) setHolidays(holsRes.data);
-          })
-          .catch(() => {});
+        if (holidayCacheRef.current.has(currentYear)) {
+          setHolidays(holidayCacheRef.current.get(currentYear)!);
+        } else {
+          getHolidays({ year: currentYear, limit: 100 })
+            .then(holsRes => {
+              if (holsRes.data) {
+                holidayCacheRef.current.set(currentYear, holsRes.data);
+                setHolidays(holsRes.data);
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch(err => console.error(err));
   }, [user?.employee?.gender]);
@@ -188,29 +189,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     return map;
   }, [deptCalendar, getCalendarDays]);
 
-  // Muat kalender departemen secara otomatis untuk rentang tanggal yang dipilih agar data selalu sinkron
-  useEffect(() => {
-    if (!startDate) return;
-    const end = endDate || startDate;
-    getDepartmentLeaveCalendar(format(startDate, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
-      .then(res => {
-        if (res?.data) {
-          setDeptCalendar(prev => {
-            const prevDays = getCalendarDays(prev);
-            const newDays = getCalendarDays(res.data);
-            const dayMap = new Map<string, DepartmentCalendarDay>();
-            prevDays.forEach(d => { if (d?.date) dayMap.set(d.date.substring(0, 10), d); });
-            newDays.forEach(d => { if (d?.date) dayMap.set(d.date.substring(0, 10), d); });
-            return {
-              department: res.data.department || prev?.department || null,
-              days: Array.from(dayMap.values())
-            };
-          });
-        }
-      })
-      .catch(() => {});
-  }, [startDate, endDate, getCalendarDays]);
-
   // Banner peringatan visual instan saat tanggal dipilih di kalender
   useEffect(() => {
     if (!startDate) {
@@ -249,7 +227,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Fetch holidays based on selected dateRange
+  // Fetch holidays based on selected dateRange (cached per year)
   useEffect(() => {
     if (!startDate) return;
     const end = endDate || startDate;
@@ -257,12 +235,30 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     const endY = end.getFullYear();
     
     const fetchHols = async () => {
-      let allHols: Holiday[] = [];
+      const neededYears: number[] = [];
       for (let y = startY; y <= endY; y++) {
-        const res = await getHolidays({ year: y, limit: 100 }).catch(() => ({ data: [] }));
-        if (res.data) allHols = [...allHols, ...res.data];
+        if (!holidayCacheRef.current.has(y)) {
+          neededYears.push(y);
+        }
       }
-      setHolidays(allHols);
+
+      if (neededYears.length > 0) {
+        await Promise.all(
+          neededYears.map(async y => {
+            const res = await getHolidays({ year: y, limit: 100 }).catch(() => ({ data: [] }));
+            if (res.data) {
+              holidayCacheRef.current.set(y, res.data);
+            }
+          })
+        );
+      }
+
+      // Gabungkan semua tahun yang sudah ter-cache
+      const allCached: Holiday[] = [];
+      holidayCacheRef.current.forEach(hList => {
+        allCached.push(...hList);
+      });
+      setHolidays(allCached);
     };
     fetchHols();
   }, [startDate, endDate]);
@@ -276,22 +272,28 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   // Set tanggal-tanggal yang sudah dipakai cuti (disabled di kalender)
   const disabledDates = useMemo(() => {
-    const dates: Date[] = [];
+    const set = new Set<string>();
     existingLeaves.forEach(leave => {
       try {
         if (!leave.start_date || !leave.end_date) return;
         const start = parseISO(leave.start_date.substring(0, 10));
         const end = parseISO(leave.end_date.substring(0, 10));
         const days = eachDayOfInterval({ start, end });
-        dates.push(...days);
+        days.forEach(d => set.add(format(d, 'yyyy-MM-dd')));
       } catch { /* ignore parse errors */ }
     });
-    return dates;
+    return set;
   }, [existingLeaves]);
 
   // Set tanggal libur nasional
   const holidayDates = useMemo(() => {
-    return holidays.filter(h => h && h.holiday_date).map(h => format(parseISO(h.holiday_date), 'yyyy-MM-dd'));
+    const set = new Set<string>();
+    holidays.forEach(h => {
+      if (h && h.holiday_date) {
+        set.add(h.holiday_date.substring(0, 10));
+      }
+    });
+    return set;
   }, [holidays]);
 
   // Blokir hari Sabtu (6), Minggu (0), libur nasional, tanggal cuti yang sudah ada, dan kuota penuh departemen
@@ -300,11 +302,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     if (day === 0 || day === 6) return false;
     
     const dateStr = format(date, 'yyyy-MM-dd');
-    if (holidayDates.includes(dateStr)) return false;
+    if (holidayDates.has(dateStr)) return false;
 
     // Cek apakah tanggal ini sudah ada di cuti yang disetujui/pending
-    const isDisabled = disabledDates.some(d => format(d, 'yyyy-MM-dd') === dateStr);
-    if (isDisabled) return false;
+    if (disabledDates.has(dateStr)) return false;
 
     // Jika jenis cuti TIDAK dikecualikan dari batas staf, tanggal dengan kuota penuh dinonaktifkan
     if (!isExemptFromStaffing && fullDatesMap.has(dateStr)) {
@@ -328,7 +329,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     return '';
   }, [isExemptFromStaffing, fullDatesMap, colleagueDaysMap]);
 
-  // Kalkulasi total hari kerja otomatis (estimasi frontend)
+  // Kalkulasi total hari kerja otomatis (Senin-Jumat dikurangi hari libur nasional)
   useEffect(() => {
     if (startDate && endDate) {
       // Cek apakah dalam rentang ada hari yang sudah diambil cutinya
@@ -337,7 +338,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         const days = eachDayOfInterval({ start: startDate, end: endDate });
         for (const d of days) {
           const dateStr = format(d, 'yyyy-MM-dd');
-          if (disabledDates.some(dd => format(dd, 'yyyy-MM-dd') === dateStr)) {
+          if (disabledDates.has(dateStr)) {
             hasOverlap = true;
             break;
           }
@@ -360,7 +361,12 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
         let count = 0;
         const days = eachDayOfInterval({ start: startDate, end });
         days.forEach(d => {
-          if (isDateAvailable(d)) count++;
+          const day = d.getDay();
+          const dateStr = format(d, 'yyyy-MM-dd');
+          // Hitungan backend: Hari kerja (Senin-Jumat) dikurangi libur nasional
+          if (day >= 1 && day <= 5 && !holidayDates.has(dateStr)) {
+            count++;
+          }
         });
         setTotalDays(count);
       } catch {
@@ -369,7 +375,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     } else {
       setTotalDays(0);
     }
-  }, [startDate, endDate, disabledDates, isDateAvailable]);
+  }, [startDate, endDate, disabledDates, holidayDates]);
 
   function handleFileSelect(file: File | null) {
     // Revoke old preview URL
@@ -400,7 +406,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     }
     
     // Cek jika tipe cuti ini butuh lampiran di frontend (opsional, karena backend juga memvalidasi)
-    const selectedType = leaveTypes.find(t => t.id.toString() === leaveType);
     if (selectedType?.requires_attachment && !attachment) {
       if (!selectedType.attachment_required_after || totalDays > selectedType.attachment_required_after) {
         setAlertType('error');
@@ -608,9 +613,8 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     }
   };
 
-  const selectedTypeObj = leaveTypes.find(t => t.id.toString() === leaveType);
-  const currentBalance = selectedTypeObj ? (balances[selectedTypeObj.id] ?? 0) : 0;
-  const isInsufficientBalance = Boolean(selectedTypeObj?.deducts_balance && totalDays > currentBalance);
+  const currentBalance = selectedType ? (balances[selectedType.id] ?? 0) : 0;
+  const isInsufficientBalance = Boolean(selectedType?.deducts_balance && totalDays > currentBalance);
 
   return (
     <div className="leave-container">
@@ -644,7 +648,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               filterDate={isDateAvailable}
               dayClassName={getDayClassName}
               onMonthChange={(monthDate) => setCalendarMonth(monthDate)}
-              minDate={new Date()} 
+              minDate={selectedType?.code === 'SICK' ? subDays(new Date(), 30) : new Date()} 
               showDisabledMonthNavigation
               placeholderText="Pilih rentang tanggal cuti..."
               className="custom-datepicker-input"
@@ -784,7 +788,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
           {/* Tombol Upload selalu muncul, bersifat opsional/wajib sesuai kondisi, backend yg validasi akhir */}
           <div className="leave-upload-wrapper">
-            <label className="leave-label">Upload Foto Bukti {leaveTypes.find(t => t.id.toString() === leaveType)?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
+            <label className="leave-label">Upload Foto Bukti {selectedType?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
             <div className="file-upload-card">
               <input 
                 type="file" 

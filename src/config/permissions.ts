@@ -11,7 +11,7 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/department': { features: ['organization.manage'] },
   '/position': { features: ['organization.manage'] },
   '/approval': { features: ['employee.approve_user'] },
-  '/leave-management': {}, // Semua bisa login untuk melihat bawahan
+  '/leave-management': { features: ['leave.approve_team', 'leave.approve_all', 'leave.view_all'] },
   '/leave-types': { features: ['leave.manage_type'] },
   '/holidays': { features: ['organization.holiday'] },
   '/balance-adjustments': { features: ['leave.adjust_balance'] },
