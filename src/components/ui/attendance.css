@@ -482,3 +482,146 @@
   font-size: 13px;
   color: #94a3b8;
 }
+
+/* ── Activity Log Row States (Unseen = Hitam, Seen = Abu-abu) ── */
+.log-row-unseen {
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.log-row-unseen:hover td {
+  background-color: #f1f5f9;
+}
+
+.log-row-unseen td {
+  color: #0f172a !important;
+}
+
+.log-row-unseen .log-cell-number {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.log-row-unseen .log-cell-date-main {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.log-row-unseen .log-cell-time {
+  color: #334155;
+  font-weight: 600;
+}
+
+.log-row-unseen .log-cell-actor {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.log-row-unseen .log-cell-action {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.log-row-unseen .log-cell-source {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.log-row-unseen .log-cell-entity-id {
+  color: #334155;
+  font-weight: 600;
+}
+
+.log-row-unseen .log-cell-desc {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.log-row-unseen .log-cell-ip {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.log-row-unseen .log-cell-agent {
+  color: #475569;
+}
+
+/* Titik biru penanda log baru/belum dilihat */
+.log-dot-unseen {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background-color: #2563eb;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* ── Baris yang sudah terlihat (Muted / Abu-abu) ── */
+.log-row-seen {
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.log-row-seen:hover td {
+  background-color: #f8fafc;
+}
+
+.log-row-seen td {
+  color: #64748b !important;
+}
+
+.log-row-seen .log-cell-number {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.log-row-seen .log-cell-date-main {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.log-row-seen .log-cell-time {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.log-row-seen .log-cell-actor {
+  color: #475569;
+  font-weight: 500;
+}
+
+.log-row-seen .log-cell-action {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.log-row-seen .log-cell-source {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.log-row-seen .log-cell-entity-id {
+  color: #94a3b8;
+}
+
+.log-row-seen .log-cell-desc {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.log-row-seen .log-cell-ip {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.log-row-seen .log-cell-agent {
+  color: #94a3b8;
+  font-weight: 400;
+}
+

@@ -8,7 +8,7 @@ import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
 // Ukuran data yang diambil per batch pada infinite scroll
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export function ActivityLogPage() {
   const { user } = useAuth();
@@ -24,6 +24,16 @@ export function ActivityLogPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
+
+  // Ref untuk mendeduplikasi request yang sama agar tidak terpanggil 2 kali di network (misal akibat React StrictMode di dev)
+  const activeRequestRef = useRef<{
+    key: string;
+    promise: ReturnType<typeof getActivityLogsApi>;
+    timestamp: number;
+  } | null>(null);
+
+  // ID dari batch data yang paling baru dimuat (berwarna HITAM). Batch sebelum batch ini otomatis ABU-ABU.
+  const [latestBatchIds, setLatestBatchIds] = useState<Set<string>>(new Set());
 
   // Elemen target (sentry) di bawah tabel yang dipantau oleh IntersectionObserver
   const sentryRef = useRef<HTMLDivElement | null>(null);
@@ -57,13 +67,35 @@ export function ActivityLogPage() {
       limit: PAGE_SIZE
     };
 
-    getActivityLogsApi(params)
+    const requestKey = JSON.stringify(params);
+
+    // Mencegah request dipanggil 2 kali di network tab jika query persis sama sedang berjalan / baru saja dipanggil
+    let requestPromise: ReturnType<typeof getActivityLogsApi>;
+    if (
+      activeRequestRef.current &&
+      activeRequestRef.current.key === requestKey &&
+      Date.now() - activeRequestRef.current.timestamp < 1000
+    ) {
+      requestPromise = activeRequestRef.current.promise;
+    } else {
+      requestPromise = getActivityLogsApi(params);
+      activeRequestRef.current = {
+        key: requestKey,
+        promise: requestPromise,
+        timestamp: Date.now()
+      };
+    }
+
+    requestPromise
       .then(res => {
         if (ignore) return;
         if (res.success) {
           const newData = res.data || [];
           const total = res.meta?.total ?? 0;
           const totalPages = res.meta?.total_pages ?? 1;
+
+          // Batch baru yang dimuat ini dijadikan HITAM, batch sebelumnya otomatis jadi ABU-ABU
+          setLatestBatchIds(new Set(newData.map(item => item.id)));
 
           // Infinite scroll: gabungkan data baru ke data sebelumnya
           setLogResponse(prev => ({
@@ -97,6 +129,7 @@ export function ActivityLogPage() {
             if (cached) {
               const parsed = JSON.parse(cached);
               if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                setLatestBatchIds(new Set(parsed.data.map((item: ActivityLog) => item.id)));
                 setLogResponse({
                   data: parsed.data,
                   total: parsed.total ?? 0,
@@ -128,6 +161,7 @@ export function ActivityLogPage() {
     const cleanup = loadData();
     return cleanup;
   }, [loadData]);
+
 
   // IntersectionObserver: mendeteksi saat pengguna scroll mendekati dasar tabel (rootMargin 150px)
   // dan secara otomatis menaikkan page untuk mengambil data berikutnya
@@ -249,7 +283,7 @@ export function ActivityLogPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
           <h2 className="attendance-history-title" style={{ margin: 0 }}>Data Log</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
             Memuat {logResponse.data.length} dari {logResponse.total} data
@@ -267,7 +301,7 @@ export function ActivityLogPage() {
             <table className="attendance-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                  <th style={{ width: '60px', textAlign: 'center' }}>NO</th>
                   <th>Waktu</th>
                   <th>Aktor</th>
                   <th>Tindakan</th>
@@ -278,31 +312,40 @@ export function ActivityLogPage() {
                 </tr>
               </thead>
               <tbody>
-                {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => (
-                  <tr key={log.id}>
-                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                      {index + 1}.
-                    </td>
-                    <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
-                      {formatPlainDate(log.created_at)}<br/>
-                      <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{log.actor_name || 'System / Anonymous'}</div>
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{log.action}</td>
-                    <td>
-                      <span className="log-cell-source">{log.entity}</span>
-                      {log.entity_id && <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {log.entity_id}</div>}
-                    </td>
-                    <td>{renderStatus(log.status)}</td>
-                    <td><span className="note-text">{log.description || '-'}</span></td>
-                    <td>
-                      <div style={{ fontSize: '12px', color: '#475569' }}>{log.ip_address || '-'}</div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.user_agent || ''}>{log.user_agent || '-'}</div>
-                    </td>
-                  </tr>
-                ))}
+                {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => {
+                  const isLatest = latestBatchIds.has(log.id);
+                  return (
+                    <tr 
+                      key={log.id}
+                      className={isLatest ? 'log-row-unseen' : 'log-row-seen'}
+                    >
+                      <td className="log-cell-number" style={{ textAlign: 'center' }}>
+                        {isLatest && <span className="log-dot-unseen" title="Batch terbaru" />}
+                        {index + 1}.
+                      </td>
+                      <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
+                        <span className="log-cell-date-main">{formatPlainDate(log.created_at)}</span><br/>
+                        <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
+                      </td>
+                      <td>
+                        <div className="log-cell-actor">{log.actor_name || 'System / Anonymous'}</div>
+                      </td>
+                      <td>
+                        <span className="log-cell-action">{log.action}</span>
+                      </td>
+                      <td>
+                        <span className="log-cell-source">{log.entity}</span>
+                        {log.entity_id && <div className="log-cell-entity-id" style={{ fontSize: '11px' }}>ID: {log.entity_id}</div>}
+                      </td>
+                      <td>{renderStatus(log.status)}</td>
+                      <td><span className="log-cell-desc">{log.description || '-'}</span></td>
+                      <td>
+                        <div className="log-cell-ip" style={{ fontSize: '12px' }}>{log.ip_address || '-'}</div>
+                        <div className="log-cell-agent" style={{ fontSize: '10px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.user_agent || ''}>{log.user_agent || '-'}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {logResponse.data.length === 0 && (
                   <tr>
                     <td colSpan={8} className="table-cell-no-data">Belum ada data log aktivitas.</td>
