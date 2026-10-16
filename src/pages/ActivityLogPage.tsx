@@ -382,10 +382,76 @@ export function ActivityLogPage() {
           </div>
         )}
 
-        {/* Indikator Semua Data Telah Dimuat */}
+        {/* Indikator Semua Data Telah Dimuat (Didesain lebih menonjol dan informatif) */}
         {!isLoading && !isLoadingMore && page >= logResponse.total_pages && logResponse.data.length > 0 && (
-          <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px', borderTop: '1px solid #f1f5f9', marginTop: '12px' }}>
-            ✓ Seluruh {logResponse.total} log aktivitas telah ditampilkan
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '20px 24px',
+            margin: '24px auto 12px',
+            maxWidth: '520px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                backgroundColor: '#dcfce7',
+                color: '#15803d',
+                fontSize: '14px',
+                fontWeight: 700,
+                boxShadow: '0 0 0 2px rgba(22, 163, 74, 0.15)'
+              }}>
+                ✓
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                Seluruh {logResponse.total} Log Aktivitas Telah Ditampilkan
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
+              Anda telah mencapai akhir dari riwayat jejak audit sistem.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              style={{
+                marginTop: '6px',
+                padding: '6px 16px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#1a78d7',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#eff6ff';
+                e.currentTarget.style.borderColor = '#93c5fd';
+                e.currentTarget.style.color = '#1d4ed8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+                e.currentTarget.style.color = '#1a78d7';
+              }}
+            >
+              ↑ Kembali ke Atas
+            </button>
           </div>
         )}
 

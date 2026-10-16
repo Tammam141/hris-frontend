@@ -51,15 +51,15 @@ export function LeaveManagementPage() {
   const { user, hasFeature } = useAuth();
 
   const myEmployeeId = user?.employee?.id ?? user?.employee_id;
-  const canApproveAll = user?.role === 'admin' || hasFeature('leave.approve_all');
-  const canApproveTeam = hasFeature('leave.approve_team');
   const canViewAll = user?.role === 'admin' || hasFeature('leave.view_all');
 
   function canDecide(req: LeaveRequest) {
     if (req.status !== 'pending') return false;
-    if (req.employee_id === myEmployeeId) return false;          // cuti sendiri
-    if (canApproveAll) return true;
-    return canApproveTeam && req.approver_id === myEmployeeId;   // bawahan langsung
+    if (req.employee_id === myEmployeeId) return false; // Cuti sendiri tidak bisa disetujui sendiri
+
+    // Hanya manager langsung dari pemohon (approver_id = id karyawan login) yang dapat menyetujui / menolak.
+    // Admin dan HR hanya melihat saja (hanya tombol Detail, bukan action setujui atau tolak).
+    return Boolean(myEmployeeId && req.approver_id === myEmployeeId);
   }
 
   // Filter status berbentuk pill (default: 'pending' / Menunggu)
