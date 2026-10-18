@@ -82,6 +82,56 @@
   background-color: #ffffff;
 }
 
+/* Processed state (e.g. leave approval already processed / read) */
+.notification-item.processed {
+  background-color: #fafbfc;
+  opacity: 0.72;
+}
+
+.notification-item.processed:hover {
+  background-color: #f1f5f9;
+  opacity: 0.95;
+}
+
+.notification-item.processed .notification-icon.leave,
+.notification-icon.leave.processed {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+.notification-item.processed .notification-title {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.notification-item.processed .notification-message {
+  color: #94a3b8;
+}
+
+.notification-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.notification-title-wrapper .notification-title {
+  margin-bottom: 0;
+}
+
+.notification-badge-processed {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+}
+
 /* ── Icon Bubble ── */
 .notification-icon {
   width: 40px;

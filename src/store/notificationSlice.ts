@@ -44,6 +44,19 @@ const notificationSlice = createSlice({
         state.unreadCount += 1;
       }
     },
+    // Tandai beberapa notifikasi terbaca di lokal (tidak dihapus dari daftar)
+    markNotificationsReadLocal: (state, action: PayloadAction<string[]>) => {
+      const ids = new Set(action.payload);
+      let berkurang = 0;
+      state.items.forEach(n => {
+        if (ids.has(n.id) && !n.is_read) {
+          n.is_read = true;
+          n.read_at = new Date().toISOString();
+          berkurang += 1;
+        }
+      });
+      state.unreadCount = Math.max(0, state.unreadCount - berkurang);
+    },
     // Hapus notifikasi yang ditarik/usang dari server
     removeNotifications: (state, action: PayloadAction<string[]>) => {
       const ids = new Set(action.payload);
@@ -65,6 +78,7 @@ export const {
   updateNotification, 
   markAllAsReadLocal,
   addNotification,
+  markNotificationsReadLocal,
   removeNotifications,
   clearNotifications
 } = notificationSlice.actions;

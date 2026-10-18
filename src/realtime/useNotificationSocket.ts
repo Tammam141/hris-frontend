@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { addNotification, removeNotifications, setUnreadCount } from '../store/notificationSlice';
+import { addNotification, markNotificationsReadLocal, removeNotifications, setUnreadCount } from '../store/notificationSlice';
 import { clearSession } from '../utils/session';
 
 export function useNotificationSocket(isAuthenticated: boolean) {
@@ -57,6 +57,8 @@ export function useNotificationSocket(isAuthenticated: boolean) {
             dispatch(setUnreadCount(msg.unread));
           } else if (msg.event === 'notification.created' && msg.data) {
             dispatch(addNotification(msg.data));
+          } else if (msg.event === 'notification.read' && Array.isArray(msg.ids)) {
+            dispatch(markNotificationsReadLocal(msg.ids));
           } else if (msg.event === 'notification.cleared' && Array.isArray(msg.ids)) {
             dispatch(removeNotifications(msg.ids));
           }

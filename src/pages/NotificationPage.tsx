@@ -80,12 +80,12 @@ export function NotificationPage() {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const getNotifIcon = (type: Notification['type']) => {
+  const getNotifIcon = (type: Notification['type'], isProcessed?: boolean) => {
     switch (type) {
       case 'leave_approval_needed':
       case 'leave_status_changed':
         return (
-          <div className="notification-icon leave">
+          <div className={`notification-icon leave ${isProcessed ? 'processed' : ''}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
               <line x1="16" y1="2" x2="16" y2="6"/>
@@ -144,21 +144,29 @@ export function NotificationPage() {
         </div>
       ) : (
         <div className="notification-list">
-          {notifications.map((notif: Notification) => (
-            <div
-              key={notif.id}
-              className={`notification-item ${notif.is_read ? 'read' : 'unread'}`}
-              onClick={() => handleClickItem(notif)}
-            >
-              {getNotifIcon(notif.type)}
-              <div className="notification-content">
-                <p className="notification-title">{notif.title}</p>
-                <p className="notification-message">{notif.message}</p>
-                <div className="notification-time">{formatTimeAgo(notif.created_at)}</div>
+          {notifications.map((notif: Notification) => {
+            const isProcessedLeave = notif.type === 'leave_approval_needed' && notif.is_read;
+            return (
+              <div
+                key={notif.id}
+                className={`notification-item ${notif.is_read ? 'read' : 'unread'} ${isProcessedLeave ? 'processed' : ''}`}
+                onClick={() => handleClickItem(notif)}
+              >
+                {getNotifIcon(notif.type, isProcessedLeave)}
+                <div className="notification-content">
+                  <div className="notification-title-wrapper">
+                    <p className="notification-title">{notif.title}</p>
+                    {isProcessedLeave && (
+                      <span className="notification-badge-processed">Sudah diproses</span>
+                    )}
+                  </div>
+                  <p className="notification-message">{notif.message}</p>
+                  <div className="notification-time">{formatTimeAgo(notif.created_at)}</div>
+                </div>
+                {!notif.is_read && <div className="notification-unread-dot" />}
               </div>
-              {!notif.is_read && <div className="notification-unread-dot" />}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
