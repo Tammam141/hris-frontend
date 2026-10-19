@@ -258,7 +258,7 @@ export function DepartmentPage() {
               <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Unit Organisasi Baru' : 'Ubah Data Unit Organisasi'}</h2>
               <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
-            <form onSubmit={handleModalSubmit}>
+            <form onSubmit={handleModalSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="modal-body">
                 {formError && (
                   <div className="alert-error" style={{ marginBottom: '16px' }}>{formError}</div>

@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getPositions, createPosition, updatePosition, deletePosition } from '../api/position';
 import { getDepartments } from '../api/department';
 import { Position, Department, positionLabel } from '../types/employee';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import { BuildingIcon } from '../components/icons/BuildingIcon';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
+import { StarIcon } from '../components/icons/StarIcon';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -266,7 +269,9 @@ export function PositionPage() {
           <div style={{ marginBottom: '28px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '10px', padding: '16px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <span style={{ color: '#d97706', display: 'flex', alignItems: 'center' }}>
+                  <AlertTriangleIcon size={20} />
+                </span>
                 <strong style={{ color: '#92400e', fontSize: '15px' }}>Belum masuk struktur ({unassignedPositions.length} jabatan)</strong>
               </div>
               <span style={{ fontSize: '12px', color: '#b45309' }}>Jabatan lama ini belum memiliki unit organisasi. Klik edit untuk menentukan unitnya.</span>
@@ -315,7 +320,10 @@ export function PositionPage() {
             <div key={unitId} style={{ marginBottom: '28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🏢</span> {group.unitName}
+                  <span style={{ color: '#1a78d7', display: 'flex', alignItems: 'center' }}>
+                    <BuildingIcon />
+                  </span>
+                  <span>{group.unitName}</span>
                   <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>({group.positions.length} jabatan)</span>
                 </h3>
                 <button
@@ -365,7 +373,9 @@ export function PositionPage() {
                           {pos.reports_to_position_name ? (
                             <span>{pos.reports_to_position_name}</span>
                           ) : pos.reports_to_position_id === null ? (
-                            <span style={{ color: '#059669', fontWeight: 600 }}>⭐ Jabatan Puncak (CEO)</span>
+                            <span style={{ color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <StarIcon size={16} /> Jabatan Puncak (CEO)
+                            </span>
                           ) : (
                             <span style={{ color: '#94a3b8' }}>-</span>
                           )}
@@ -406,12 +416,19 @@ export function PositionPage() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Jabatan Baru' : 'Ubah Data Jabatan'}</h2>
-              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Tutup"
+              >
+                &times;
+              </button>
             </div>
-            <form onSubmit={handleModalSubmit}>
+            <form onSubmit={handleModalSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="modal-body">
                 {formError && (
-                  <div className="alert-error" style={{ marginBottom: '16px' }}>{formError}</div>
+                  <div className="alert-error" style={{ marginBottom: '8px' }}>{formError}</div>
                 )}
 
                 <div className="form-group">
@@ -432,7 +449,7 @@ export function PositionPage() {
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
-                  {fieldErrors.department_id && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.department_id}</span>}
+                  {fieldErrors.department_id && <span className="form-error-text">{fieldErrors.department_id}</span>}
                 </div>
 
                 <div className="form-group">
@@ -449,7 +466,7 @@ export function PositionPage() {
                     required 
                     placeholder="Contoh: Senior Software Engineer" 
                   />
-                  {fieldErrors.name && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.name}</span>}
+                  {fieldErrors.name && <span className="form-error-text">{fieldErrors.name}</span>}
                 </div>
 
                 <div className="form-group">
@@ -466,11 +483,20 @@ export function PositionPage() {
                     required 
                     placeholder="Contoh: SWE-SR" 
                   />
-                  {fieldErrors.code && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.code}</span>}
+                  {fieldErrors.code && <span className="form-error-text">{fieldErrors.code}</span>}
                 </div>
 
-                <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#1e293b' }}>
+                <div style={{
+                  padding: '12px 14px',
+                  backgroundColor: isUnitHead ? '#eff6ff' : '#f8fafc',
+                  border: isUnitHead ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: 600, color: '#1e293b' }}>
                     <input 
                       type="checkbox" 
                       checked={isUnitHead} 
@@ -479,14 +505,14 @@ export function PositionPage() {
                         setReportsToPositionId('');
                         if (fieldErrors.is_unit_head) setFieldErrors(prev => ({ ...prev, is_unit_head: '' }));
                       }} 
-                      style={{ width: '16px', height: '16px' }}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                     />
-                    Kepala Unit Organisasi ini
+                    <span>Kepala Unit Organisasi ini</span>
                   </label>
-                  <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  <span className="form-help-text" style={{ paddingLeft: '26px' }}>
                     Maksimal 1 kepala per unit. Kepala unit melapor ke jabatan di unit induk di atasnya.
                   </span>
-                  {fieldErrors.is_unit_head && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.is_unit_head}</span>}
+                  {fieldErrors.is_unit_head && <span className="form-error-text" style={{ paddingLeft: '26px' }}>{fieldErrors.is_unit_head}</span>}
                 </div>
 
                 <div className="form-group">
@@ -512,15 +538,13 @@ export function PositionPage() {
                       </option>
                     ))}
                   </select>
-                  <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  <span className="form-help-text">
                     {isUnitHead 
                       ? 'Sebagai kepala unit, pilih jabatan di unit induknya.'
                       : 'Bukan kepala unit, pilih jabatan dalam unit yang sama.'}
                   </span>
                   {fieldErrors.reports_to_position_id && (
-                    <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      {fieldErrors.reports_to_position_id}
-                    </span>
+                    <span className="form-error-text">{fieldErrors.reports_to_position_id}</span>
                   )}
                 </div>
 
@@ -538,10 +562,10 @@ export function PositionPage() {
                     }} 
                     placeholder="Kosongkan jika bebas / tanpa batas" 
                   />
-                  <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  <span className="form-help-text">
                     Jumlah maksimal karyawan yang dapat memegang jabatan ini bersamaan.
                   </span>
-                  {fieldErrors.max_holders && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.max_holders}</span>}
+                  {fieldErrors.max_holders && <span className="form-error-text">{fieldErrors.max_holders}</span>}
                 </div>
               </div>
               <div className="modal-footer">
