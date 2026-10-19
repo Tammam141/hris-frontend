@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { addNotification, removeNotifications, setUnreadCount } from '../store/notificationSlice';
+import { addNotification, markNotificationsReadLocal, removeNotifications, setUnreadCount } from '../store/notificationSlice';
+import { clearSession } from '../utils/session';
 
 export function useNotificationSocket(isAuthenticated: boolean) {
   // State untuk melacak apakah pipa komunikasi (socket) sedang tersambung atau tidak
@@ -56,6 +57,8 @@ export function useNotificationSocket(isAuthenticated: boolean) {
             dispatch(setUnreadCount(msg.unread));
           } else if (msg.event === 'notification.created' && msg.data) {
             dispatch(addNotification(msg.data));
+          } else if (msg.event === 'notification.read' && Array.isArray(msg.ids)) {
+            dispatch(markNotificationsReadLocal(msg.ids));
           } else if (msg.event === 'notification.cleared' && Array.isArray(msg.ids)) {
             dispatch(removeNotifications(msg.ids));
           }
@@ -73,10 +76,20 @@ export function useNotificationSocket(isAuthenticated: boolean) {
         // Kalau komponen unmount/dibatalkan, jangan berusaha nyambung lagi
         if (dibatalkan) return;
 
-        // Kode 4001: Token salah (User pembohong)
+        // Kode 4001: Token salah / sesi tidak sah (jangan sambung ulang, arahkan ke /login)
+        if (event.code === 4001) {
+          try {
+            sessionStorage.setItem('auth_error_message', 'Sesi Anda sudah berakhir. Silakan login kembali.');
+          } catch {}
+          clearSession().then(() => {
+            window.location.href = '/login';
+          });
+          return;
+        }
+
         // Kode 4002: Telat kirim token dalam 10 detik
         // Kode 4003: Terlalu banyak koneksi (melebihi limit tab per pengguna)
-        if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
+        if (event.code === 4002 || event.code === 4003) {
           return;
         }
 
@@ -105,5 +118,12 @@ export function useNotificationSocket(isAuthenticated: boolean) {
     };
   }, [isAuthenticated, dispatch]);
 
-  return { isConnected };
+  const closeSocket = () => {
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+  };
+
+  return { isConnected, closeSocket, socket: socketRef.current };
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail } from '../../types/employee';
+import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail, positionLabel } from '../../types/employee';
 import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
+import { LineManagerField } from './LineManagerField';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';
 import { validateFullName } from '../../utils/nameValidation';
@@ -29,6 +30,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [positionError, setPositionError] = useState('');
   
   // Form State
   const [fullName, setFullName] = useState('');
@@ -112,6 +114,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setPhotoFile(null);
       setPhotoMessage(null);
       setError('');
+      setPositionError('');
     } else {
       setFullName('');
       setCountryCode('+62');
@@ -130,8 +133,9 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setPhotoFile(null);
       setPhotoMessage(null);
       setError('');
+      setPositionError('');
     }
-  }, [isOpen, employeeData, departments, positions, managers]);
+  }, [isOpen, employeeData, departments, positions]);
 
   if (!isOpen) return null;
 
@@ -141,6 +145,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     setError('');
     setNameError('');
     setPhoneError('');
+    setPositionError('');
 
     try {
       const nameErr = validateFullName(fullName);
@@ -183,6 +188,12 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     } catch (err: any) {
       if ((err as any)?.status === 409 && (err as any)?.code === 'STALE_DATA') {
         throw err;
+      }
+      if ((err as any)?.status === 409 && (err as any)?.details?.field === 'position_id') {
+        const msg = (err as any)?.message || 'Kuota kursi jabatan ini sudah penuh';
+        setPositionError(msg);
+        setError(msg);
+        return;
       }
       if (isPhoneAlreadyRegisteredError(err)) {
         setPhoneError(PHONE_ALREADY_REGISTERED_MSG);
@@ -422,7 +433,18 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <select 
                   className="input-field" 
                   value={departmentId}
-                  onChange={e => setDepartmentId(e.target.value)}
+                  onChange={e => {
+                    const newDeptId = e.target.value;
+                    setDepartmentId(newDeptId);
+                    setPositionError('');
+                    // Jika posisi yang terpilih bukan bagian dari departemen baru, reset
+                    if (positionId) {
+                      const pos = positions.find(p => p.id === positionId);
+                      if (pos && pos.department_id && pos.department_id !== newDeptId) {
+                        setPositionId('');
+                      }
+                    }
+                  }}
                 >
                   <option value="">- Pilih Departemen -</option>
                   {departments.map(d => (
@@ -435,35 +457,52 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <label className="input-label">Jabatan</label>
                 <select 
                   className="input-field" 
+                  style={positionError ? { borderColor: '#ef4444' } : undefined}
                   value={positionId}
-                  onChange={e => setPositionId(e.target.value)}
+                  onChange={e => {
+                    const newPosId = e.target.value;
+                    setPositionId(newPosId);
+                    setPositionError('');
+                    // Jika jabatan dipilih lebih dulu, isi Departemen otomatis
+                    if (newPosId) {
+                      const pos = positions.find(p => p.id === newPosId);
+                      if (pos?.department_id) {
+                        setDepartmentId(pos.department_id);
+                      }
+                    }
+                  }}
                 >
                   <option value="">- Pilih Jabatan -</option>
-                  {positions.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
+                  {(departmentId ? positions.filter(p => p.department_id === departmentId) : positions).map(p => {
+                    let label = positionLabel(p);
+                    if (p.max_holders !== null && p.max_holders !== undefined) {
+                      if (p.current_holders !== undefined) {
+                        const remaining = Math.max(0, p.max_holders - p.current_holders);
+                        label += ` (kuota: ${p.max_holders}, sisa: ${remaining})`;
+                      } else {
+                        label += ` (kuota: ${p.max_holders})`;
+                      }
+                    }
+                    return (
+                      <option key={p.id} value={p.id}>{label}</option>
+                    );
+                  })}
                 </select>
+                {positionError && (
+                  <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                    {positionError}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">
-                <label className="input-label">Manajer</label>
-                <select 
-                  className="input-field" 
-                  value={managerId}
-                  onChange={e => setManagerId(e.target.value)}
-                >
-                  <option value="">- Tanpa Manajer -</option>
-                  {employeeData?.manager_id && !managers.some(m => m.id === employeeData.manager_id) && (
-                    <option value={employeeData.manager_id}>
-                      {employeeData.manager_name ? `${employeeData.manager_name} (saat ini)` : '(Manajer saat ini)'}
-                    </option>
-                  )}
-                  {managers.filter(m => m.id !== employeeData?.id).map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <LineManagerField
+                  positionId={positionId}
+                  managerId={managerId}
+                  onManagerChange={id => setManagerId(id)}
+                  managers={managers}
+                  excludeEmployeeId={employeeData?.id}
+                />
               </div>
 
               <div className="form-group">

@@ -21,7 +21,10 @@ export interface FeatureMatrixResponse {
     id: string;
     code: string;
     name: string;
-    level: number;
+    level?: number;
+    department_id?: string | null;
+    department_name?: string | null;
+    is_unit_head?: boolean;
     updated_at: string;
   }[];
   categories: FeatureCategory[];

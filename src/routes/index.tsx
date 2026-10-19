@@ -20,6 +20,7 @@ const EmployeeImportCsvPage = lazy(() => import('../pages/EmployeeImportCsvPage'
 const LeavePage = lazy(() => import('../pages/LeavePage').then(m => ({ default: m.LeavePage })));
 const DepartmentPage = lazy(() => import('../pages/DepartmentPage').then(m => ({ default: m.DepartmentPage })));
 const PositionPage = lazy(() => import('../pages/PositionPage').then(m => ({ default: m.PositionPage })));
+const OrgChartPage = lazy(() => import('../pages/OrgChartPage').then(m => ({ default: m.OrgChartPage })));
 const ApprovalPage = lazy(() => import('../pages/ApprovalPage').then(m => ({ default: m.ApprovalPage })));
 const LeaveManagementPage = lazy(() => import('../pages/LeaveManagementPage').then(m => ({ default: m.LeaveManagementPage })));
 const LeaveTypePage = lazy(() => import('../pages/LeaveTypePage').then(m => ({ default: m.LeaveTypePage })));
@@ -87,6 +88,14 @@ export function AppRoutes() {
 
             <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/position']} />}>
               <Route path="/position" element={<PositionPage />} />
+            </Route>
+
+            <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/organization']} />}>
+              <Route path="/organization" element={<OrgChartPage />} />
+            </Route>
+
+            <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/org-chart']} />}>
+              <Route path="/org-chart" element={<OrgChartPage />} />
             </Route>
 
             <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/approval']} />}>

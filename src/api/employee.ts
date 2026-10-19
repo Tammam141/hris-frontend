@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail, LineManagerResponse, PositionLineManagerResponse } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();
@@ -20,7 +20,15 @@ export async function getEmployeeDetail(id: string): Promise<{ success: boolean;
   return response as { success: boolean; data: EmployeeDetail };
 }
 
+export async function getEmployeeLineManager(id: string): Promise<{ success: boolean; data: LineManagerResponse }> {
+  const response = await apiRequest(`/employees/${id}/line-manager`, 'GET');
+  return response as { success: boolean; data: LineManagerResponse };
+}
 
+export async function getPositionLineManager(positionId: string, excludeEmployeeId?: string): Promise<PositionLineManagerResponse> {
+  const qs = excludeEmployeeId ? `?exclude_employee_id=${excludeEmployeeId}` : '';
+  return (await apiRequest(`/positions/${positionId}/line-manager${qs}`, 'GET')) as PositionLineManagerResponse;
+}
 
 export async function createEmployee(
   data: CreateEmployeePayload | CreateEmployeePayload[] | Record<string, CreateEmployeePayload>

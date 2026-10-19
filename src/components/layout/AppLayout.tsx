@@ -22,6 +22,8 @@ import { useNotificationSocket } from '../../realtime/useNotificationSocket';
 import { ShowIf } from '../ShowIf';
 import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
+import { logoutApi } from '../../api/auth';
+import { clearSession } from '../../utils/session';
 import '../ui/notification.css';
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -40,7 +42,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const dispatch = useDispatch();
 
   // WebSocket
-  const { isConnected } = useNotificationSocket(isAuthenticated);
+  const { isConnected, closeSocket } = useNotificationSocket(isAuthenticated);
 
   // Polling Notifikasi (sebagai jaring pengaman)
   useEffect(() => {
@@ -72,11 +74,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
     };
   }, [isSidebarOpen]);
 
-
-
-  function handleLogout() {
-    logout();
-    navigate('/login');
+  async function handleLogout() {
+    try {
+      await logoutApi();
+    } catch {
+      // Jika jaringan putus / backend mati, tetap lanjutkan keluar di frontend
+    } finally {
+      closeSocket?.();
+      await clearSession();
+      await logout();
+      navigate('/login');
+    }
   }
 
   const location = useLocation();
@@ -183,6 +191,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </div>
                 )}
               </div>
+            </ShowIf>
+
+            <ShowIf feature={ROUTE_PERMISSIONS['/organization'].features}>
+              <NavLink to="/organization" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BuildingIcon /> Struktur Organisasi
+              </NavLink>
             </ShowIf>
 
             <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>

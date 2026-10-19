@@ -1,7 +1,19 @@
+export type UnitType = 'company' | 'directorate' | 'division' | 'department' | 'team';
+
+export const UNIT_TYPE_LABELS: Record<UnitType, string> = {
+  company: 'Perusahaan',
+  directorate: 'Direktorat',
+  division: 'Divisi',
+  department: 'Departemen',
+  team: 'Tim',
+};
+
 export interface Department {
   id: string;
   code: string;
   name: string;
+  unit_type: UnitType;
+  parent_id: string | null;
   is_active: boolean;
   max_concurrent_leave?: number | null;
   updated_at: string;
@@ -11,9 +23,76 @@ export interface Position {
   id: string;
   code: string;
   name: string;
-  level: number;
+  level?: number;
+  department_id: string | null;
+  reports_to_position_id: string | null;
+  is_unit_head: boolean;
+  max_holders: number | null;
+  current_holders?: number;
+  department_code?: string | null;
+  department_name?: string | null;
+  reports_to_position_name?: string | null;
   is_active: boolean;
   updated_at: string;
+}
+
+export function positionLabel(p: { name: string; department_name?: string | null }): string {
+  return p.department_name ? `${p.name} — ${p.department_name}` : p.name;
+}
+
+export interface PositionHolder {
+  id: string;
+  employee_number: string;
+  full_name: string;
+}
+
+export interface PositionNode {
+  id: string;
+  code: string;
+  name: string;
+  reports_to_position_id: string | null;
+  is_unit_head: boolean;
+  max_holders: number | null;
+  is_active: boolean;
+  holders: PositionHolder[];
+  direct_reports: PositionNode[];
+}
+
+export interface UnitNode {
+  id: string;
+  code: string;
+  name: string;
+  unit_type: UnitType;
+  is_active: boolean;
+  positions: PositionNode[];
+  children: UnitNode[];
+}
+
+export interface OrgTreeResponse {
+  units: UnitNode[];
+  unassigned_positions: PositionNode[];
+}
+
+export interface LineManagerInfo {
+  employee_id: string;
+  full_name: string;
+  position_id: string | null;
+  position_name: string | null;
+  source: 'override' | 'structure';
+  levels_up: number;
+}
+
+export interface LineManagerResponse {
+  employee_id: string;
+  line_manager: LineManagerInfo | null;
+}
+
+export interface PositionLineManagerResponse {
+  success: boolean;
+  data: {
+    position_id: string;
+    line_manager: LineManagerInfo | null;
+  };
 }
 
 export interface EmployeeListItem {

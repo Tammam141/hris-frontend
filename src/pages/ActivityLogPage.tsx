@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getActivityLogsApi, ActivityLog, GetActivityLogsParams } from '../api/activityLog';
 import { formatToJakartaTimeOnly, formatPlainDate } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
@@ -7,25 +7,38 @@ import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 
+// Ukuran data yang diambil per batch pada infinite scroll
+const PAGE_SIZE = 20;
+
 export function ActivityLogPage() {
   const { user } = useAuth();
-  // 1. State dibungkus ke dalam satu objek (data, pagination, total)
+
   const [logResponse, setLogResponse] = useState({
     data: [] as ActivityLog[],
-    page: 1,
-    limit: 50,
     total: 0,
     total_pages: 1
   });
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOfflineMode, setIsOfflineMode] = useState(false); // Penanda data berasal dari cache lokal saat BE down
+  // State pemuatan batch berikutnya saat user scroll (tanpa me-reset tampilan tabel)
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
 
-  const page = logResponse.page;
-  const setPage = (updater: number | ((p: number) => number)) =>
-    setLogResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
+  // Ref untuk mendeduplikasi request yang sama agar tidak terpanggil 2 kali di network (misal akibat React StrictMode di dev)
+  const activeRequestRef = useRef<{
+    key: string;
+    promise: ReturnType<typeof getActivityLogsApi>;
+    timestamp: number;
+  } | null>(null);
 
-  // Filters
+  // ID dari batch data yang paling baru dimuat (berwarna HITAM). Batch sebelum batch ini otomatis ABU-ABU.
+  const [latestBatchIds, setLatestBatchIds] = useState<Set<string>>(new Set());
+
+  // Elemen target (sentry) di bawah tabel yang dipantau oleh IntersectionObserver
+  const sentryRef = useRef<HTMLDivElement | null>(null);
+
+  // Form input filters
   const [filters, setFilters] = useState({
     action: '',
     status: '',
@@ -36,47 +49,92 @@ export function ActivityLogPage() {
     end_date: ''
   });
 
+  // Applied filters (hanya aktif saat klik 'Terapkan Filter')
+  const [appliedFilters, setAppliedFilters] = useState(filters);
+
+  // Fungsi pengambil data: me-replace jika page 1, atau menggabungkan (append) jika page > 1
   const loadData = useCallback(() => {
     let ignore = false;
-    setIsLoading(true);
+    if (page === 1) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
 
     const params: GetActivityLogsParams = {
-      ...filters,
+      ...appliedFilters,
       page,
-      limit: logResponse.limit
+      limit: PAGE_SIZE
     };
 
-    getActivityLogsApi(params)
+    const requestKey = JSON.stringify(params);
+
+    // Mencegah request dipanggil 2 kali di network tab jika query persis sama sedang berjalan / baru saja dipanggil
+    let requestPromise: ReturnType<typeof getActivityLogsApi>;
+    if (
+      activeRequestRef.current &&
+      activeRequestRef.current.key === requestKey &&
+      Date.now() - activeRequestRef.current.timestamp < 1000
+    ) {
+      requestPromise = activeRequestRef.current.promise;
+    } else {
+      requestPromise = getActivityLogsApi(params);
+      activeRequestRef.current = {
+        key: requestKey,
+        promise: requestPromise,
+        timestamp: Date.now()
+      };
+    }
+
+    requestPromise
       .then(res => {
         if (ignore) return;
         if (res.success) {
-          const newData = {
-            data: res.data || [],
-            total: res.meta?.total ?? 0,
-            total_pages: res.meta?.total_pages ?? 1
-          };
-          setLogResponse(prev => ({ ...prev, ...newData }));
+          const newData = res.data || [];
+          const total = res.meta?.total ?? 0;
+          const totalPages = res.meta?.total_pages ?? 1;
+
+          // Batch baru yang dimuat ini dijadikan HITAM, batch sebelumnya otomatis jadi ABU-ABU
+          setLatestBatchIds(new Set(newData.map(item => item.id)));
+
+          // Infinite scroll: gabungkan data baru ke data sebelumnya
+          setLogResponse(prev => ({
+            data: page === 1 ? newData : [...prev.data, ...newData],
+            total,
+            total_pages: totalPages
+          }));
           setIsOfflineMode(false);
-          try {
-            localStorage.setItem('cached_activity_logs', JSON.stringify({ owner: user?.id, ...newData, page, limit: logResponse.limit }));
-          } catch {}
+
+          // Simpan cache page 1 ke localStorage
+          if (page === 1) {
+            try {
+              localStorage.setItem('cached_activity_logs', JSON.stringify({
+                owner: user?.id,
+                data: newData,
+                total,
+                total_pages: totalPages,
+                page: 1,
+                limit: PAGE_SIZE
+              }));
+            } catch {}
+          }
         }
       })
       .catch(error => {
         if (ignore) return;
         const e = error as ApiError;
-        if (e?.isNetworkError) {
+        if (e?.isNetworkError && page === 1) {
           try {
             const cached = localStorage.getItem('cached_activity_logs');
             if (cached) {
               const parsed = JSON.parse(cached);
               if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
-                setLogResponse(prev => ({
-                  ...prev,
+                setLatestBatchIds(new Set(parsed.data.map((item: ActivityLog) => item.id)));
+                setLogResponse({
                   data: parsed.data,
                   total: parsed.total ?? 0,
                   total_pages: parsed.total_pages ?? 1
-                }));
+                });
                 setIsOfflineMode(true);
                 return;
               }
@@ -88,29 +146,72 @@ export function ActivityLogPage() {
         setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat log aktivitas.', type: 'error' });
       })
       .finally(() => {
-        if (!ignore) setIsLoading(false);
+        if (!ignore) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       });
 
     return () => {
       ignore = true;
     };
-  }, [page, filters, logResponse.limit, user?.id]);
+  }, [page, appliedFilters, user?.id]);
 
   useEffect(() => {
     const cleanup = loadData();
     return cleanup;
   }, [loadData]);
 
+
+  // IntersectionObserver: mendeteksi saat pengguna scroll mendekati dasar tabel (rootMargin 150px)
+  // dan secara otomatis menaikkan page untuk mengambil data berikutnya
+  useEffect(() => {
+    if (isLoading || isLoadingMore || page >= logResponse.total_pages) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1, rootMargin: '150px' }
+    );
+
+    const currentSentry = sentryRef.current;
+    if (currentSentry) {
+      observer.observe(currentSentry);
+    }
+
+    return () => {
+      if (currentSentry) {
+        observer.unobserve(currentSentry);
+      }
+    };
+  }, [isLoading, isLoadingMore, page, logResponse.total_pages]);
+
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  // Reset page ke 1 saat filter baru diterapkan
   const handleApplyFilter = () => {
-    if (page !== 1) {
-      setPage(1); // loadData will be called by useEffect
-    } else {
-      loadData();
-    }
+    setAppliedFilters(filters);
+    setPage(1);
+  };
+
+  const handleResetFilter = () => {
+    const emptyFilters = {
+      action: '',
+      status: '',
+      entity: '',
+      entity_id: '',
+      actor_user_id: '',
+      start_date: '',
+      end_date: ''
+    };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setPage(1);
   };
 
   const renderStatus = (status: string) => {
@@ -131,7 +232,7 @@ export function ActivityLogPage() {
       <div className="dashboard-header-row">
         <div>
           <h1 className="dashboard-title">Log Aktivitas Sistem</h1>
-          <p className="dashboard-subtitle">Pantau jejak audit dan aktivitas yang terjadi di dalam sistem.</p>
+          <p className="dashboard-subtitle">Pantau jejak audit dan riwayat aktivitas sistem secara kontinu.</p>
         </div>
       </div>
 
@@ -170,26 +271,37 @@ export function ActivityLogPage() {
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Sampai Tanggal</label>
             <input type="date" name="end_date" value={filters.end_date} onChange={handleFilterChange} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button onClick={handleApplyFilter} className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '4px' }}>Terapkan Filter</button>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+            <button onClick={handleApplyFilter} className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '4px' }}>
+              Terapkan Filter
+            </button>
+            {(filters.action || filters.entity || filters.status || filters.start_date || filters.end_date) && (
+              <button onClick={handleResetFilter} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '4px' }}>
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
           <h2 className="attendance-history-title" style={{ margin: 0 }}>Data Log</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
-            Menampilkan {logResponse.data.length} dari {logResponse.total} data
+            Memuat {logResponse.data.length} dari {logResponse.total} data
           </span>
         </div>
         
         {isLoading ? (
-          <p className="table-cell-no-data">Memuat data...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', gap: '12px', color: '#64748b' }}>
+            <div style={{ width: '28px', height: '28px', border: '3px solid #e2e8f0', borderTopColor: '#1a78d7', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span>Memuat log aktivitas...</span>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
         ) : (
           <div className="attendance-table-wrapper">
             <table className="attendance-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                  <th style={{ width: '60px', textAlign: 'center' }}>NO</th>
                   <th>Waktu</th>
                   <th>Aktor</th>
                   <th>Tindakan</th>
@@ -200,32 +312,40 @@ export function ActivityLogPage() {
                 </tr>
               </thead>
               <tbody>
-                {/* 3. Map dipanggil dari logResponse.data untuk memunculkan baris tabel */}
-                {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => (
-                  <tr key={log.id}>
-                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                      {((logResponse.page - 1) * logResponse.limit) + index + 1}.
-                    </td>
-                    <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
-                      {formatPlainDate(log.created_at)}<br/>
-                      <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{log.actor_name || 'System / Anonymous'}</div>
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{log.action}</td>
-                    <td>
-                      <span className="log-cell-source">{log.entity}</span>
-                      {log.entity_id && <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {log.entity_id}</div>}
-                    </td>
-                    <td>{renderStatus(log.status)}</td>
-                    <td><span className="note-text">{log.description || '-'}</span></td>
-                    <td>
-                      <div style={{ fontSize: '12px', color: '#475569' }}>{log.ip_address || '-'}</div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.user_agent || ''}>{log.user_agent || '-'}</div>
-                    </td>
-                  </tr>
-                ))}
+                {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => {
+                  const isLatest = latestBatchIds.has(log.id);
+                  return (
+                    <tr 
+                      key={log.id}
+                      className={isLatest ? 'log-row-unseen' : 'log-row-seen'}
+                    >
+                      <td className="log-cell-number" style={{ textAlign: 'center' }}>
+                        {isLatest && <span className="log-dot-unseen" title="Batch terbaru" />}
+                        {index + 1}.
+                      </td>
+                      <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
+                        <span className="log-cell-date-main">{formatPlainDate(log.created_at)}</span><br/>
+                        <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
+                      </td>
+                      <td>
+                        <div className="log-cell-actor">{log.actor_name || 'System / Anonymous'}</div>
+                      </td>
+                      <td>
+                        <span className="log-cell-action">{log.action}</span>
+                      </td>
+                      <td>
+                        <span className="log-cell-source">{log.entity}</span>
+                        {log.entity_id && <div className="log-cell-entity-id" style={{ fontSize: '11px' }}>ID: {log.entity_id}</div>}
+                      </td>
+                      <td>{renderStatus(log.status)}</td>
+                      <td><span className="log-cell-desc">{log.description || '-'}</span></td>
+                      <td>
+                        <div className="log-cell-ip" style={{ fontSize: '12px' }}>{log.ip_address || '-'}</div>
+                        <div className="log-cell-agent" style={{ fontSize: '10px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.user_agent || ''}>{log.user_agent || '-'}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {logResponse.data.length === 0 && (
                   <tr>
                     <td colSpan={8} className="table-cell-no-data">Belum ada data log aktivitas.</td>
@@ -235,26 +355,106 @@ export function ActivityLogPage() {
             </table>
           </div>
         )}
-        
-        {logResponse.total_pages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-            <button 
-              disabled={page === 1} 
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {logResponse.total_pages}</span>
-            <button 
-              disabled={page === logResponse.total_pages} 
+
+        {/* Loading Spinner untuk baris tambahan saat scroll */}
+        {isLoadingMore && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px', gap: '8px', color: '#64748b', fontSize: '13px' }}>
+            <div style={{ width: '18px', height: '18px', border: '2px solid #cbd5e1', borderTopColor: '#1a78d7', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span>Memuat data log berikutnya...</span>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* Target elemen (sentry) untuk IntersectionObserver */}
+        <div ref={sentryRef} style={{ height: '20px', margin: '8px 0' }} />
+
+        {/* Fallback Tombol Manual Muat Lebih Banyak jika belum selesai */}
+        {!isLoading && !isLoadingMore && page < logResponse.total_pages && (
+          <div style={{ textAlign: 'center', marginTop: '12px', marginBottom: '8px' }}>
+            <button
+              type="button"
               onClick={() => setPage(p => p + 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === logResponse.total_pages ? '#f1f5f9' : '#fff', cursor: page === logResponse.total_pages ? 'not-allowed' : 'pointer' }}
+              className="btn btn-secondary"
+              style={{ fontSize: '13px', padding: '6px 18px', borderRadius: '20px' }}
             >
-              Next
+              Muat Lebih Banyak ({logResponse.data.length} dari {logResponse.total})
             </button>
           </div>
         )}
+
+        {/* Indikator Semua Data Telah Dimuat (Didesain lebih menonjol dan informatif) */}
+        {!isLoading && !isLoadingMore && page >= logResponse.total_pages && logResponse.data.length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '20px 24px',
+            margin: '24px auto 12px',
+            maxWidth: '520px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                backgroundColor: '#dcfce7',
+                color: '#15803d',
+                fontSize: '14px',
+                fontWeight: 700,
+                boxShadow: '0 0 0 2px rgba(22, 163, 74, 0.15)'
+              }}>
+                ✓
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                Seluruh {logResponse.total} Log Aktivitas Telah Ditampilkan
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
+              Anda telah mencapai akhir dari riwayat jejak audit sistem.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              style={{
+                marginTop: '6px',
+                padding: '6px 16px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#1a78d7',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#eff6ff';
+                e.currentTarget.style.borderColor = '#93c5fd';
+                e.currentTarget.style.color = '#1d4ed8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+                e.currentTarget.style.color = '#1a78d7';
+              }}
+            >
+              ↑ Kembali ke Atas
+            </button>
+          </div>
+        )}
+
       </div>
 
       <AlertModal

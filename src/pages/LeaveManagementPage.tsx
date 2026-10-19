@@ -18,14 +18,11 @@ import {
   LeaveRequest, 
   LeaveColleagueOnLeave 
 } from '../api/leave';
-import { getActivityLogsApi, ActivityLog } from '../api/activityLog';
 import { useAuth } from '../hooks/useAuth';
-import { formatToJakartaTime } from '../utils/dateFormatter';
 import { isStaffingLimitError, formatStaffingLimitMessage } from '../utils/staffingLimit';
 import { ApiError } from '../api/client';
 
-type MainTabType = 'approvals' | 'recap' | 'failed';
-type RecapFilterType = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
+type StatusFilterType = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 function formatShortDateRange(startStr?: string, endStr?: string): string {
   if (!startStr || !endStr) return '-';
@@ -54,152 +51,43 @@ export function LeaveManagementPage() {
   const { user, hasFeature } = useAuth();
 
   const myEmployeeId = user?.employee?.id ?? user?.employee_id;
-  const canApproveAll = user?.role === 'admin' || hasFeature('leave.approve_all');
-  const canApproveTeam = hasFeature('leave.approve_team');
-  const canApprove = canApproveAll || canApproveTeam;
-  const canViewAll = hasFeature('leave.view_all');
-  const canViewLog = hasFeature('system.view_log');
+  const canViewAll = user?.role === 'admin' || hasFeature('leave.view_all');
 
   function canDecide(req: LeaveRequest) {
     if (req.status !== 'pending') return false;
-    if (req.employee_id === myEmployeeId) return false;          // cuti sendiri
-    if (canApproveAll) return true;
-    return canApproveTeam && req.approver_id === myEmployeeId;   // bawahan langsung
+    if (req.employee_id === myEmployeeId) return false; // Cuti sendiri tidak bisa disetujui sendiri
+
+    // Hanya manager langsung dari pemohon (approver_id = id karyawan login) yang dapat menyetujui / menolak.
+    // Admin dan HR hanya melihat saja (hanya tombol Detail, bukan action setujui atau tolak).
+    return Boolean(myEmployeeId && req.approver_id === myEmployeeId);
   }
 
-  // Tab utama
-  const [mainTab, setMainTab] = useState<MainTabType>(() => {
-    if (canApprove) return 'approvals';
-    if (canViewAll) return 'recap';
-    return 'failed';
-  });
-
-  // Sinkronisasi tab bila permissions dimuat
-  useEffect(() => {
-    if (mainTab === 'approvals' && !canApprove) {
-      if (canViewAll) setMainTab('recap');
-      else if (canViewLog) setMainTab('failed');
-    } else if (mainTab === 'recap' && !canViewAll) {
-      if (canApprove) setMainTab('approvals');
-      else if (canViewLog) setMainTab('failed');
-    }
-  }, [canApprove, canViewAll, canViewLog, mainTab]);
-
-  // Tab 1: Perlu Persetujuan
-  const [approvalsResponse, setApprovalsResponse] = useState({
+  // Filter status berbentuk pill (default: 'pending' / Menunggu)
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('pending');
+  const [leaveResponse, setLeaveResponse] = useState({
     data: [] as LeaveRequest[],
     page: 1,
     limit: 10,
     total: 0,
     total_pages: 1
   });
-  const [isApprovalsLoading, setIsApprovalsLoading] = useState(false);
-  const [isApprovalsOffline, setIsApprovalsOffline] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
-  // Tab 2: Rekap
-  const [recapFilter, setRecapFilter] = useState<RecapFilterType>('all');
-  const [recapResponse, setRecapResponse] = useState({
-    data: [] as LeaveRequest[],
-    page: 1,
-    limit: 10,
-    total: 0,
-    total_pages: 1
-  });
-  const [isRecapLoading, setIsRecapLoading] = useState(false);
-  const [isRecapOffline, setIsRecapOffline] = useState(false);
+  // Ambil data pengajuan cuti sesuai filter status
+  const loadLeaveRequests = useCallback(() => {
+    setIsLoading(true);
+    const cacheKey = `cached_leave_mgmt_${statusFilter}_${leaveResponse.page}`;
+    const apiStatus = statusFilter === 'all' ? undefined : statusFilter;
 
-  // Tab 3: Gagal (Activity Logs)
-  const [failedResponse, setFailedResponse] = useState({
-    data: [] as ActivityLog[],
-    page: 1,
-    limit: 10,
-    total: 0,
-    total_pages: 1
-  });
-  const [isFailedLoading, setIsFailedLoading] = useState(false);
-  const [isFailedOffline, setIsFailedOffline] = useState(false);
-
-  // Load Tab 1: Approvals
-  const loadApprovals = useCallback(() => {
-    if (!canApprove) return;
-    setIsApprovalsLoading(true);
-    const cacheKey = `cached_leave_approvals_${approvalsResponse.page}`;
+    // Jika pengguna memiliki hak akses melihat semua cuti (admin / HR), panggil getAllLeaveRequests.
+    // Jika pengguna adalah atasan / approver tim saja, panggil getLeaveApprovals.
+    const fetchFn = canViewAll ? getAllLeaveRequests : getLeaveApprovals;
 
     let ignore = false;
-    getLeaveApprovals({
-      page: approvalsResponse.page,
-      limit: approvalsResponse.limit,
-      status: 'pending'
-    })
-      .then(res => {
-        if (ignore) return;
-        const newData = {
-          data: res.data || [],
-          total: res.meta?.total ?? 0,
-          total_pages: res.meta?.total_pages ?? 1
-        };
-        setApprovalsResponse(prev => ({ ...prev, ...newData }));
-        setIsApprovalsOffline(false);
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            owner: user?.id,
-            ...newData,
-            page: approvalsResponse.page,
-            limit: approvalsResponse.limit
-          }));
-        } catch {}
-      })
-      .catch(err => {
-        if (ignore) return;
-        const apiErr = err as ApiError;
-        if (apiErr?.isNetworkError) {
-          try {
-            const cached = localStorage.getItem(cacheKey);
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data)) {
-                setApprovalsResponse(prev => ({
-                  ...prev,
-                  data: parsed.data,
-                  total: parsed.total ?? 0,
-                  total_pages: parsed.total_pages ?? 1
-                }));
-                setIsApprovalsOffline(true);
-                return;
-              }
-            }
-          } catch {}
-        }
-        setIsApprovalsOffline(false);
-        console.error(err);
-      })
-      .finally(() => {
-        if (!ignore) setIsApprovalsLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [canApprove, approvalsResponse.page, approvalsResponse.limit, user?.id]);
-
-  useEffect(() => {
-    if (mainTab === 'approvals') {
-      const cleanup = loadApprovals();
-      return cleanup;
-    }
-  }, [mainTab, loadApprovals]);
-
-  // Load Tab 2: Recap
-  const loadRecap = useCallback(() => {
-    if (!canViewAll) return;
-    setIsRecapLoading(true);
-    const cacheKey = `cached_leave_recap_${recapFilter}_${recapResponse.page}`;
-    const apiStatus = recapFilter === 'all' ? undefined : recapFilter;
-
-    let ignore = false;
-    getAllLeaveRequests({
-      page: recapResponse.page,
-      limit: recapResponse.limit,
+    fetchFn({
+      page: leaveResponse.page,
+      limit: leaveResponse.limit,
       status: apiStatus
     })
       .then(res => {
@@ -209,14 +97,14 @@ export function LeaveManagementPage() {
           total: res.meta?.total ?? 0,
           total_pages: res.meta?.total_pages ?? 1
         };
-        setRecapResponse(prev => ({ ...prev, ...newData }));
-        setIsRecapOffline(false);
+        setLeaveResponse(prev => ({ ...prev, ...newData }));
+        setIsOffline(false);
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
             owner: user?.id,
             ...newData,
-            page: recapResponse.page,
-            limit: recapResponse.limit
+            page: leaveResponse.page,
+            limit: leaveResponse.limit
           }));
         } catch {}
       })
@@ -229,112 +117,38 @@ export function LeaveManagementPage() {
             if (cached) {
               const parsed = JSON.parse(cached);
               if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data)) {
-                setRecapResponse(prev => ({
+                setLeaveResponse(prev => ({
                   ...prev,
                   data: parsed.data,
                   total: parsed.total ?? 0,
                   total_pages: parsed.total_pages ?? 1
                 }));
-                setIsRecapOffline(true);
+                setIsOffline(true);
                 return;
               }
             }
           } catch {}
         }
-        setIsRecapOffline(false);
+        setIsOffline(false);
         console.error(err);
       })
       .finally(() => {
-        if (!ignore) setIsRecapLoading(false);
+        if (!ignore) setIsLoading(false);
       });
 
     return () => {
       ignore = true;
     };
-  }, [canViewAll, recapFilter, recapResponse.page, recapResponse.limit, user?.id]);
+  }, [canViewAll, statusFilter, leaveResponse.page, leaveResponse.limit, user?.id]);
 
   useEffect(() => {
-    if (mainTab === 'recap') {
-      const cleanup = loadRecap();
-      return cleanup;
-    }
-  }, [mainTab, loadRecap]);
-
-  // Load Tab 3: Failed
-  const loadFailed = useCallback(() => {
-    if (!canViewLog) return;
-    setIsFailedLoading(true);
-    const cacheKey = `cached_leave_failed_${failedResponse.page}`;
-
-    let ignore = false;
-    getActivityLogsApi({
-      action: 'leave.create',
-      status: 'failed',
-      page: failedResponse.page,
-      limit: failedResponse.limit
-    })
-      .then(res => {
-        if (ignore) return;
-        const newData = {
-          data: res.data || [],
-          total: res.meta?.total ?? 0,
-          total_pages: res.meta?.total_pages ?? 1
-        };
-        setFailedResponse(prev => ({ ...prev, ...newData }));
-        setIsFailedOffline(false);
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            owner: user?.id,
-            ...newData,
-            page: failedResponse.page,
-            limit: failedResponse.limit
-          }));
-        } catch {}
-      })
-      .catch(err => {
-        if (ignore) return;
-        const apiErr = err as ApiError;
-        if (apiErr?.isNetworkError) {
-          try {
-            const cached = localStorage.getItem(cacheKey);
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data)) {
-                setFailedResponse(prev => ({
-                  ...prev,
-                  data: parsed.data,
-                  total: parsed.total ?? 0,
-                  total_pages: parsed.total_pages ?? 1
-                }));
-                setIsFailedOffline(true);
-                return;
-              }
-            }
-          } catch {}
-        }
-        setIsFailedOffline(false);
-        console.error(err);
-      })
-      .finally(() => {
-        if (!ignore) setIsFailedLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [canViewLog, failedResponse.page, failedResponse.limit, user?.id]);
-
-  useEffect(() => {
-    if (mainTab === 'failed') {
-      const cleanup = loadFailed();
-      return cleanup;
-    }
-  }, [mainTab, loadFailed]);
+    const cleanup = loadLeaveRequests();
+    return cleanup;
+  }, [loadLeaveRequests]);
 
   // Refresh data setelah aksi keputusan
   const refreshActiveData = () => {
-    if (canApprove) loadApprovals();
-    if (canViewAll) loadRecap();
+    loadLeaveRequests();
   };
 
   // State konfirmasi modal Setujui / Tolak
@@ -498,11 +312,6 @@ export function LeaveManagementPage() {
     }
   };
 
-  const isCurrentTabOffline = 
-    (mainTab === 'approvals' && isApprovalsOffline) ||
-    (mainTab === 'recap' && isRecapOffline) ||
-    (mainTab === 'failed' && isFailedOffline);
-
   return (
     <div className="dashboard-container" style={{ padding: '0', maxWidth: '100%' }}>
       <div className="dashboard-card" style={{ padding: '32px', borderRadius: '0', border: 'none', boxShadow: 'none', minHeight: '100%' }}>
@@ -513,422 +322,157 @@ export function LeaveManagementPage() {
           </div>
         </div>
 
-        {isCurrentTabOffline && (
+        {isOffline && (
           <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '18px' }}>⚠️</span>
             <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data lokal terakhir yang tersimpan di perangkat.</span>
           </div>
         )}
 
-        {/* Tab Navigasi Utama */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-          {canApprove && (
-            <button
-              type="button"
-              onClick={() => setMainTab('approvals')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: mainTab === 'approvals' ? 600 : 500,
-                border: 'none',
-                backgroundColor: mainTab === 'approvals' ? '#1a78d7' : '#f1f5f9',
-                color: mainTab === 'approvals' ? '#fff' : '#475569',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Perlu Persetujuan
-            </button>
-          )}
-          {canViewAll && (
-            <button
-              type="button"
-              onClick={() => setMainTab('recap')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: mainTab === 'recap' ? 600 : 500,
-                border: 'none',
-                backgroundColor: mainTab === 'recap' ? '#1a78d7' : '#f1f5f9',
-                color: mainTab === 'recap' ? '#fff' : '#475569',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Rekap
-            </button>
-          )}
-          {canViewLog && (
-            <button
-              type="button"
-              onClick={() => setMainTab('failed')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: mainTab === 'failed' ? 600 : 500,
-                border: 'none',
-                backgroundColor: mainTab === 'failed' ? '#dc2626' : '#fef2f2',
-                color: mainTab === 'failed' ? '#fff' : '#b91c1c',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Gagal
-            </button>
-          )}
+        {/* Filter Status Berbentuk Pill (Default: Menunggu) */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { id: 'all', label: 'Semua' },
+            { id: 'pending', label: 'Menunggu' },
+            { id: 'approved', label: 'Disetujui' },
+            { id: 'rejected', label: 'Ditolak' },
+            { id: 'cancelled', label: 'Dibatalkan' }
+          ].map(item => {
+            const isActive = statusFilter === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(item.id as StatusFilterType);
+                  setLeaveResponse(prev => ({ ...prev, page: 1 }));
+                }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: isActive ? 'none' : '1px solid #cbd5e1',
+                  backgroundColor: isActive ? '#1a78d7' : '#fff',
+                  color: isActive ? '#fff' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* TAB 1: PERLU PERSETUJUAN */}
-        {mainTab === 'approvals' && (
-          <div>
-            <div className="employee-table-wrapper">
-              <table className="employee-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
-                    <th>Nama Karyawan</th>
-                    <th>Jenis Cuti</th>
-                    <th>Tanggal</th>
-                    <th>Total Hari</th>
-                    <th>Alasan</th>
-                    <th>Status</th>
-                    <th style={{ width: '220px' }}>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isApprovalsLoading ? (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Memuat pengajuan cuti...</td>
-                    </tr>
-                  ) : !approvalsResponse.data || approvalsResponse.data.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Tidak ada pengajuan cuti yang perlu persetujuan.</td>
-                    </tr>
-                  ) : (
-                    approvalsResponse.data.map((req, index) => (
-                      <tr key={req.id}>
-                        <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                          {((approvalsResponse.page - 1) * approvalsResponse.limit) + index + 1}.
-                        </td>
-                        <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.employee_name}</div></td>
-                        <td>{req.leave_type_name}</td>
-                        <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
-                        <td>{req.total_days} hari</td>
-                        <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
-                        <td>{getStatusBadge(req.status)}</td>
-                        <td>
-                          <div className="action-buttons-group" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="employee-table-wrapper">
+          <table className="employee-table">
+            <thead>
+              <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                <th>Nama Karyawan</th>
+                <th>Jenis Cuti</th>
+                <th>Tanggal</th>
+                <th>Total Hari</th>
+                <th>Alasan</th>
+                <th>Penyetuju</th>
+                <th>Status</th>
+                <th style={{ width: '220px' }}>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>Memuat data pengajuan cuti...</td>
+                </tr>
+              ) : !leaveResponse.data || leaveResponse.data.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>
+                    {statusFilter === 'pending'
+                      ? 'Tidak ada pengajuan cuti yang menunggu persetujuan.'
+                      : 'Tidak ada pengajuan cuti pada filter ini.'}
+                  </td>
+                </tr>
+              ) : (
+                leaveResponse.data.map((req, index) => (
+                  <tr key={req.id}>
+                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
+                      {((leaveResponse.page - 1) * leaveResponse.limit) + index + 1}.
+                    </td>
+                    <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.employee_name}</div></td>
+                    <td>{req.leave_type_name}</td>
+                    <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
+                    <td>{req.total_days} hari</td>
+                    <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
+                    <td>
+                      <span style={{ color: req.approver_name ? '#0f172a' : '#94a3b8', fontSize: '13px' }}>
+                        {req.approver_name || '-'}
+                      </span>
+                    </td>
+                    <td>{getStatusBadge(req.status)}</td>
+                    <td>
+                      <div className="action-buttons-group" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button 
+                          className="btn-detail"
+                          style={{ padding: '4px 12px' }}
+                          onClick={() => setSelectedRequest(req)}
+                          title="Lihat Detail"
+                        >
+                          Detail
+                        </button>
+                        {canDecide(req) ? (
+                          <>
                             <button 
-                              className="btn-detail"
-                              style={{ padding: '4px 12px' }}
-                              onClick={() => setSelectedRequest(req)}
-                              title="Lihat Detail"
+                              className="btn" 
+                              style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#16a34a', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
+                              onClick={() => openConfirm(req.id, 'approve', req.employee_name)}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
                             >
-                              Detail
+                              <CheckIcon /> Setujui
                             </button>
-                            {canDecide(req) ? (
-                              <>
-                                <button 
-                                  className="btn" 
-                                  style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#16a34a', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
-                                  onClick={() => openConfirm(req.id, 'approve', req.employee_name)}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
-                                >
-                                  <CheckIcon /> Setujui
-                                </button>
-                                <button 
-                                  className="btn" 
-                                  style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
-                                  onClick={() => openConfirm(req.id, 'reject', req.employee_name)}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-                                >
-                                  <XIcon /> Tolak
-                                </button>
-                              </>
-                            ) : req.status === 'pending' && req.employee_id === myEmployeeId ? (
-                              <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                Menunggu persetujuan atasan/HR
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Approvals */}
-            {approvalsResponse.total_pages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-                <button 
-                  disabled={approvalsResponse.page === 1} 
-                  onClick={() => setApprovalsResponse(prev => ({ ...prev, page: prev.page - 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: approvalsResponse.page === 1 ? '#f1f5f9' : '#fff', cursor: approvalsResponse.page === 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Prev
-                </button>
-                <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {approvalsResponse.page} dari {approvalsResponse.total_pages}</span>
-                <button 
-                  disabled={approvalsResponse.page === approvalsResponse.total_pages} 
-                  onClick={() => setApprovalsResponse(prev => ({ ...prev, page: prev.page + 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: approvalsResponse.page === approvalsResponse.total_pages ? '#f1f5f9' : '#fff', cursor: approvalsResponse.page === approvalsResponse.total_pages ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 2: REKAP */}
-        {mainTab === 'recap' && (
-          <div>
-            {/* Filter Status Berbentuk Pill */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {[
-                { id: 'all', label: 'Semua' },
-                { id: 'pending', label: 'Menunggu' },
-                { id: 'approved', label: 'Disetujui' },
-                { id: 'rejected', label: 'Ditolak' },
-                { id: 'cancelled', label: 'Dibatalkan' }
-              ].map(item => {
-                const isActive = recapFilter === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setRecapFilter(item.id as RecapFilterType);
-                      setRecapResponse(prev => ({ ...prev, page: 1 }));
-                    }}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: '20px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      border: isActive ? 'none' : '1px solid #cbd5e1',
-                      backgroundColor: isActive ? '#1a78d7' : '#fff',
-                      color: isActive ? '#fff' : '#475569',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="employee-table-wrapper">
-              <table className="employee-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
-                    <th>Nama Karyawan</th>
-                    <th>Jenis Cuti</th>
-                    <th>Tanggal</th>
-                    <th>Total Hari</th>
-                    <th>Alasan</th>
-                    <th>Penyetuju</th>
-                    <th>Status</th>
-                    <th style={{ width: '120px' }}>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isRecapLoading ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>Memuat data rekap cuti...</td>
-                    </tr>
-                  ) : !recapResponse.data || recapResponse.data.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>Tidak ada pengajuan cuti pada filter ini.</td>
-                    </tr>
-                  ) : (
-                    recapResponse.data.map((req, index) => (
-                      <tr key={req.id}>
-                        <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                          {((recapResponse.page - 1) * recapResponse.limit) + index + 1}.
-                        </td>
-                        <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.employee_name}</div></td>
-                        <td>{req.leave_type_name}</td>
-                        <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
-                        <td>{req.total_days} hari</td>
-                        <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
-                        <td>
-                          <span style={{ color: req.approver_name ? '#0f172a' : '#94a3b8', fontSize: '13px' }}>
-                            {req.approver_name || '-'}
+                            <button 
+                              className="btn" 
+                              style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
+                              onClick={() => openConfirm(req.id, 'reject', req.employee_name)}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+                            >
+                              <XIcon /> Tolak
+                            </button>
+                          </>
+                        ) : req.status === 'pending' && req.employee_id === myEmployeeId ? (
+                          <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                            Menunggu persetujuan atasan/HR
                           </span>
-                        </td>
-                        <td>{getStatusBadge(req.status)}</td>
-                        <td>
-                          <div className="action-buttons-group" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button 
-                              className="btn-detail"
-                              style={{ padding: '4px 12px' }}
-                              onClick={() => setSelectedRequest(req)}
-                              title="Lihat Detail"
-                            >
-                              Detail
-                            </button>
-                            {canDecide(req) ? (
-                              <>
-                                <button 
-                                  className="btn" 
-                                  style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#16a34a', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
-                                  onClick={() => openConfirm(req.id, 'approve', req.employee_name)}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
-                                >
-                                  <CheckIcon /> Setujui
-                                </button>
-                                <button 
-                                  className="btn" 
-                                  style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, transition: 'background-color 0.2s' }}
-                                  onClick={() => openConfirm(req.id, 'reject', req.employee_name)}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-                                >
-                                  <XIcon /> Tolak
-                                </button>
-                              </>
-                            ) : req.status === 'pending' && req.employee_id === myEmployeeId ? (
-                              <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                Menunggu persetujuan atasan/HR
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Recap */}
-            {recapResponse.total_pages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-                <button 
-                  disabled={recapResponse.page === 1} 
-                  onClick={() => setRecapResponse(prev => ({ ...prev, page: prev.page - 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: recapResponse.page === 1 ? '#f1f5f9' : '#fff', cursor: recapResponse.page === 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Prev
-                </button>
-                <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {recapResponse.page} dari {recapResponse.total_pages}</span>
-                <button 
-                  disabled={recapResponse.page === recapResponse.total_pages} 
-                  onClick={() => setRecapResponse(prev => ({ ...prev, page: prev.page + 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: recapResponse.page === recapResponse.total_pages ? '#f1f5f9' : '#fff', cursor: recapResponse.page === recapResponse.total_pages ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: GAGAL */}
-        {mainTab === 'failed' && (
-          <div>
-            <div className="employee-table-wrapper">
-              <div style={{ marginBottom: '12px', fontSize: '13px', color: '#64748b' }}>
-                Menampilkan jejak aktivitas pengajuan cuti yang gagal (misal: saldo tidak cukup atau melebihi kuota).
-              </div>
-              <table className="employee-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
-                    <th>Pemohon</th>
-                    <th>Rentang Tanggal Cuti</th>
-                    <th>Keterangan</th>
-                    <th>Waktu Kejadian</th>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {isFailedLoading ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}>Memuat log pengajuan cuti yang gagal...</td>
-                    </tr>
-                  ) : !failedResponse.data || failedResponse.data.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}>Belum ada log pengajuan cuti yang gagal.</td>
-                    </tr>
-                  ) : (
-                    failedResponse.data.map((log, index) => {
-                      const startDate = log.metadata?.start_date;
-                      const endDate = log.metadata?.end_date;
-                      const dateDisplay = formatShortDateRange(startDate, endDate);
-                      const applicant = log.actor_name ?? log.actor_email ?? 'System / Anonymous';
-                      const errorMessage = log.metadata?.reason || log.summary || 'Percobaan pembuatan cuti gagal';
-                      const errorCode = log.metadata?.code;
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-                      return (
-                        <tr key={log.id}>
-                          <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                            {((failedResponse.page - 1) * failedResponse.limit) + index + 1}.
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 500, color: '#0f172a' }}>{applicant}</div>
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{dateDisplay}</td>
-                          <td>
-                            <div style={{ color: '#dc2626', fontSize: '13px', fontWeight: 500 }}>
-                              {errorMessage}
-                            </div>
-                            {errorCode && (
-                              <span style={{ 
-                                display: 'inline-block',
-                                marginTop: '4px',
-                                padding: '2px 6px',
-                                backgroundColor: '#fee2e2',
-                                color: '#991b1b',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontFamily: 'monospace'
-                              }}>
-                                {errorCode}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: '13px', color: '#64748b' }}>
-                            {formatToJakartaTime(log.occurred_at || log.created_at)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Failed */}
-            {failedResponse.total_pages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-                <button 
-                  disabled={failedResponse.page === 1} 
-                  onClick={() => setFailedResponse(prev => ({ ...prev, page: prev.page - 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: failedResponse.page === 1 ? '#f1f5f9' : '#fff', cursor: failedResponse.page === 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Prev
-                </button>
-                <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {failedResponse.page} dari {failedResponse.total_pages}</span>
-                <button 
-                  disabled={failedResponse.page === failedResponse.total_pages} 
-                  onClick={() => setFailedResponse(prev => ({ ...prev, page: prev.page + 1 }))}
-                  style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: failedResponse.page === failedResponse.total_pages ? '#f1f5f9' : '#fff', cursor: failedResponse.page === failedResponse.total_pages ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
-                </button>
-              </div>
-            )}
+        {/* Pagination */}
+        {leaveResponse.total_pages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+            <button 
+              disabled={leaveResponse.page === 1} 
+              onClick={() => setLeaveResponse(prev => ({ ...prev, page: prev.page - 1 }))}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: leaveResponse.page === 1 ? '#f1f5f9' : '#fff', cursor: leaveResponse.page === 1 ? 'not-allowed' : 'pointer' }}
+            >
+              Prev
+            </button>
+            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {leaveResponse.page} dari {leaveResponse.total_pages}</span>
+            <button 
+              disabled={leaveResponse.page === leaveResponse.total_pages} 
+              onClick={() => setLeaveResponse(prev => ({ ...prev, page: prev.page + 1 }))}
+              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: leaveResponse.page === leaveResponse.total_pages ? '#f1f5f9' : '#fff', cursor: leaveResponse.page === leaveResponse.total_pages ? 'not-allowed' : 'pointer' }}
+            >
+              Next
+            </button>
           </div>
         )}
       </div>
