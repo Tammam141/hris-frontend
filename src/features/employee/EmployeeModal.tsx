@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail, LineManagerInfo, positionLabel } from '../../types/employee';
-import { uploadEmployeePhotoApi, deleteEmployeePhotoApi, getEmployeeLineManager } from '../../api/employee';
+import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail, positionLabel } from '../../types/employee';
+import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
+import { LineManagerField } from './LineManagerField';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';
 import { validateFullName } from '../../utils/nameValidation';
@@ -30,7 +31,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [positionError, setPositionError] = useState('');
-  const [lineManagerInfo, setLineManagerInfo] = useState<LineManagerInfo | null | undefined>(undefined);
   
   // Form State
   const [fullName, setFullName] = useState('');
@@ -94,12 +94,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setJoinDate(employeeData.join_date ? employeeData.join_date.split('T')[0] : '');
         setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
         setCurrentPhotoUrl(employeeData.photo_url || null);
-
-        // Ambil atasan hasil hitungan dari backend
-        setLineManagerInfo(undefined);
-        getEmployeeLineManager(employeeData.id)
-          .then(res => setLineManagerInfo(res.line_manager))
-          .catch(() => setLineManagerInfo(null));
       } else {
         // Fallback jika anehnya employeeData kosong
         setFullName('');
@@ -115,7 +109,6 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setJoinDate('');
         setResignDate('');
         setCurrentPhotoUrl(null);
-        setLineManagerInfo(null);
       }
       setPhotoPreview(null);
       setPhotoFile(null);
@@ -141,9 +134,8 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setPhotoMessage(null);
       setError('');
       setPositionError('');
-      setLineManagerInfo(undefined);
     }
-  }, [isOpen, employeeData, departments, positions, managers]);
+  }, [isOpen, employeeData, departments, positions]);
 
   if (!isOpen) return null;
 
@@ -504,48 +496,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
               </div>
 
               <div className="form-group">
-                <label className="input-label">Atasan (pengecualian manual)</label>
-                <select 
-                  className="input-field" 
-                  value={managerId}
-                  onChange={e => setManagerId(e.target.value)}
-                >
-                  <option value="">- Dihitung otomatis dari struktur jabatan -</option>
-                  {employeeData?.manager_id && !managers.some(m => m.id === employeeData.manager_id) && (
-                    <option value={employeeData.manager_id}>
-                      {employeeData.manager_name ? `${employeeData.manager_name} (saat ini)` : '(Manajer saat ini)'}
-                    </option>
-                  )}
-                  {managers.filter(m => m.id !== employeeData?.id).map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  Kosongkan agar atasan dihitung otomatis dari struktur jabatan.
-                </span>
-
-                {lineManagerInfo !== undefined && (
-                  <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px' }}>
-                    <strong style={{ color: '#475569' }}>Atasan saat ini: </strong>
-                    {lineManagerInfo ? (
-                      <span style={{ color: '#0f172a' }}>
-                        {lineManagerInfo.full_name} ({lineManagerInfo.position_name || '-'}) —{' '}
-                        <span style={{ fontStyle: 'italic', color: lineManagerInfo.source === 'override' ? '#b45309' : '#1e40af' }}>
-                          {lineManagerInfo.source === 'override' ? 'diatur manual' : 'dari struktur'}
-                        </span>
-                        {lineManagerInfo.levels_up > 1 && (
-                          <span style={{ color: '#64748b' }}> (jabatan di atasnya kosong)</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ color: '#64748b', fontStyle: 'italic' }}>
-                        Tidak ada atasan; cuti ditangani HR
-                      </span>
-                    )}
-                  </div>
-                )}
+                <LineManagerField
+                  positionId={positionId}
+                  managerId={managerId}
+                  onManagerChange={id => setManagerId(id)}
+                  managers={managers}
+                  excludeEmployeeId={employeeData?.id}
+                />
               </div>
 
               <div className="form-group">

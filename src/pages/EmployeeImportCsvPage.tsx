@@ -754,7 +754,7 @@ export function EmployeeImportCsvPage() {
                               className={`input-field ${((row.manager && !row.manager_id) || getError(idx, 'manager_id')) ? 'error-border' : ''}`}
                               style={{ width: '140px', padding: '6px', fontSize: '13px', borderColor: getError(idx, 'manager_id') || (row.manager && !row.manager_id) ? '#ef4444' : undefined }}
                             >
-                              <option value="">{row.manager ? `Pilih (${row.manager})` : '-- Kosong --'}</option>
+                              <option value="">{row.manager ? `Pilih (${row.manager})` : 'Otomatis (dari jabatan)'}</option>
                               {managerList.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
                             </select>
                             {getError(idx, 'manager_id') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{getError(idx, 'manager_id')}</div>}
@@ -797,7 +797,7 @@ export function EmployeeImportCsvPage() {
               <li><strong>employment_status</strong> — probation / contract / permanent / intern</li>
               <li><strong>department</strong> — Nama/Kode departemen</li>
               <li><strong>position</strong> — Nama/Kode jabatan</li>
-              <li><strong>manager</strong> — Nama/NIK manajer</li>
+              <li><strong>manager</strong> — Nama/NIK manajer (opsional, kosongkan kolom manager agar atasan dihitung dari struktur jabatan)</li>
             </ul>
 
             <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}><span style={{ color: '#dc2626' }}>*</span> = wajib diisi</p>
@@ -809,6 +809,7 @@ export function EmployeeImportCsvPage() {
                     <li>Baris pertama harus berisi judul kolom.</li>
                     <li>Pastikan tidak ada data yang kosong pada kolom wajib.</li>
                     <li>Untuk kolom tanggal gunakan format YYYY-MM-DD.</li>
+                    <li>Kosongkan kolom manager agar atasan dihitung dari struktur jabatan.</li>
                     <li>Data dibatasi hingga 20 baris per file/permintaan.</li>
                   </ul>
           </div>

@@ -8,12 +8,11 @@ import { validateEmployeeDates } from '../utils/dateValidation';
 import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import { LineManagerField } from '../features/employee/LineManagerField';
 import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import '../components/ui/create-employee.css';
 import { PasswordRequirements } from '../components/ui/PasswordRequirements';
-
-import { isRateLimited } from '../utils/rateLimit';
 import { validatePassword, PASSWORD_MAX_LENGTH } from '../utils/passwordValidation';
 import { 
   PHONE_ALREADY_REGISTERED_MSG, 
@@ -94,6 +93,33 @@ export function EmployeeCreatePage() {
   // Format key row error: `${rowIndex}-row`
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  const hasLoadedManagersRef = React.useRef(false);
+  const loadManagers = React.useCallback(async () => {
+    if (hasLoadedManagersRef.current) return;
+    hasLoadedManagersRef.current = true;
+    try {
+      const empRes = await getEmployees({ limit: 100, page: 1 });
+      if (empRes.success && empRes.data) {
+        let allEmployees = [...empRes.data];
+        const totalPages = empRes.meta?.total_pages || 1;
+        if (totalPages > 1) {
+          const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
+            getEmployees({ limit: 100, page: i + 2 })
+          );
+          const otherPagesRes = await Promise.allSettled(pagePromises);
+          otherPagesRes.forEach((res) => {
+            if (res.status === 'fulfilled' && res.value.data) {
+              allEmployees = [...allEmployees, ...res.value.data];
+            }
+          });
+        }
+        setManagers(allEmployees);
+      }
+    } catch {
+      // Abaikan jika error
+    }
+  }, []);
+
   useEffect(() => {
     async function loadReferences() {
       setLoading(true);
@@ -101,12 +127,10 @@ export function EmployeeCreatePage() {
         const results = await Promise.allSettled([
           getDepartments(),
           getPositions(),
-          getEmployees({ limit: 100 }) // Ambil untuk daftar manajer
         ]);
         
         const depRes = results[0];
         const posRes = results[1];
-        const empRes = results[2];
 
         if (depRes.status === 'fulfilled' && depRes.value.success) {
           setDepartments(depRes.value.data);
@@ -114,61 +138,10 @@ export function EmployeeCreatePage() {
         if (posRes.status === 'fulfilled' && posRes.value.success) {
           setPositions(posRes.value.data);
         }
-        
-        // Rate Limit & Error Handling: Jika fetch manajer terhenti/gagal (selain 403), tampilkan peringatan non-blokir dengan retryAfter
-        if (empRes.status === 'fulfilled' && empRes.value.success) {
-          let allEmployees = [...empRes.value.data];
-          const totalPages = empRes.value.meta?.total_pages || 1;
-          let maxRetryAfter = 0;
-          let hasNon403Rejected = false;
 
-          if (totalPages > 1) {
-            const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
-              getEmployees({ limit: 100, page: i + 2 })
-            );
-            const otherPagesRes = await Promise.allSettled(pagePromises);
-            otherPagesRes.forEach((res) => {
-              if (res.status === 'fulfilled' && res.value.success) {
-                allEmployees = [...allEmployees, ...res.value.data];
-              } else if (res.status === 'rejected') {
-                const errReason = res.reason;
-                if (errReason?.status !== 403) {
-                  hasNon403Rejected = true;
-                  if (isRateLimited(errReason)) {
-                    maxRetryAfter = Math.max(maxRetryAfter, errReason.retryAfter);
-                  }
-                }
-              }
-            });
-          }
-
-          if (hasNon403Rejected) {
-            const retryMsg = maxRetryAfter > 0
-              ? ` Muat ulang halaman ini dalam ${maxRetryAfter} detik.`
-              : ' Muat ulang halaman ini sebentar lagi.';
-            setAlertInfo({
-              open: true,
-              title: 'Peringatan Data Manajer',
-              message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
-              type: 'warning',
-            });
-          }
-
-          setManagers(allEmployees);
-        } else {
-          setManagers([]);
-          const errReason = empRes.status === 'rejected' ? empRes.reason : null;
-          if (errReason && errReason?.status !== 403) {
-            const retryMsg = isRateLimited(errReason)
-              ? ` Muat ulang halaman ini dalam ${errReason.retryAfter} detik.`
-              : ' Muat ulang halaman ini sebentar lagi.';
-            setAlertInfo({
-              open: true,
-              title: 'Peringatan Data Manajer',
-              message: `Sebagian daftar manajer gagal dimuat.${retryMsg}`,
-              type: 'warning',
-            });
-          }
+        // Jika ada form draft yang sudah memiliki manager_id terisi, muat daftar manajer
+        if (forms.some(f => Boolean(f.manager_id))) {
+          loadManagers();
         }
       } catch (err: any) {
         setAlertInfo({ open: true, title: 'Error', message: (err as any)?.message || 'Gagal memuat referensi data', type: 'error' });
@@ -177,7 +150,7 @@ export function EmployeeCreatePage() {
       }
     }
     loadReferences();
-  }, []);
+  }, [loadManagers, forms]);
 
   const addForm = () => {
     // Membatasi penambahan baris maksimal hanya 4 form
@@ -582,26 +555,13 @@ export function EmployeeCreatePage() {
                     </select>
                     {getError(index, 'position_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'position_id')}</span>}
                   </div>
-                  <div>
-                    <label className="form-label">Atasan (pengecualian manual)</label>
-                    {managers.length > 0 ? (
-                      <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
-                        <option value="">- Dihitung otomatis dari struktur jabatan -</option>
-                        {managers.map(m => (
-                          <option key={m.id} value={m.id}>
-                            {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: '#f8fafc', color: '#64748b', fontSize: '13px', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>
-                        Atasan dihitung otomatis dari struktur jabatan.
-                      </div>
-                    )}
-                    <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      Kosongkan agar atasan dihitung otomatis dari struktur jabatan.
-                    </span>
-                  </div>
+                  <LineManagerField
+                    positionId={form.position_id}
+                    managerId={form.manager_id}
+                    onManagerChange={v => updateForm(form.id, 'manager_id', v)}
+                    managers={managers}
+                    onLoadManagers={loadManagers}
+                  />
                   <div>
                     <label className="form-label">Status Kepegawaian</label>
                     <select className="input-field" value={form.employment_status} onChange={e => updateForm(form.id, 'employment_status', e.target.value as any)}>

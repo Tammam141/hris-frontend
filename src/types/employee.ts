@@ -87,6 +87,14 @@ export interface LineManagerResponse {
   line_manager: LineManagerInfo | null;
 }
 
+export interface PositionLineManagerResponse {
+  success: boolean;
+  data: {
+    position_id: string;
+    line_manager: LineManagerInfo | null;
+  };
+}
+
 export interface EmployeeListItem {
   id: string;
   employee_number: string;
