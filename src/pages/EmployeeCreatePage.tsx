@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
-import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
+import { Department, Position, EmployeeListItem, CreateEmployeePayload, positionLabel } from '../types/employee';
 import { validateEmployeeDates } from '../utils/dateValidation';
 import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
@@ -197,6 +197,34 @@ export function EmployeeCreatePage() {
     setForms(forms.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
+  const handleDepartmentChange = (rowId: string, deptId: string) => {
+    setForms(forms.map(f => {
+      if (f.id !== rowId) return f;
+      let posId = f.position_id;
+      if (posId) {
+        const pos = positions.find(p => p.id === posId);
+        if (pos && pos.department_id && pos.department_id !== deptId) {
+          posId = '';
+        }
+      }
+      return { ...f, department_id: deptId, position_id: posId };
+    }));
+  };
+
+  const handlePositionChange = (rowId: string, posId: string) => {
+    setForms(forms.map(f => {
+      if (f.id !== rowId) return f;
+      let deptId = f.department_id;
+      if (posId) {
+        const pos = positions.find(p => p.id === posId);
+        if (pos?.department_id) {
+          deptId = pos.department_id;
+        }
+      }
+      return { ...f, position_id: posId, department_id: deptId };
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationErrors({}); // Reset error sebelumnya
@@ -337,6 +365,8 @@ export function EmployeeCreatePage() {
                 msg = phoneRowErrorMessage(e.message);
               } else if (e.field === 'email') {
                 msg = emailRowErrorMessage(e.message);
+              } else if (e.field === 'position_id') {
+                msg = e.message || 'Kuota kursi jabatan ini sudah penuh';
               }
               parsedErrors[`${row.index}-${e.field}`] = msg;
             });
@@ -347,6 +377,8 @@ export function EmployeeCreatePage() {
         // Objek tunggal conflict, arahkan ke field yang sesuai
         if (isPhoneAlreadyRegisteredError(err)) {
           parsedErrors['0-phone'] = PHONE_ALREADY_REGISTERED_MSG;
+        } else if (err.details?.field === 'position_id' || err.message?.toLowerCase().includes('position') || err.message?.toLowerCase().includes('kuota') || err.message?.toLowerCase().includes('quota')) {
+          parsedErrors['0-position_id'] = err.message || 'Kuota kursi jabatan ini sudah penuh';
         } else {
           parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
         }
@@ -515,23 +547,46 @@ export function EmployeeCreatePage() {
                   </div>
                   <div>
                     <label className="form-label">Departemen</label>
-                    <select className="input-field" value={form.department_id} onChange={e => updateForm(form.id, 'department_id', e.target.value)}>
+                    <select 
+                      className={`input-field ${getError(index, 'department_id') ? 'error-border' : ''}`}
+                      style={getError(index, 'department_id') ? { borderColor: '#ef4444' } : {}}
+                      value={form.department_id} 
+                      onChange={e => handleDepartmentChange(form.id, e.target.value)}
+                    >
                       <option value="">-- Pilih Departemen --</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
+                    {getError(index, 'department_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'department_id')}</span>}
                   </div>
                   <div>
                     <label className="form-label">Posisi / Jabatan</label>
-                    <select className="input-field" value={form.position_id} onChange={e => updateForm(form.id, 'position_id', e.target.value)}>
+                    <select 
+                      className={`input-field ${getError(index, 'position_id') ? 'error-border' : ''}`}
+                      style={getError(index, 'position_id') ? { borderColor: '#ef4444' } : {}}
+                      value={form.position_id} 
+                      onChange={e => handlePositionChange(form.id, e.target.value)}
+                    >
                       <option value="">-- Pilih Jabatan --</option>
-                      {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {(form.department_id ? positions.filter(p => p.department_id === form.department_id) : positions).map(p => {
+                        let label = positionLabel(p);
+                        if (p.max_holders !== null && p.max_holders !== undefined) {
+                          if (p.current_holders !== undefined) {
+                            const rem = Math.max(0, p.max_holders - p.current_holders);
+                            label += ` (kuota: ${p.max_holders}, sisa: ${rem})`;
+                          } else {
+                            label += ` (kuota: ${p.max_holders})`;
+                          }
+                        }
+                        return <option key={p.id} value={p.id}>{label}</option>;
+                      })}
                     </select>
+                    {getError(index, 'position_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'position_id')}</span>}
                   </div>
                   <div>
-                    <label className="form-label">Manajer Atasan (Opsional)</label>
+                    <label className="form-label">Atasan (pengecualian manual)</label>
                     {managers.length > 0 ? (
                       <select className="input-field" value={form.manager_id} onChange={e => updateForm(form.id, 'manager_id', e.target.value)}>
-                        <option value="">- Tanpa Manajer -</option>
+                        <option value="">- Dihitung otomatis dari struktur jabatan -</option>
                         {managers.map(m => (
                           <option key={m.id} value={m.id}>
                             {m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}
@@ -540,9 +595,12 @@ export function EmployeeCreatePage() {
                       </select>
                     ) : (
                       <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: '#f8fafc', color: '#64748b', fontSize: '13px', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>
-                        Atasan dapat diisi kemudian oleh admin.
+                        Atasan dihitung otomatis dari struktur jabatan.
                       </div>
                     )}
+                    <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                      Kosongkan agar atasan dihitung otomatis dari struktur jabatan.
+                    </span>
                   </div>
                   <div>
                     <label className="form-label">Status Kepegawaian</label>

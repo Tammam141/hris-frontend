@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail } from '../../types/employee';
-import { uploadEmployeePhotoApi, deleteEmployeePhotoApi } from '../../api/employee';
+import { Department, Position, UpdateEmployeePayload, EmployeeListItem, EmployeeDetail, LineManagerInfo, positionLabel } from '../../types/employee';
+import { uploadEmployeePhotoApi, deleteEmployeePhotoApi, getEmployeeLineManager } from '../../api/employee';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmployeeDates } from '../../utils/dateValidation';
 import { validateFullName } from '../../utils/nameValidation';
@@ -29,6 +29,8 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [positionError, setPositionError] = useState('');
+  const [lineManagerInfo, setLineManagerInfo] = useState<LineManagerInfo | null | undefined>(undefined);
   
   // Form State
   const [fullName, setFullName] = useState('');
@@ -92,6 +94,12 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setJoinDate(employeeData.join_date ? employeeData.join_date.split('T')[0] : '');
         setResignDate(employeeData.resign_date ? employeeData.resign_date.split('T')[0] : '');
         setCurrentPhotoUrl(employeeData.photo_url || null);
+
+        // Ambil atasan hasil hitungan dari backend
+        setLineManagerInfo(undefined);
+        getEmployeeLineManager(employeeData.id)
+          .then(res => setLineManagerInfo(res.line_manager))
+          .catch(() => setLineManagerInfo(null));
       } else {
         // Fallback jika anehnya employeeData kosong
         setFullName('');
@@ -107,11 +115,13 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setJoinDate('');
         setResignDate('');
         setCurrentPhotoUrl(null);
+        setLineManagerInfo(null);
       }
       setPhotoPreview(null);
       setPhotoFile(null);
       setPhotoMessage(null);
       setError('');
+      setPositionError('');
     } else {
       setFullName('');
       setCountryCode('+62');
@@ -130,6 +140,8 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setPhotoFile(null);
       setPhotoMessage(null);
       setError('');
+      setPositionError('');
+      setLineManagerInfo(undefined);
     }
   }, [isOpen, employeeData, departments, positions, managers]);
 
@@ -141,6 +153,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     setError('');
     setNameError('');
     setPhoneError('');
+    setPositionError('');
 
     try {
       const nameErr = validateFullName(fullName);
@@ -183,6 +196,12 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
     } catch (err: any) {
       if ((err as any)?.status === 409 && (err as any)?.code === 'STALE_DATA') {
         throw err;
+      }
+      if ((err as any)?.status === 409 && (err as any)?.details?.field === 'position_id') {
+        const msg = (err as any)?.message || 'Kuota kursi jabatan ini sudah penuh';
+        setPositionError(msg);
+        setError(msg);
+        return;
       }
       if (isPhoneAlreadyRegisteredError(err)) {
         setPhoneError(PHONE_ALREADY_REGISTERED_MSG);
@@ -422,7 +441,18 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <select 
                   className="input-field" 
                   value={departmentId}
-                  onChange={e => setDepartmentId(e.target.value)}
+                  onChange={e => {
+                    const newDeptId = e.target.value;
+                    setDepartmentId(newDeptId);
+                    setPositionError('');
+                    // Jika posisi yang terpilih bukan bagian dari departemen baru, reset
+                    if (positionId) {
+                      const pos = positions.find(p => p.id === positionId);
+                      if (pos && pos.department_id && pos.department_id !== newDeptId) {
+                        setPositionId('');
+                      }
+                    }
+                  }}
                 >
                   <option value="">- Pilih Departemen -</option>
                   {departments.map(d => (
@@ -435,24 +465,52 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                 <label className="input-label">Jabatan</label>
                 <select 
                   className="input-field" 
+                  style={positionError ? { borderColor: '#ef4444' } : undefined}
                   value={positionId}
-                  onChange={e => setPositionId(e.target.value)}
+                  onChange={e => {
+                    const newPosId = e.target.value;
+                    setPositionId(newPosId);
+                    setPositionError('');
+                    // Jika jabatan dipilih lebih dulu, isi Departemen otomatis
+                    if (newPosId) {
+                      const pos = positions.find(p => p.id === newPosId);
+                      if (pos?.department_id) {
+                        setDepartmentId(pos.department_id);
+                      }
+                    }
+                  }}
                 >
                   <option value="">- Pilih Jabatan -</option>
-                  {positions.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
+                  {(departmentId ? positions.filter(p => p.department_id === departmentId) : positions).map(p => {
+                    let label = positionLabel(p);
+                    if (p.max_holders !== null && p.max_holders !== undefined) {
+                      if (p.current_holders !== undefined) {
+                        const remaining = Math.max(0, p.max_holders - p.current_holders);
+                        label += ` (kuota: ${p.max_holders}, sisa: ${remaining})`;
+                      } else {
+                        label += ` (kuota: ${p.max_holders})`;
+                      }
+                    }
+                    return (
+                      <option key={p.id} value={p.id}>{label}</option>
+                    );
+                  })}
                 </select>
+                {positionError && (
+                  <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                    {positionError}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">
-                <label className="input-label">Manajer</label>
+                <label className="input-label">Atasan (pengecualian manual)</label>
                 <select 
                   className="input-field" 
                   value={managerId}
                   onChange={e => setManagerId(e.target.value)}
                 >
-                  <option value="">- Tanpa Manajer -</option>
+                  <option value="">- Dihitung otomatis dari struktur jabatan -</option>
                   {employeeData?.manager_id && !managers.some(m => m.id === employeeData.manager_id) && (
                     <option value={employeeData.manager_id}>
                       {employeeData.manager_name ? `${employeeData.manager_name} (saat ini)` : '(Manajer saat ini)'}
@@ -464,6 +522,30 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                     </option>
                   ))}
                 </select>
+                <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  Kosongkan agar atasan dihitung otomatis dari struktur jabatan.
+                </span>
+
+                {lineManagerInfo !== undefined && (
+                  <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px' }}>
+                    <strong style={{ color: '#475569' }}>Atasan saat ini: </strong>
+                    {lineManagerInfo ? (
+                      <span style={{ color: '#0f172a' }}>
+                        {lineManagerInfo.full_name} ({lineManagerInfo.position_name || '-'}) —{' '}
+                        <span style={{ fontStyle: 'italic', color: lineManagerInfo.source === 'override' ? '#b45309' : '#1e40af' }}>
+                          {lineManagerInfo.source === 'override' ? 'diatur manual' : 'dari struktur'}
+                        </span>
+                        {lineManagerInfo.levels_up > 1 && (
+                          <span style={{ color: '#64748b' }}> (jabatan di atasnya kosong)</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#64748b', fontStyle: 'italic' }}>
+                        Tidak ada atasan; cuti ditangani HR
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="form-group">

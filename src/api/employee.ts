@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail } from '../types/employee';
+import { ListEmployeesParams, ListEmployeesResponse, CreateEmployeePayload, UpdateEmployeePayload, EmployeeDetail, LineManagerResponse } from '../types/employee';
 
 export async function getEmployees(params: ListEmployeesParams): Promise<ListEmployeesResponse> {
   const queryParams = new URLSearchParams();
@@ -20,7 +20,10 @@ export async function getEmployeeDetail(id: string): Promise<{ success: boolean;
   return response as { success: boolean; data: EmployeeDetail };
 }
 
-
+export async function getEmployeeLineManager(id: string): Promise<LineManagerResponse> {
+  const response = await apiRequest(`/employees/${id}/line-manager`, 'GET');
+  return response as LineManagerResponse;
+}
 
 export async function createEmployee(
   data: CreateEmployeePayload | CreateEmployeePayload[] | Record<string, CreateEmployeePayload>

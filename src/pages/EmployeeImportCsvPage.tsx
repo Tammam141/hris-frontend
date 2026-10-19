@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
 import { getEmployees, createEmployee } from '../api/employee';
-import { Department, Position, EmployeeListItem, CreateEmployeePayload } from '../types/employee';
+import { Department, Position, EmployeeListItem, CreateEmployeePayload, positionLabel } from '../types/employee';
 import { validateEmployeeDates } from '../utils/dateValidation';
 import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
@@ -249,16 +249,38 @@ export function EmployeeImportCsvPage() {
             const managerKey = row.manager?.toLowerCase().trim();
 
             const deptIds = deptKey ? (deptLookup.get(deptKey) || []) : [];
-            const positionIds = positionKey ? (positionLookup.get(positionKey) || []) : [];
+            const resolvedDeptId = deptIds.length === 1 ? deptIds[0] : '';
+            row.department_id = resolvedDeptId;
+
+            // Pencarian posisi:
+            // Jika departemen terselesaikan, cocokkan jabatan pada unit tersebut
+            let resolvedPosId = '';
+            if (positionKey) {
+              if (resolvedDeptId) {
+                const deptPositions = positionList.filter(
+                  p => p.department_id === resolvedDeptId &&
+                    (p.name.toLowerCase().trim() === positionKey || (p.code && p.code.toLowerCase().trim() === positionKey))
+                );
+                if (deptPositions.length === 1) {
+                  resolvedPosId = deptPositions[0].id;
+                }
+              } else {
+                // Bila departemen kosong dan nama jabatan unik di seluruh sistem, boleh dipakai
+                const matchingPositions = positionList.filter(
+                  p => p.name.toLowerCase().trim() === positionKey || (p.code && p.code.toLowerCase().trim() === positionKey)
+                );
+                if (matchingPositions.length === 1) {
+                  resolvedPosId = matchingPositions[0].id;
+                  if (matchingPositions[0].department_id && !row.department_id) {
+                    row.department_id = matchingPositions[0].department_id;
+                  }
+                }
+              }
+            }
+            row.position_id = resolvedPosId;
+
             const managerIds = managerKey ? (managerLookup.get(managerKey) || []) : [];
-
-            // Ambil ID pertama jika pencarian EXACTLY 1 (mencegah ambigu masuk diam-diam)
-            row.department_id = deptIds.length === 1 ? deptIds[0] : '';
-            row.position_id = positionIds.length === 1 ? positionIds[0] : '';
             row.manager_id = managerIds.length === 1 ? managerIds[0] : '';
-
-            // Note: Jika length > 1, maka id akan kosong, sehingga dianggap belum diselesaikan 
-            // (unresolved) dan user harus memilih manual lewat UI.
 
             rows.push(row as CsvRow);
           });
@@ -676,7 +698,19 @@ export function EmployeeImportCsvPage() {
                           <td>
                             <select 
                               value={row.department_id || ''} 
-                              onChange={(e) => updateRowField(idx, 'department_id', e.target.value)}
+                              onChange={(e) => {
+                                const newDeptId = e.target.value;
+                                const newData = [...parsedRows];
+                                const r = { ...newData[idx], department_id: newDeptId };
+                                if (r.position_id) {
+                                  const pos = positionList.find(p => p.id === r.position_id);
+                                  if (pos && pos.department_id && pos.department_id !== newDeptId) {
+                                    r.position_id = '';
+                                  }
+                                }
+                                newData[idx] = r;
+                                setParsedRows(newData);
+                              }}
                               className={`input-field ${((row.department && !row.department_id) || getError(idx, 'department_id')) ? 'error-border' : ''}`}
                               style={{ width: '140px', padding: '6px', fontSize: '13px', borderColor: getError(idx, 'department_id') || (row.department && !row.department_id) ? '#ef4444' : undefined }}
                             >
@@ -689,12 +723,26 @@ export function EmployeeImportCsvPage() {
                           <td>
                             <select 
                               value={row.position_id || ''} 
-                              onChange={(e) => updateRowField(idx, 'position_id', e.target.value)}
+                              onChange={(e) => {
+                                const newPosId = e.target.value;
+                                const newData = [...parsedRows];
+                                const r = { ...newData[idx], position_id: newPosId };
+                                if (newPosId) {
+                                  const pos = positionList.find(p => p.id === newPosId);
+                                  if (pos?.department_id && !r.department_id) {
+                                    r.department_id = pos.department_id;
+                                  }
+                                }
+                                newData[idx] = r;
+                                setParsedRows(newData);
+                              }}
                               className={`input-field ${((row.position && !row.position_id) || getError(idx, 'position_id')) ? 'error-border' : ''}`}
-                              style={{ width: '140px', padding: '6px', fontSize: '13px', borderColor: getError(idx, 'position_id') || (row.position && !row.position_id) ? '#ef4444' : undefined }}
+                              style={{ width: '160px', padding: '6px', fontSize: '13px', borderColor: getError(idx, 'position_id') || (row.position && !row.position_id) ? '#ef4444' : undefined }}
                             >
                               <option value="">{row.position ? `Pilih (${row.position})` : '-- Kosong --'}</option>
-                              {positionList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              {(row.department_id ? positionList.filter(p => p.department_id === row.department_id) : positionList).map(p => (
+                                <option key={p.id} value={p.id}>{positionLabel(p)}</option>
+                              ))}
                             </select>
                             {getError(idx, 'position_id') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{getError(idx, 'position_id')}</div>}
                             {(row.position && !row.position_id && !getError(idx, 'position_id')) && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>Jabatan tidak ditemukan</div>}

@@ -150,7 +150,7 @@ export function FeatureManagementPage() {
         <table className="employee-table matrix-table" style={{ width: '100%', minWidth: '800px', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th className="matrix-th-position">Jabatan</th>
+              <th className="matrix-th-position">Nama jabatan</th>
               {matrixData.categories.map(cat => (
                 <th key={cat.category} colSpan={cat.features.length} style={{ textAlign: 'center', backgroundColor: '#f8fafc', borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #e2e8f0', padding: '12px 8px', color: '#475569', fontWeight: 600 }}>
                   {cat.label}
@@ -184,53 +184,83 @@ export function FeatureManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {matrixData.positions.map((position, pIndex) => {
-              const isLastRow = pIndex === matrixData.positions.length - 1;
-              return (
-                <tr key={position.id} className="matrix-row" style={{ transition: 'background-color 0.2s' }}>
-                  <td className="matrix-td-position" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0' }}>
-                    {position.name}
-                  </td>
-                  {matrixData.categories.flatMap(cat => 
-                    cat.features.map((f, index) => {
-                      const isLastInCategory = index === cat.features.length - 1;
-                      const isChecked = stagedFeatures[position.id]?.has(f.code) || false;
-                      return (
-                        <td key={f.id} style={{ 
-                          textAlign: 'center', 
-                          borderRight: isLastInCategory ? '1px solid #cbd5e1' : '1px dotted #e2e8f0',
-                          borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0',
-                          padding: '12px 8px',
-                          backgroundColor: isChecked ? '#f0f9ff' : 'transparent'
-                        }}>
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={(e) => handleCheckboxChange(position.id, f.code, e.target.checked)}
-                            style={{ 
-                              cursor: 'pointer', width: '18px', height: '18px', 
-                              accentColor: '#2563eb'
-                            }}
-                          />
-                        </td>
-                      );
-                    })
-                  )}
-                  <td className="matrix-td-action" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0' }}>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ 
-                        padding: '8px 16px', fontSize: '13px', borderRadius: '20px', 
-                        fontWeight: 600, boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)' 
-                      }}
-                      onClick={() => handleSaveClick(position.id, position.name)}
-                    >
-                      Simpan
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            {[...matrixData.positions]
+              .sort((a, b) => {
+                const deptA = a.department_name || 'zzzz';
+                const deptB = b.department_name || 'zzzz';
+                if (deptA !== deptB) return deptA.localeCompare(deptB);
+                const headA = a.is_unit_head ? 1 : 0;
+                const headB = b.is_unit_head ? 1 : 0;
+                if (headA !== headB) return headB - headA;
+                return a.name.localeCompare(b.name);
+              })
+              .map((position, pIndex, arr) => {
+                const isLastRow = pIndex === arr.length - 1;
+                return (
+                  <tr key={position.id} className="matrix-row" style={{ transition: 'background-color 0.2s' }}>
+                    <td className="matrix-td-position" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0', padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: '#0f172a' }}>{position.name}</span>
+                          {position.is_unit_head && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '1px 6px',
+                              backgroundColor: '#dbeafe',
+                              color: '#1e40af',
+                              borderRadius: '999px',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              Kepala Unit
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>
+                          {position.department_name || 'Tanpa Unit'}
+                        </span>
+                      </div>
+                    </td>
+                    {matrixData.categories.flatMap(cat => 
+                      cat.features.map((f, index) => {
+                        const isLastInCategory = index === cat.features.length - 1;
+                        const isChecked = stagedFeatures[position.id]?.has(f.code) || false;
+                        return (
+                          <td key={f.id} style={{ 
+                            textAlign: 'center', 
+                            borderRight: isLastInCategory ? '1px solid #cbd5e1' : '1px dotted #e2e8f0',
+                            borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0',
+                            padding: '12px 8px',
+                            backgroundColor: isChecked ? '#f0f9ff' : 'transparent'
+                          }}>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={(e) => handleCheckboxChange(position.id, f.code, e.target.checked)}
+                              style={{ 
+                                cursor: 'pointer', width: '18px', height: '18px', 
+                                accentColor: '#2563eb'
+                              }}
+                            />
+                          </td>
+                        );
+                      })
+                    )}
+                    <td className="matrix-td-action" style={{ borderBottom: isLastRow ? 'none' : '1px solid #e2e8f0' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ 
+                          padding: '8px 16px', fontSize: '13px', borderRadius: '20px', 
+                          fontWeight: 600, boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)' 
+                        }}
+                        onClick={() => handleSaveClick(position.id, position.name)}
+                      >
+                        Simpan
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../api/department';
-import { Department } from '../types/employee';
+import { Department, UnitType, UNIT_TYPE_LABELS } from '../types/employee';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import '../components/ui/dashboard.css';
@@ -24,8 +24,11 @@ export function DepartmentPage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [nameError, setNameError] = useState('');
+  const [unitType, setUnitType] = useState<UnitType>('department');
+  const [parentId, setParentId] = useState<string>('');
   const [maxConcurrentLeave, setMaxConcurrentLeave] = useState<number | ''>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState('');
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
@@ -50,7 +53,7 @@ export function DepartmentPage() {
       }
     } catch (e: any) {
       const err = e as ApiError;
-      setError(err.message || 'Gagal memuat data departemen');
+      setError(err.message || 'Gagal memuat data unit organisasi');
     } finally {
       setLoading(false);
     }
@@ -61,8 +64,11 @@ export function DepartmentPage() {
     setSelectedDept(null);
     setCode('');
     setName('');
-    setNameError('');
+    setUnitType('department');
+    setParentId('');
     setMaxConcurrentLeave('');
+    setFieldErrors({});
+    setFormError('');
     setIsModalOpen(true);
   }
 
@@ -71,18 +77,48 @@ export function DepartmentPage() {
     setSelectedDept(dept);
     setCode(dept.code);
     setName(dept.name);
-    setNameError('');
+    setUnitType(dept.unit_type || 'department');
+    setParentId(dept.parent_id || '');
     setMaxConcurrentLeave(dept.max_concurrent_leave ?? '');
+    setFieldErrors({});
+    setFormError('');
     setIsModalOpen(true);
   }
 
+  // Hitung unit itu sendiri dan seluruh sub-unit turunannya agar tidak bisa dipilih jadi parent
+  function getExcludedUnitIds(unitId: string, allUnits: Department[]): Set<string> {
+    const excluded = new Set<string>([unitId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const u of allUnits) {
+        if (u.parent_id && excluded.has(u.parent_id) && !excluded.has(u.id)) {
+          excluded.add(u.id);
+          added = true;
+        }
+      }
+    }
+    return excluded;
+  }
+
+  const availableParents = selectedDept && modalMode === 'edit'
+    ? (() => {
+        const excluded = getExcludedUnitIds(selectedDept.id, departments);
+        return departments.filter(d => !excluded.has(d.id));
+      })()
+    : departments;
+
   async function handleModalSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setNameError('');
+    setFieldErrors({});
+    setFormError('');
+
     try {
-      const payload = {
-        code,
-        name,
+      const payload: Partial<Department> = {
+        code: code.trim(),
+        name: name.trim(),
+        unit_type: unitType,
+        parent_id: parentId ? parentId : null,
         max_concurrent_leave: maxConcurrentLeave === '' ? null : Number(maxConcurrentLeave)
       };
 
@@ -98,11 +134,13 @@ export function DepartmentPage() {
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
-      } else if (err.status === 409 && (err.message === 'Department name is already in use' || err.message?.toLowerCase().includes('department name'))) {
-        setNameError('Nama departemen sudah dipakai');
       } else {
-        setAlertMessage(err.message || 'Gagal menyimpan departemen');
-        setAlertOpen(true);
+        const field = err.details?.field;
+        if (field) {
+          setFieldErrors({ [field]: err.message });
+        } else {
+          setFormError(err.message || 'Gagal menyimpan unit organisasi');
+        }
       }
     }
   }
@@ -113,7 +151,11 @@ export function DepartmentPage() {
       setSelectedDept(current);
       setCode(current.code);
       setName(current.name);
+      setUnitType(current.unit_type || 'department');
+      setParentId(current.parent_id || '');
       setMaxConcurrentLeave(current.max_concurrent_leave ?? '');
+      setFieldErrors({});
+      setFormError('');
     }
     setIsStaleModalOpen(false);
   };
@@ -131,27 +173,28 @@ export function DepartmentPage() {
         setDeptToDelete(null);
         loadDepartments();
       } catch (e: any) {
-      const err = e as ApiError;
+        const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
-        if (err.details && (err.details as any).employee_count) {
-          setAlertMessage(err.message || `Tidak dapat dihapus karena memiliki karyawan.`);
-        } else {
-          setAlertMessage(err.message || 'Gagal menghapus departemen');
-        }
+        setAlertMessage(err.message || 'Gagal menghapus unit organisasi');
         setAlertOpen(true);
       }
     }
   }
+
+  const parentMap = new Map<string, string>();
+  departments.forEach(d => {
+    parentMap.set(d.id, d.name);
+  });
 
   return (
     <div className="dashboard-container" style={{ padding: '0', maxWidth: '100%' }}>
       <div className="dashboard-card" style={{ padding: '32px', borderRadius: '0', border: 'none', boxShadow: 'none', minHeight: '100%' }}>
         <div className="employee-header-actions">
           <div>
-            <h1 className="dashboard-title">Master Departemen</h1>
-            <p className="dashboard-subtitle">Kelola data departemen perusahaan.</p>
+            <h1 className="dashboard-title">Unit Organisasi</h1>
+            <p className="dashboard-subtitle">Kelola struktur hierarki unit organisasi perusahaan.</p>
           </div>
-          <button className="btn btn-success" onClick={openCreateModal}>+ Tambah Departemen</button>
+          <button className="btn btn-success" onClick={openCreateModal}>+ Tambah Unit</button>
         </div>
 
         {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
@@ -161,21 +204,37 @@ export function DepartmentPage() {
             <thead>
               <tr>
                 <th>Kode</th>
-                <th>Nama Departemen</th>
+                <th>Nama Unit</th>
+                <th>Jenis</th>
+                <th>Unit Induk</th>
                 <th>Maks. Cuti Bersamaan</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Memuat data...</td></tr>
+                <tr><td colSpan={6} className="text-center empty-table-cell">Memuat data...</td></tr>
               ) : departments.length === 0 ? (
-                <tr><td colSpan={4} className="text-center empty-table-cell">Belum ada data departemen.</td></tr>
+                <tr><td colSpan={6} className="text-center empty-table-cell">Belum ada data unit organisasi.</td></tr>
               ) : (
                 departments.map(dept => (
                   <tr key={dept.id}>
                     <td className="employee-name">{dept.code}</td>
-                    <td>{dept.name}</td>
+                    <td><strong>{dept.name}</strong></td>
+                    <td>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        backgroundColor: dept.unit_type === 'company' ? '#fef3c7' : dept.unit_type === 'directorate' ? '#e0e7ff' : dept.unit_type === 'division' ? '#dbeafe' : dept.unit_type === 'team' ? '#f1f5f9' : '#ecfdf5',
+                        color: dept.unit_type === 'company' ? '#92400e' : dept.unit_type === 'directorate' ? '#3730a3' : dept.unit_type === 'division' ? '#1e40af' : dept.unit_type === 'team' ? '#475569' : '#065f46'
+                      }}>
+                        {UNIT_TYPE_LABELS[dept.unit_type] || dept.unit_type}
+                      </span>
+                    </td>
+                    <td>{dept.parent_id ? (parentMap.get(dept.parent_id) || dept.parent_id) : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>- Puncak (Tanpa Induk) -</span>}</td>
                     <td>{dept.max_concurrent_leave ? `${dept.max_concurrent_leave} orang` : 'Tanpa batas'}</td>
                     <td>
                       <div className="action-buttons">
@@ -191,36 +250,99 @@ export function DepartmentPage() {
         </div>
       </div>
 
-      {/* Modal Form Departemen */}
+      {/* Modal Form Unit Organisasi */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Departemen Baru' : 'Ubah Data Departemen'}</h2>
+              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Unit Organisasi Baru' : 'Ubah Data Unit Organisasi'}</h2>
               <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
             <form onSubmit={handleModalSubmit}>
               <div className="modal-body">
+                {formError && (
+                  <div className="alert-error" style={{ marginBottom: '16px' }}>{formError}</div>
+                )}
+
                 <div className="form-group">
-                  <label className="form-label">Kode Departemen</label>
-                  <input type="text" className="input-field" value={code} onChange={e => setCode(e.target.value)} required placeholder="Contoh: IT" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Nama Departemen</label>
+                  <label className="form-label">Kode Unit</label>
                   <input 
                     type="text" 
                     className="input-field" 
-                    style={nameError ? { borderColor: '#ef4444' } : undefined}
+                    style={fieldErrors.code ? { borderColor: '#ef4444' } : undefined}
+                    value={code} 
+                    onChange={e => {
+                      setCode(e.target.value);
+                      if (fieldErrors.code) setFieldErrors(prev => ({ ...prev, code: '' }));
+                    }} 
+                    required 
+                    placeholder="Contoh: DIR-TECH" 
+                  />
+                  {fieldErrors.code && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.code}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nama Unit</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    style={fieldErrors.name ? { borderColor: '#ef4444' } : undefined}
                     value={name} 
                     onChange={e => {
                       setName(e.target.value);
-                      setNameError('');
+                      if (fieldErrors.name) setFieldErrors(prev => ({ ...prev, name: '' }));
                     }} 
                     required 
-                    placeholder="Contoh: Information Technology" 
+                    placeholder="Contoh: Direktorat Teknologi" 
                   />
-                  {nameError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{nameError}</span>}
+                  {fieldErrors.name && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.name}</span>}
                 </div>
+
+                <div className="form-group">
+                  <label className="form-label">Jenis Unit</label>
+                  <select 
+                    className="input-field"
+                    style={fieldErrors.unit_type ? { borderColor: '#ef4444' } : undefined}
+                    value={unitType}
+                    onChange={e => {
+                      setUnitType(e.target.value as UnitType);
+                      if (fieldErrors.unit_type) setFieldErrors(prev => ({ ...prev, unit_type: '' }));
+                    }}
+                    required
+                  >
+                    <option value="company">Perusahaan</option>
+                    <option value="directorate">Direktorat</option>
+                    <option value="division">Divisi</option>
+                    <option value="department">Departemen</option>
+                    <option value="team">Tim</option>
+                  </select>
+                  {fieldErrors.unit_type && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.unit_type}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Unit Induk</label>
+                  <select 
+                    className="input-field"
+                    style={fieldErrors.parent_id ? { borderColor: '#ef4444' } : undefined}
+                    value={parentId}
+                    onChange={e => {
+                      setParentId(e.target.value);
+                      if (fieldErrors.parent_id) setFieldErrors(prev => ({ ...prev, parent_id: '' }));
+                    }}
+                  >
+                    <option value="">- Tanpa induk (unit puncak) -</option>
+                    {availableParents.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({UNIT_TYPE_LABELS[d.unit_type] || d.unit_type})
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                    Pilih unit induk di atasnya. Pilih "- Tanpa induk -" jika ini unit tertinggi (perusahaan).
+                  </span>
+                  {fieldErrors.parent_id && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.parent_id}</span>}
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Maksimal Karyawan Cuti Bersamaan</label>
                   <input 
@@ -228,13 +350,18 @@ export function DepartmentPage() {
                     min={1} 
                     max={1000} 
                     className="input-field" 
+                    style={fieldErrors.max_concurrent_leave ? { borderColor: '#ef4444' } : undefined}
                     value={maxConcurrentLeave} 
-                    onChange={e => setMaxConcurrentLeave(e.target.value === '' ? '' : Number(e.target.value))} 
+                    onChange={e => {
+                      setMaxConcurrentLeave(e.target.value === '' ? '' : Number(e.target.value));
+                      if (fieldErrors.max_concurrent_leave) setFieldErrors(prev => ({ ...prev, max_concurrent_leave: '' }));
+                    }} 
                     placeholder="Kosongkan jika tanpa batas (1–1000)" 
                   />
                   <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                    Batas jumlah rekan satu departemen yang boleh cuti di hari yang sama (1–1000). Kosongkan untuk tanpa batas.
+                    Batas jumlah rekan satu unit yang boleh cuti di hari yang sama (1–1000). Kosongkan untuk tanpa batas.
                   </span>
+                  {fieldErrors.max_concurrent_leave && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{fieldErrors.max_concurrent_leave}</span>}
                 </div>
               </div>
               <div className="modal-footer">
@@ -250,7 +377,7 @@ export function DepartmentPage() {
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
         title="Konfirmasi Hapus"
-        message={`Apakah kamu yakin ingin menghapus departemen ${deptToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
+        message={`Apakah kamu yakin ingin menghapus unit organisasi ${deptToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
         confirmText="Ya, Hapus"
         isDestructive={true}
         onConfirm={confirmDelete}

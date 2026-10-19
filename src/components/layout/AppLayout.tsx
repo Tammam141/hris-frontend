@@ -193,6 +193,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </ShowIf>
 
+            <ShowIf feature={ROUTE_PERMISSIONS['/organization'].features}>
+              <NavLink to="/organization" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BuildingIcon /> Struktur Organisasi
+              </NavLink>
+            </ShowIf>
+
             <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>
               <NavLink to="/department" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BuildingIcon /> Department
