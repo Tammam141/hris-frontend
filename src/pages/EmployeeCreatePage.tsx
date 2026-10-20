@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDepartments } from '../api/department';
 import { getPositions } from '../api/position';
@@ -67,7 +67,14 @@ export function EmployeeCreatePage() {
     const savedForms = localStorage.getItem('employeeFormsDraft');
     if (savedForms) {
       try {
-        return JSON.parse(savedForms);
+        const parsed = JSON.parse(savedForms);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => ({
+            ...createEmptyForm(),
+            ...item,
+            password: '', // Keamanan: password tidak pernah dimuat dari draft
+          }));
+        }
       } catch (e) {
         console.error("Gagal parse draft form dari localStorage", e);
       }
@@ -75,9 +82,18 @@ export function EmployeeCreatePage() {
     return [createEmptyForm()];
   });
 
-  // Simpan ke local storage setiap kali ada perubahan pada form
+  // Simpan ke local storage dengan debounce ~500 ms dan TANPA password
   useEffect(() => {
-    localStorage.setItem('employeeFormsDraft', JSON.stringify(forms));
+    const timer = setTimeout(() => {
+      const draft = forms.map(f => {
+        const { password: _p, ...rest } = f;
+        void _p;
+        return rest;
+      });
+      localStorage.setItem('employeeFormsDraft', JSON.stringify(draft));
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [forms]);
   
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -93,6 +109,7 @@ export function EmployeeCreatePage() {
   // Format key row error: `${rowIndex}-row`
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  const initialFormsRef = useRef(forms);
   const hasLoadedManagersRef = React.useRef(false);
   const loadManagers = React.useCallback(async () => {
     if (hasLoadedManagersRef.current) return;
@@ -139,8 +156,8 @@ export function EmployeeCreatePage() {
           setPositions(posRes.value.data);
         }
 
-        // Jika ada form draft yang sudah memiliki manager_id terisi, muat daftar manajer
-        if (forms.some(f => Boolean(f.manager_id))) {
+        // Pengecekan draft punya manager_id cukup sekali saat mount dari initialFormsRef
+        if (initialFormsRef.current.some(f => Boolean(f.manager_id))) {
           loadManagers();
         }
       } catch (err: any) {
@@ -150,7 +167,8 @@ export function EmployeeCreatePage() {
       }
     }
     loadReferences();
-  }, [loadManagers, forms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addForm = () => {
     // Membatasi penambahan baris maksimal hanya 4 form

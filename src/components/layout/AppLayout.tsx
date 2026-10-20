@@ -24,6 +24,7 @@ import { ROUTE_PERMISSIONS } from '../../config/permissions';
 import { Avatar } from '../ui/Avatar';
 import { logoutApi } from '../../api/auth';
 import { clearSession } from '../../utils/session';
+import { UpdateBanner } from '../ui/UpdateBanner';
 import '../ui/notification.css';
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -93,6 +94,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   if (!isAuthenticated || location.pathname === '/force-change-password') {
     return (
       <div className="app-guest-wrapper">
+        <UpdateBanner />
         <main>{children}</main>
       </div>
     );
@@ -101,6 +103,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // layout utama
   return (
     <div className="app-main-container">
+      <UpdateBanner />
       {/* navbar */}
       <header className="app-navbar">
         <div className="navbar-left">

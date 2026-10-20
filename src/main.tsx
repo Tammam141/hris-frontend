@@ -6,6 +6,15 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './store';
 import './components/ui/global.css';
 
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  // reload sekali saja untuk mengambil index.html baru; cegah loop
+  if (!sessionStorage.getItem('chunk-reload')) {
+    sessionStorage.setItem('chunk-reload', '1');
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
