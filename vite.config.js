@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     // [PWA Configuration] Konfigurasi Progressive Web App
     VitePWA({
-      registerType: 'autoUpdate', // Otomatis memperbarui Service Worker saat ada kode baru
+      registerType: 'prompt', // [PWA] Mode prompt: jangan reload otomatis saat ada versi baru
+      injectRegister: false, // [PWA] Registrasi manual lewat kode (useRegisterSW di UpdateBanner)
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'pwa-android-192x192.png', 'pwa-android-512x512.png', 'pwa-maskable-512x512.png'], // Aset statis yang di-cache di browser
       manifest: {
         id: '/', // [PWA] ID unik aplikasi
@@ -45,7 +46,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}']
       },
       devOptions: {
-        enabled: true // [PWA Dev] Mengaktifkan PWA di mode development (localhost) agar bisa di-test langsung
+        enabled: false // [PWA Dev] Dinonaktifkan di development agar cache tidak membingungkan
       }
     })
   ],
