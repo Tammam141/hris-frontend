@@ -137,6 +137,7 @@ export function EmployeeCreatePage() {
     }
   }, []);
 
+  // Muat referensi hanya sekali saat mount agar form tidak remount/kehilangan fokus saat mengetik
   useEffect(() => {
     async function loadReferences() {
       setLoading(true);
@@ -168,7 +169,7 @@ export function EmployeeCreatePage() {
     }
     loadReferences();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Wajib []: jangan tambahkan forms agar tidak re-trigger tiap ketikan
 
   const addForm = () => {
     // Membatasi penambahan baris maksimal hanya 4 form
@@ -544,7 +545,7 @@ export function EmployeeCreatePage() {
                       value={form.department_id} 
                       onChange={e => handleDepartmentChange(form.id, e.target.value)}
                     >
-                      <option value="">-- Pilih Departemen --</option>
+                      <option value="">-- All --</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                     {getError(index, 'department_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'department_id')}</span>}
@@ -557,7 +558,7 @@ export function EmployeeCreatePage() {
                       value={form.position_id} 
                       onChange={e => handlePositionChange(form.id, e.target.value)}
                     >
-                      <option value="">-- Pilih Jabatan --</option>
+                      <option value="">-- All --</option>
                       {(form.department_id ? positions.filter(p => p.department_id === form.department_id) : positions).map(p => {
                         let label = positionLabel(p);
                         if (p.max_holders !== null && p.max_holders !== undefined) {
