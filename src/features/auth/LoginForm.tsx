@@ -180,7 +180,7 @@ export function LoginForm() {
             <Link to="/register" className="auth-link">Register</Link>
           </p>
           <p className="auth-text" style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px', textAlign: 'center' }}>
-            HRIS v.0.7.1
+            HRIS v0.7.1
           </p>
         </div>
       </div>
