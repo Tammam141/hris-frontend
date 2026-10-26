@@ -85,12 +85,28 @@ export function EmployeeCreatePage() {
   // Simpan ke local storage dengan debounce ~500 ms dan TANPA password
   useEffect(() => {
     const timer = setTimeout(() => {
-      const draft = forms.map(f => {
-        const { password: _p, ...rest } = f;
-        void _p;
-        return rest;
-      });
-      localStorage.setItem('employeeFormsDraft', JSON.stringify(draft));
+      // Jika seluruh form kosong (misal baru direset atau awal mount), hapus draft
+      const isEveryFormEmpty = forms.every(f => 
+        !f.full_name?.trim() && 
+        !f.email?.trim() && 
+        !f.phone_number?.trim() && 
+        !f.department_id && 
+        !f.position_id && 
+        !f.birth_date && 
+        !f.join_date &&
+        !f.address?.trim()
+      );
+
+      if (isEveryFormEmpty) {
+        localStorage.removeItem('employeeFormsDraft');
+      } else {
+        const draft = forms.map(f => {
+          const { password: _p, ...rest } = f;
+          void _p;
+          return rest;
+        });
+        localStorage.setItem('employeeFormsDraft', JSON.stringify(draft));
+      }
     }, 500);
 
     return () => clearTimeout(timer);
@@ -137,6 +153,7 @@ export function EmployeeCreatePage() {
     }
   }, []);
 
+  // Muat referensi hanya sekali saat mount agar form tidak remount/kehilangan fokus saat mengetik
   useEffect(() => {
     async function loadReferences() {
       setLoading(true);
@@ -168,7 +185,7 @@ export function EmployeeCreatePage() {
     }
     loadReferences();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Wajib []: jangan tambahkan forms agar tidak re-trigger tiap ketikan
 
   const addForm = () => {
     // Membatasi penambahan baris maksimal hanya 4 form
@@ -191,28 +208,15 @@ export function EmployeeCreatePage() {
   const handleDepartmentChange = (rowId: string, deptId: string) => {
     setForms(forms.map(f => {
       if (f.id !== rowId) return f;
-      let posId = f.position_id;
-      if (posId) {
-        const pos = positions.find(p => p.id === posId);
-        if (pos && pos.department_id && pos.department_id !== deptId) {
-          posId = '';
-        }
-      }
-      return { ...f, department_id: deptId, position_id: posId };
+      // Saat departemen berganti, posisi dan atasan harus direset
+      return { ...f, department_id: deptId, position_id: '', manager_id: '' };
     }));
   };
 
   const handlePositionChange = (rowId: string, posId: string) => {
     setForms(forms.map(f => {
       if (f.id !== rowId) return f;
-      let deptId = f.department_id;
-      if (posId) {
-        const pos = positions.find(p => p.id === posId);
-        if (pos?.department_id) {
-          deptId = pos.department_id;
-        }
-      }
-      return { ...f, position_id: posId, department_id: deptId };
+      return { ...f, position_id: posId, manager_id: '' };
     }));
   };
 
@@ -223,25 +227,81 @@ export function EmployeeCreatePage() {
     let localErrors = 0;
     const newErrors: Record<string, string> = {};
 
-    // Validasi basic frontend
+    // Validasi basic frontend: pastikan semua field wajib terisi
     for (let i = 0; i < forms.length; i++) {
       const f = forms[i];
-      if (!f.full_name || !f.email || !f.password || !f.phone_number) {
-        newErrors[`${i}-row`] = 'Harap lengkapi semua field wajib';
+      let rowHasEmpty = false;
+
+      if (!f.full_name?.trim()) {
+        newErrors[`${i}-full_name`] = 'Nama lengkap wajib diisi';
         localErrors++;
+        rowHasEmpty = true;
       } else {
         const nameErr = validateFullName(f.full_name);
         if (nameErr) {
           newErrors[`${i}-full_name`] = nameErr;
           localErrors++;
         }
+      }
+
+      if (!f.email?.trim()) {
+        newErrors[`${i}-email`] = 'Email karyawan wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.phone_number?.trim()) {
+        newErrors[`${i}-phone`] = 'Nomor telepon wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.password) {
+        newErrors[`${i}-password`] = 'Kata sandi akun wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      } else {
         const passwordErr = validatePassword(f.password);
         if (passwordErr) {
           newErrors[`${i}-password`] = passwordErr;
           localErrors++;
         }
       }
-      
+
+      if (!f.department_id) {
+        newErrors[`${i}-department_id`] = 'Departemen wajib dipilih';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.position_id) {
+        newErrors[`${i}-position_id`] = 'Posisi / jabatan wajib dipilih';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.join_date) {
+        newErrors[`${i}-join_date`] = 'Tanggal bergabung wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.birth_date) {
+        newErrors[`${i}-birth_date`] = 'Tanggal lahir wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (!f.address?.trim()) {
+        newErrors[`${i}-address`] = 'Alamat lengkap wajib diisi';
+        localErrors++;
+        rowHasEmpty = true;
+      }
+
+      if (rowHasEmpty) {
+        newErrors[`${i}-row`] = 'Harap lengkapi semua field wajib';
+      }
+
       // Cek email & nomor telepon duplikat di dalam satu form
       for (let j = i + 1; j < forms.length; j++) {
         if (forms[j].email && forms[j].email.toLowerCase().trim() === f.email.toLowerCase().trim()) {
@@ -254,12 +314,14 @@ export function EmployeeCreatePage() {
         }
       }
 
-      // Validasi Tanggal
-      const dateErrors = validateEmployeeDates(f.birth_date, f.join_date);
-      dateErrors.forEach(err => {
-        newErrors[`${i}-${err.field}`] = err.message;
-        localErrors++;
-      });
+      // Validasi Tanggal jika keduanya terisi
+      if (f.birth_date && f.join_date) {
+        const dateErrors = validateEmployeeDates(f.birth_date, f.join_date);
+        dateErrors.forEach(err => {
+          newErrors[`${i}-${err.field}`] = err.message;
+          localErrors++;
+        });
+      }
     }
 
     if (localErrors > 0) {
@@ -325,6 +387,7 @@ export function EmployeeCreatePage() {
       // Lebih baik form dikosongkan jika user mau nambah lagi, atau arahkan kembali.
       localStorage.removeItem('employeeFormsDraft');
       setForms([createEmptyForm()]);
+      setValidationErrors({});
       
     } catch (err: any) {
       let errorParsed = false;
@@ -537,10 +600,11 @@ export function EmployeeCreatePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">Departemen</label>
+                    <label className="form-label">Departemen *</label>
                     <select 
                       className={`input-field ${getError(index, 'department_id') ? 'error-border' : ''}`}
                       style={getError(index, 'department_id') ? { borderColor: '#ef4444' } : {}}
+                      required
                       value={form.department_id} 
                       onChange={e => handleDepartmentChange(form.id, e.target.value)}
                     >
@@ -550,15 +614,17 @@ export function EmployeeCreatePage() {
                     {getError(index, 'department_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'department_id')}</span>}
                   </div>
                   <div>
-                    <label className="form-label">Posisi / Jabatan</label>
+                    <label className="form-label">Posisi / Jabatan *</label>
                     <select 
                       className={`input-field ${getError(index, 'position_id') ? 'error-border' : ''}`}
                       style={getError(index, 'position_id') ? { borderColor: '#ef4444' } : {}}
+                      required
+                      disabled={!form.department_id}
                       value={form.position_id} 
                       onChange={e => handlePositionChange(form.id, e.target.value)}
                     >
-                      <option value="">-- Pilih Jabatan --</option>
-                      {(form.department_id ? positions.filter(p => p.department_id === form.department_id) : positions).map(p => {
+                      <option value="">{form.department_id ? '-- Pilih Posisi --' : 'Pilih departemen terlebih dahulu'}</option>
+                      {(form.department_id ? positions.filter(p => p.department_id === form.department_id) : []).map(p => {
                         let label = positionLabel(p);
                         if (p.max_holders !== null && p.max_holders !== undefined) {
                           if (p.current_holders !== undefined) {
@@ -590,18 +656,19 @@ export function EmployeeCreatePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">Tanggal Bergabung</label>
-                    <input type="date" className={`input-field ${getError(index, 'join_date') ? 'error-border' : ''}`} style={getError(index, 'join_date') ? { borderColor: '#ef4444' } : {}} value={form.join_date} onChange={e => updateForm(form.id, 'join_date', e.target.value)} />
+                    <label className="form-label">Tanggal Bergabung *</label>
+                    <input type="date" required className={`input-field ${getError(index, 'join_date') ? 'error-border' : ''}`} style={getError(index, 'join_date') ? { borderColor: '#ef4444' } : {}} value={form.join_date} onChange={e => updateForm(form.id, 'join_date', e.target.value)} />
                     {getError(index, 'join_date') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'join_date')}</span>}
                   </div>
                   <div>
-                    <label className="form-label">Tanggal Lahir</label>
-                    <input type="date" className={`input-field ${getError(index, 'birth_date') ? 'error-border' : ''}`} style={getError(index, 'birth_date') ? { borderColor: '#ef4444' } : {}} value={form.birth_date} onChange={e => updateForm(form.id, 'birth_date', e.target.value)} />
+                    <label className="form-label">Tanggal Lahir *</label>
+                    <input type="date" required className={`input-field ${getError(index, 'birth_date') ? 'error-border' : ''}`} style={getError(index, 'birth_date') ? { borderColor: '#ef4444' } : {}} value={form.birth_date} onChange={e => updateForm(form.id, 'birth_date', e.target.value)} />
                     {getError(index, 'birth_date') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'birth_date')}</span>}
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Alamat Lengkap</label>
-                    <textarea className="input-field" rows={2} value={form.address} onChange={e => updateForm(form.id, 'address', e.target.value)} />
+                    <label className="form-label">Alamat Lengkap *</label>
+                    <textarea className="input-field" rows={2} required style={getError(index, 'address') ? { borderColor: '#ef4444' } : {}} value={form.address} onChange={e => updateForm(form.id, 'address', e.target.value)} />
+                    {getError(index, 'address') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'address')}</span>}
                   </div>
 
                 </div>

@@ -332,7 +332,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <div className="app-footer-dev-info">
                     <span className="app-footer-name">Ismail Muhammad</span>
                     <a href="mailto:Ismailmail290@gmail.com" title="Email" className="app-footer-social-link"><MailIcon size={14} /></a>
-                    <a href="https://github.com/ismailmail290" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
+                    <a href="https://github.com/DeadBear34" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
                   </div>
                 </div>
                 <div className="app-footer-dev-card">
