@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { isRateLimited } from '../../utils/rateLimit';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
+import { AppFooter } from '../../components/layout/AppFooter';
 import '../../components/ui/auth.css';
 
 export function LoginForm() {
@@ -91,8 +92,9 @@ export function LoginForm() {
     : errorMsg;
 
   return (
-    <div className="auth-page-container">
-      <div className="ui-card">
+    <div className="auth-page-container has-footer">
+      <div className="auth-card-wrapper">
+        <div className="ui-card">
         <h2 className="ui-card-title">Login</h2>
 
         {successMessage && <div className="alert-success">{successMessage}</div>}
@@ -184,6 +186,8 @@ export function LoginForm() {
           </p>
         </div>
       </div>
+      </div>
+      <AppFooter variant="blue" />
     </div>
   );
 }
