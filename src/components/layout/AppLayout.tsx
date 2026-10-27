@@ -11,9 +11,8 @@ import { UserCheckIcon } from '../icons/UserCheckIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 import { BellIcon } from '../icons/BellIcon';
 import { KeyIcon } from '../icons/KeyIcon';
-import { MailIcon } from '../icons/MailIcon';
-import { GithubIcon } from '../icons/GithubIcon';
 import { BookOpenIcon } from '../icons/BookOpenIcon';
+import { AppFooter } from './AppFooter';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setNotifications } from '../../store/notificationSlice';
@@ -318,34 +317,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div style={{ flex: 1 }}>
             {children}
           </div>
-          <footer className="app-footer">
-            <div className="app-footer-accent-bar" />
-            <div className="app-footer-content">
-              <div className="app-footer-brand">
-                <span className="app-footer-title">HRIS</span>
-                <span className="app-footer-divider">—</span>
-                <span className="app-footer-desc">Aplikasi Human Resource Information System</span>
-              </div>
-              <div className="app-footer-devs">
-                <div className="app-footer-dev-card">
-                  <span className="app-footer-role">Backend Developer</span>
-                  <div className="app-footer-dev-info">
-                    <span className="app-footer-name">Ismail Muhammad</span>
-                    <a href="mailto:Ismailmail290@gmail.com" title="Email" className="app-footer-social-link"><MailIcon size={14} /></a>
-                    <a href="https://github.com/DeadBear34" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
-                  </div>
-                </div>
-                <div className="app-footer-dev-card">
-                  <span className="app-footer-role">Frontend Developer</span>
-                  <div className="app-footer-dev-info">
-                    <span className="app-footer-name">Muhammad Tammam Tanjung</span>
-                    <a href="mailto:tammamtanjung1405@gmail.com" title="Email" className="app-footer-social-link"><MailIcon size={14} /></a>
-                    <a href="https://github.com/Tammam141" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link"><GithubIcon size={14} /></a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </footer>
+          <AppFooter />
         </main>
 
       </div>
