@@ -18,6 +18,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { Pagination } from '../components/ui/Pagination';
 
 export function EmployeePage() {
   const { hasFeature, user } = useAuth();
@@ -555,30 +556,15 @@ export function EmployeePage() {
 
         {/* Kontrol Paginasi */}
         {!loading && employeeResponse.data.length > 0 && (
-          <div className="employee-pagination">
-            <div className="pagination-info">
-              Menampilkan total <strong>{employeeResponse.total}</strong> karyawan
-            </div>
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                onClick={() => setEmployeeResponse(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                disabled={employeeResponse.page === 1}
-              >
-                Previous
-              </button>
-              <span className="pagination-page-text">
-                Halaman {employeeResponse.page} dari {employeeResponse.total_pages}
-              </span>
-              <button
-                className="pagination-btn"
-                onClick={() => setEmployeeResponse(prev => ({ ...prev, page: Math.min(prev.total_pages, prev.page + 1) }))}
-                disabled={employeeResponse.page === employeeResponse.total_pages}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={employeeResponse.page}
+            totalPages={employeeResponse.total_pages}
+            totalItems={employeeResponse.total}
+            itemLabel="karyawan"
+            prevLabel="Previous"
+            nextLabel="Next"
+            onPageChange={(p) => setEmployeeResponse(prev => ({ ...prev, page: p }))}
+          />
         )}
 
       </div>

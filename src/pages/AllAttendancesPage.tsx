@@ -9,6 +9,7 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
+import { Pagination } from '../components/ui/Pagination';
 
 import { useAuth } from '../hooks/useAuth';
 
@@ -265,23 +266,15 @@ export function AllAttendancesPage() {
         )}
 
         {attendanceResponse.total_pages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-            <button 
-              disabled={page === 1} 
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {attendanceResponse.total_pages}</span>
-            <button 
-              disabled={page === attendanceResponse.total_pages} 
-              onClick={() => setPage(p => p + 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === attendanceResponse.total_pages ? '#f1f5f9' : '#fff', cursor: page === attendanceResponse.total_pages ? 'not-allowed' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={page}
+            totalPages={attendanceResponse.total_pages}
+            totalItems={attendanceResponse.total}
+            itemLabel="data absensi"
+            prevLabel="Prev"
+            nextLabel="Next"
+            onPageChange={(p) => setPage(p)}
+          />
         )}
       </div>
 

@@ -1,0 +1,106 @@
+/* PAGINATION COMPONENT */
+.app-pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.app-pagination-container.align-center {
+  justify-content: center;
+}
+
+.app-pagination-info {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.app-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.app-pagination-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.app-pagination-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.app-pagination-btn:disabled {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.app-pagination-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #334155;
+  background-color: #f8fafc;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.app-pagination-input {
+  width: 52px;
+  height: 28px;
+  padding: 2px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-pagination-input:focus {
+  border-color: #1a78d7;
+  box-shadow: 0 0 0 2px rgba(26, 120, 215, 0.15);
+}
+
+/* Hilangkan spin button panah pada input number */
+.app-pagination-input::-webkit-outer-spin-button,
+.app-pagination-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.app-pagination-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+@media (max-width: 640px) {
+  .app-pagination-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .app-pagination-controls {
+    width: 100%;
+    justify-content: center;
+  }
+}

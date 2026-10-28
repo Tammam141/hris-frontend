@@ -7,6 +7,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
+import { Pagination } from '../components/ui/Pagination';
 
 export function TeamAttendancePage() {
   const { user } = useAuth();
@@ -180,23 +181,15 @@ export function TeamAttendancePage() {
         )}
 
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-            <button 
-              disabled={page === 1} 
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
-            <button 
-              disabled={page === totalPages} 
-              onClick={() => setPage(p => p + 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={teamAttendanceResponse.total}
+            itemLabel="data absensi tim"
+            prevLabel="Prev"
+            nextLabel="Next"
+            onPageChange={(p) => setPage(p)}
+          />
         )}
       </div>
 
