@@ -23,7 +23,7 @@ export function LeaveTypePage() {
   // Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [defaultQuota, setDefaultQuota] = useState<number>(0);
+  const [defaultQuota, setDefaultQuota] = useState<number | ''>('');
   const [deductsBalance, setDeductsBalance] = useState(true);
   const [requiresAttachment, setRequiresAttachment] = useState(false);
   const [attachmentRequiredAfter, setAttachmentRequiredAfter] = useState<number | ''>('');
@@ -47,6 +47,12 @@ export function LeaveTypePage() {
 
   // Suggested Deactivation
   const [suggestDeactivateOpen, setSuggestDeactivateOpen] = useState(false);
+
+  // Konfirmasi perubahan kuota & konflik kuota (409 affected)
+  const [quotaConfirmOpen, setQuotaConfirmOpen] = useState(false);
+  const [quotaConflict, setQuotaConflict] = useState<{ message: string; details: any } | null>(null);
+  const [alertType, setAlertType] = useState<'success' | 'error'>('error');
+  const [alertTitle, setAlertTitle] = useState('Peringatan');
 
   useEffect(() => {
     loadTypes();
@@ -73,7 +79,7 @@ export function LeaveTypePage() {
     setSelectedType(null);
     setCode('');
     setName('');
-    setDefaultQuota(0);
+    setDefaultQuota('');
     setDeductsBalance(true);
     setRequiresAttachment(false);
     setAttachmentRequiredAfter('');
@@ -91,7 +97,7 @@ export function LeaveTypePage() {
     setSelectedType(type);
     setCode(type.code);
     setName(type.name);
-    setDefaultQuota(type.default_quota);
+    setDefaultQuota(type.default_quota ?? '');
     setDeductsBalance(type.deducts_balance);
     setRequiresAttachment(type.requires_attachment);
     setAttachmentRequiredAfter(type.attachment_required_after ?? '');
@@ -110,14 +116,16 @@ export function LeaveTypePage() {
 
     // 1. Validasi Sisi Klien
     const newErrors: Record<string, string> = {};
-    const defaultQuotaNum = Number(defaultQuota);
+    const quotaNum = defaultQuota === '' ? null : Number(defaultQuota);
     const reqAfterNum = attachmentRequiredAfter === '' ? null : Number(attachmentRequiredAfter);
     const maxDaysNum = maxDaysPerRequest === '' ? null : Number(maxDaysPerRequest);
     const noticeDaysNum = minNoticeDays === '' ? null : Number(minNoticeDays);
 
     if (deductsBalance) {
-      if (defaultQuotaNum < 0 || defaultQuotaNum > 365) {
-        newErrors.default_quota = 'Kuota default per tahun maksimal 365 hari.';
+      if (quotaNum === null || quotaNum < 1 || quotaNum > 365) {
+        newErrors.default_quota = 'Kuota wajib diisi 1 sampai 365 hari untuk cuti yang memotong saldo.';
+      } else if (maxDaysNum !== null && maxDaysNum > quotaNum) {
+        newErrors.max_days_per_request = 'Maksimal hari per pengajuan tidak boleh melebihi kuota.';
       }
     }
 
@@ -141,63 +149,115 @@ export function LeaveTypePage() {
       }
     }
 
-    // b. Jika deducts_balance aktif dan default_quota diisi, max_days_per_request <= default_quota
-    if (deductsBalance && maxDaysNum !== null && defaultQuotaNum > 0) {
-      if (maxDaysNum > defaultQuotaNum) {
-        newErrors.max_days_per_request = 'Maksimal durasi cuti per pengajuan tidak boleh melebihi kuota cuti tahunan.';
-      }
-    }
 
     if (Object.keys(newErrors).length > 0) {
       setFormErrors(newErrors);
       return;
     }
 
+    const quotaChanged =
+      modalMode === 'edit' && selectedType &&
+      deductsBalance && selectedType.deducts_balance &&
+      selectedType.default_quota !== null &&
+      quotaNum !== selectedType.default_quota;
+
+    if (quotaChanged) {
+      setQuotaConfirmOpen(true);
+      return;
+    }
+
+    await saveType();
+  }
+
+  async function saveType() {
+    setQuotaConfirmOpen(false);
+    const quotaNum = defaultQuota === '' ? null : Number(defaultQuota);
     try {
-      const payload = {
+      const payload: Partial<LeaveType> = {
         code,
         name,
-        default_quota: defaultQuota,
+        default_quota: deductsBalance ? quotaNum : null,
         deducts_balance: deductsBalance,
         requires_attachment: requiresAttachment,
         attachment_required_after: attachmentRequiredAfter === '' ? null : Number(attachmentRequiredAfter),
         max_days_per_request: maxDaysPerRequest === '' ? null : Number(maxDaysPerRequest),
         min_notice_days: minNoticeDays === '' ? null : Number(minNoticeDays),
         gender_restriction: genderRestriction === '' ? null : genderRestriction as 'male' | 'female',
-        exempt_from_staffing_limit: exemptFromStaffingLimit,
-        is_active: isActive
+        exempt_from_staffing_limit: exemptFromStaffingLimit
       };
+      if (modalMode === 'edit') payload.is_active = isActive;
 
+      let successMsg = '';
       if (modalMode === 'create') {
         await createLeaveType(payload);
       } else if (selectedType) {
-        await updateLeaveType(selectedType.id, { ...payload, updated_at: selectedType.updated_at });
+        const res = await updateLeaveType(selectedType.id, { ...payload, updated_at: selectedType.updated_at });
+        const match = (res?.message || '').match(/applies to (\d+) employee/i);
+        if (match) successMsg = `Kuota baru diterapkan ke ${match[1]} karyawan.`;
       }
       setIsModalOpen(false);
       loadTypes();
+      if (successMsg) {
+        setAlertTitle('Berhasil');
+        setAlertType('success');
+        setAlertMessage(successMsg);
+        setAlertOpen(true);
+      }
     } catch (e: any) {
       const err = e as ApiError;
-      if (isStaleData(err)) {
+      if (err.status === 409 && Array.isArray(err.details?.affected)) {
+        // Kuota diturunkan di bawah pemakaian karyawan (bukan stale data)
+        setQuotaConflict({ message: err.message, details: err.details });
+      } else if (err.status === 409 && err.details?.pending_requests !== undefined) {
+        setAlertTitle('Peringatan');
+        setAlertType('error');
+        setAlertMessage(`Masih ada ${err.details.pending_requests} pengajuan cuti jenis ini yang menunggu persetujuan. Selesaikan dulu sebelum mengaktifkan potong saldo.`);
+        setAlertOpen(true);
+      } else if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
       } else if (err.errors && Array.isArray(err.errors)) {
         const backendErrors: Record<string, string> = {};
         err.errors.forEach((item: any) => {
           if (item.field) {
-            backendErrors[item.field] = item.message;
+            backendErrors[item.field] = translateBackendMessage(item.field, item.message);
           }
         });
         if (Object.keys(backendErrors).length > 0) {
           setFormErrors(backendErrors);
           return;
         }
+        setAlertTitle('Peringatan');
+        setAlertType('error');
         setAlertMessage(err.message || 'Terdapat kesalahan validasi data');
         setAlertOpen(true);
+      } else if (err.status === 409) {
+        setFormErrors({ code: err.message || 'Kode jenis cuti sudah digunakan.' });
       } else {
+        setAlertTitle('Peringatan');
+        setAlertType('error');
         setAlertMessage(err.message || 'Gagal menyimpan jenis cuti');
         setAlertOpen(true);
       }
     }
+  }
+
+  function translateBackendMessage(field: string, message: string): string {
+    const m = (message || '').toLowerCase();
+    if (field === 'default_quota') {
+      return 'Kuota wajib diisi 1 sampai 365 hari untuk cuti yang memotong saldo.';
+    }
+    if (field === 'max_days_per_request') {
+      if (m.includes('quota')) return 'Maksimal hari per pengajuan tidak boleh melebihi kuota.';
+      return 'Maksimal hari per pengajuan harus antara 1 dan 365 hari.';
+    }
+    if (field === 'attachment_required_after') {
+      if (m.includes('less than') || m.includes('smaller') || m.includes('max')) {
+        return 'Batas durasi wajib lampiran harus lebih kecil dari maksimal hari per pengajuan.';
+      }
+      return 'Batas durasi wajib lampiran harus antara 0 dan 365 hari.';
+    }
+    return message;
   }
 
   const handleStaleReload = () => {
@@ -206,7 +266,7 @@ export function LeaveTypePage() {
       setSelectedType(current);
       setCode(current.code);
       setName(current.name);
-      setDefaultQuota(current.default_quota);
+      setDefaultQuota(current.default_quota ?? '');
       setDeductsBalance(current.deducts_balance);
       setRequiresAttachment(current.requires_attachment);
       setAttachmentRequiredAfter(current.attachment_required_after ?? '');
@@ -304,7 +364,7 @@ export function LeaveTypePage() {
                     <td>{type.name}</td>
                     <td>
                       {type.deducts_balance ? (
-                        <span>{type.default_quota} Hari/Tahun</span>
+                        <span>{type.default_quota ?? '-'} Hari/Tahun</span>
                       ) : (
                         <span style={{ color: '#64748b', fontSize: '13px' }}>Tidak Potong Saldo</span>
                       )}
@@ -404,12 +464,13 @@ export function LeaveTypePage() {
                     <label className="form-label">Kuota Default per Tahun (Hari) <span style={{color: 'red'}}>*</span></label>
                     <input 
                       type="number" 
-                      min={0} 
+                      min={1} 
                       max={365} 
+                      step={1}
                       className={`input-field ${formErrors.default_quota ? 'error-border' : ''}`}
                       style={formErrors.default_quota ? { borderColor: '#ef4444' } : undefined}
                       value={defaultQuota} 
-                      onChange={e => { setDefaultQuota(Number(e.target.value)); setFormErrors(prev => ({ ...prev, default_quota: '' })); }} 
+                      onChange={e => { setDefaultQuota(e.target.value === '' ? '' : Number(e.target.value)); setFormErrors(prev => ({ ...prev, default_quota: '' })); }} 
                       required 
                     />
                     {formErrors.default_quota && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.default_quota}</span>}
@@ -550,11 +611,64 @@ export function LeaveTypePage() {
         onCancel={() => { setSuggestDeactivateOpen(false); setTypeToDelete(null); }}
       />
 
+      <ConfirmModal
+        isOpen={quotaConfirmOpen}
+        title="Konfirmasi Perubahan Kuota"
+        message={`Kuota akan diubah dari ${selectedType?.default_quota} menjadi ${defaultQuota} hari untuk semua karyawan pada tahun ini. Lanjutkan?`}
+        onConfirm={saveType}
+        onCancel={() => setQuotaConfirmOpen(false)}
+      />
+
+      {quotaConflict && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setQuotaConflict(null)}>
+          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Kuota Tidak Dapat Diturunkan</h2>
+              <button className="modal-close-btn" onClick={() => setQuotaConflict(null)}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <p style={{ fontSize: '14px', color: '#475569', lineHeight: 1.5, marginTop: 0 }}>
+                Kuota tidak dapat diturunkan menjadi {quotaConflict.details.new_quota} hari pada tahun {quotaConflict.details.period_year} karena {quotaConflict.details.affected_count} karyawan sudah memakai atau mengajukan lebih dari itu.
+              </p>
+              <table className="employee-table" style={{ minWidth: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Jatah</th>
+                    <th>Sisa saat ini</th>
+                    <th>Sisa jika diubah</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quotaConflict.details.affected.map((a: any) => (
+                    <tr key={a.employee_id}>
+                      <td>{a.employee_name}</td>
+                      <td>{a.allocated}</td>
+                      <td>{a.balance}</td>
+                      <td style={{ color: '#dc2626', fontWeight: 600 }}>{a.balance_after}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {quotaConflict.details.affected_count > quotaConflict.details.affected.length && (
+                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: 0 }}>
+                  dan {quotaConflict.details.affected_count - quotaConflict.details.affected.length} karyawan lainnya
+                </p>
+              )}
+            </div>
+            <div className="modal-footer" style={{ padding: '16px 28px' }}>
+              <button type="button" className="btn btn-primary" onClick={() => setQuotaConflict(null)}>Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AlertModal
         isOpen={alertOpen}
-        title="Peringatan"
+        title={alertTitle}
+        type={alertType}
         message={alertMessage}
-        onClose={() => setAlertOpen(false)}
+        onClose={() => { setAlertOpen(false); setAlertTitle('Peringatan'); setAlertType('error'); }}
       />
 
       <StaleDataModal

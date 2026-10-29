@@ -6,7 +6,7 @@ export interface LeaveType {
   id: string;
   code: string;
   name: string;
-  default_quota: number;
+  default_quota: number | null;
   deducts_balance: boolean;
   requires_attachment: boolean;
   attachment_required_after: number | null;

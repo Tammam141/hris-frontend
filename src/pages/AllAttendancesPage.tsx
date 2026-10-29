@@ -506,13 +506,24 @@ export function AllAttendancesPage() {
                     </td>
                     <td>
                       <ShowIf feature="attendance.correct">
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '12px' }}
-                          onClick={() => openCorrectionModal(row)}
-                        >
-                          Koreksi
-                        </button>
+                        {row.status === 'leave' && row.leave_request_id ? (
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '12px', opacity: 0.5, cursor: 'not-allowed' }}
+                            disabled
+                            title="Hari cuti diubah lewat pengajuan cuti, bukan koreksi absensi"
+                          >
+                            Koreksi
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '12px' }}
+                            onClick={() => openCorrectionModal(row)}
+                          >
+                            Koreksi
+                          </button>
+                        )}
                       </ShowIf>
                     </td>
                   </tr>
@@ -588,7 +599,6 @@ export function AllAttendancesPage() {
                     <option value="present">Hadir</option>
                     <option value="late">Terlambat</option>
                     <option value="absent">Tidak Hadir</option>
-                    <option value="leave">Cuti</option>
                     <option value="holiday">Libur</option>
                   </select>
                   {correctionErrors.status && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{correctionErrors.status}</span>}
