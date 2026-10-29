@@ -1,7 +1,9 @@
 import { ApiError } from '../api/client';
 import { useState, useEffect, useCallback } from 'react';
 import { getAllAttendancesApi, correctAttendanceApi, CorrectAttendancePayload } from '../api/attendance';
+import { getDepartments } from '../api/department';
 import { Attendance } from '../types/attendance';
+import { Department } from '../types/employee';
 import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ShowIf } from '../components/ShowIf';
@@ -43,6 +45,46 @@ export function AllAttendancesPage() {
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
 
+  // State untuk Filter Absensi
+  const [filterDate, setFilterDate] = useState('');
+  const [filterEmployee, setFilterEmployee] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // Applied Filter (aktif saat disubmit)
+  const [appliedFilters, setAppliedFilters] = useState({
+    date: '',
+    employee: '',
+    departmentId: '',
+    status: ''
+  });
+
+  // Data referensi Departemen
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    getDepartments()
+      .then(res => {
+        if (res.success && Array.isArray(res.data)) {
+          setDepartments(res.data);
+          try {
+            localStorage.setItem('cached_departments', JSON.stringify({ owner: user?.id, data: res.data }));
+          } catch {}
+        }
+      })
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem('cached_departments');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && Array.isArray(parsed.data)) {
+              setDepartments(parsed.data);
+            }
+          }
+        } catch {}
+      });
+  }, [user?.id]);
+
   const page = attendanceResponse.page;
   const setPage = (updater: number | ((p: number) => number)) =>
     setAttendanceResponse(prev => ({ ...prev, page: typeof updater === 'function' ? updater(prev.page) : updater }));
@@ -51,7 +93,26 @@ export function AllAttendancesPage() {
     let ignore = false;
     setIsLoading(true);
 
-    getAllAttendancesApi({ page, limit: attendanceResponse.limit })
+    const params: Record<string, any> = {
+      page,
+      limit: attendanceResponse.limit
+    };
+
+    if (appliedFilters.date) {
+      params.start_date = appliedFilters.date;
+      params.end_date = appliedFilters.date;
+    }
+    if (appliedFilters.employee.trim()) {
+      params.search = appliedFilters.employee.trim();
+    }
+    if (appliedFilters.departmentId) {
+      params.department_id = appliedFilters.departmentId;
+    }
+    if (appliedFilters.status) {
+      params.status = appliedFilters.status;
+    }
+
+    getAllAttendancesApi(params)
       .then(res => {
         if (ignore) return;
         if (res.success) {
@@ -76,11 +137,31 @@ export function AllAttendancesPage() {
             if (cached) {
               const parsed = JSON.parse(cached);
               if (parsed && parsed.owner === user?.id && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                let filtered = [...parsed.data];
+                if (appliedFilters.date) {
+                  filtered = filtered.filter(a => a.attendance_date.startsWith(appliedFilters.date));
+                }
+                if (appliedFilters.employee.trim()) {
+                  const q = appliedFilters.employee.trim().toLowerCase();
+                  filtered = filtered.filter(a =>
+                    (a.employee_name && a.employee_name.toLowerCase().includes(q)) ||
+                    (a.employee_number && a.employee_number.toLowerCase().includes(q))
+                  );
+                }
+                if (appliedFilters.departmentId) {
+                  const dept = departments.find(d => d.id === appliedFilters.departmentId);
+                  if (dept) {
+                    filtered = filtered.filter(a => a.department_name === dept.name);
+                  }
+                }
+                if (appliedFilters.status) {
+                  filtered = filtered.filter(a => a.status === appliedFilters.status);
+                }
                 setAttendanceResponse(prev => ({
                   ...prev,
-                  data: parsed.data,
-                  total: parsed.total ?? 0,
-                  total_pages: parsed.total_pages ?? 1
+                  data: filtered,
+                  total: filtered.length,
+                  total_pages: Math.max(1, Math.ceil(filtered.length / prev.limit))
                 }));
                 setIsOfflineMode(true);
                 return;
@@ -99,12 +180,39 @@ export function AllAttendancesPage() {
     return () => {
       ignore = true;
     };
-  }, [page, attendanceResponse.limit, user?.id]);
+  }, [page, attendanceResponse.limit, appliedFilters, departments, user?.id]);
 
   useEffect(() => {
     const cleanup = loadData();
     return cleanup;
   }, [loadData]);
+
+  const handleApplyFilter = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setAppliedFilters({
+      date: filterDate,
+      employee: filterEmployee,
+      departmentId: filterDepartment,
+      status: filterStatus
+    });
+    setPage(1);
+  };
+
+  const handleResetFilter = () => {
+    setFilterDate('');
+    setFilterEmployee('');
+    setFilterDepartment('');
+    setFilterStatus('');
+    setAppliedFilters({
+      date: '',
+      employee: '',
+      departmentId: '',
+      status: ''
+    });
+    setPage(1);
+  };
+
+  const hasActiveFilter = Boolean(appliedFilters.date || appliedFilters.employee || appliedFilters.departmentId || appliedFilters.status);
 
 
   const translateStatus = (status: string) => {
@@ -245,6 +353,100 @@ export function AllAttendancesPage() {
       )}
 
       <div className="attendance-history-card" style={{ marginTop: '24px' }}>
+        {/* Form Filter Absensi */}
+        <form onSubmit={handleApplyFilter} style={{
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          alignItems: 'flex-end'
+        }}>
+          {/* Tanggal */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 150px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Tanggal</label>
+            <input 
+              type="date" 
+              className="input-field" 
+              value={filterDate} 
+              onChange={e => setFilterDate(e.target.value)} 
+              style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* Karyawan */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 180px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Karyawan</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Cari nama atau NIK..." 
+              value={filterEmployee} 
+              onChange={e => setFilterEmployee(e.target.value)} 
+              style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* Departemen */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 180px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Departemen</label>
+            <select 
+              className="input-field" 
+              value={filterDepartment} 
+              onChange={e => setFilterDepartment(e.target.value)} 
+              style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
+            >
+              <option value="">Semua Departemen</option>
+              {departments.map(dept => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 150px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Status</label>
+            <select 
+              className="input-field" 
+              value={filterStatus} 
+              onChange={e => setFilterStatus(e.target.value)} 
+              style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
+            >
+              <option value="">Semua Status</option>
+              <option value="present">Hadir</option>
+              <option value="late">Terlambat</option>
+              <option value="absent">Tidak Hadir</option>
+              <option value="leave">Cuti</option>
+              <option value="holiday">Libur</option>
+            </select>
+          </div>
+
+          {/* Aksi */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '0 0 auto' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Aksi</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ padding: '8px 18px', fontSize: '13.5px', height: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+              >
+                Terapkan
+              </button>
+              <button 
+                type="button" 
+                onClick={handleResetFilter} 
+                className="btn btn-secondary" 
+                style={{ padding: '8px 14px', fontSize: '13.5px', height: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </form>
+
         <div className="attendance-card-header">
           <h2 className="attendance-history-title">Data Absensi Global</h2>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
@@ -317,7 +519,11 @@ export function AllAttendancesPage() {
                 ))}
                 {attendanceResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="table-cell-no-data">Belum ada data absensi yang tercatat.</td>
+                    <td colSpan={9} className="table-cell-no-data">
+                      {hasActiveFilter 
+                        ? 'Tidak ada data absensi yang sesuai dengan filter yang dipilih.' 
+                        : 'Belum ada data absensi yang tercatat.'}
+                    </td>
                   </tr>
                 )}
               </tbody>
