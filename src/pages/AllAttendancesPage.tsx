@@ -37,6 +37,7 @@ export function AllAttendancesPage() {
     updated_at: undefined
   });
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
+  const [correctionErrors, setCorrectionErrors] = useState<Record<string, string>>({});
 
   // State untuk OCC (Optimistic Locking)
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
@@ -117,32 +118,78 @@ export function AllAttendancesPage() {
     }
   };
 
+  const toJakartaHHmm = (iso: string | null | undefined) =>
+    iso
+      ? new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(new Date(iso))
+      : '';
+
   const openCorrectionModal = (record: Attendance) => {
     setCorrectionTarget(record);
     setCorrectionForm({
       status: record.status as any,
-      check_in_at: record.check_in_at ? record.check_in_at.substring(0, 5) : '', // 'HH:mm' expected usually, wait no format is HH:mm:ss in API? API takes string, let's keep it simple 'HH:mm' for input type time
-      check_out_at: record.check_out_at ? record.check_out_at.substring(0, 5) : '',
+      check_in_at: toJakartaHHmm(record.check_in_at),
+      check_out_at: toJakartaHHmm(record.check_out_at),
       reason: '',
       updated_at: record.updated_at || undefined
     });
+    setCorrectionErrors({});
   };
 
   const handleCorrectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!correctionTarget) return;
-    if (correctionForm.reason.length < 10) {
-      setAlertInfo({ open: true, title: 'Validasi Gagal', message: 'Alasan wajib diisi minimal 10 karakter.', type: 'error' });
+
+    setCorrectionErrors({});
+    const newErrors: Record<string, string> = {};
+    const trimmedReason = correctionForm.reason.trim();
+    const needsTime = ['present', 'late'].includes(correctionForm.status);
+
+    if (needsTime && !correctionForm.check_in_at) {
+      newErrors.check_in_at = 'Jam masuk wajib diisi untuk status Hadir/Terlambat';
+    }
+
+    if (!correctionForm.check_in_at && correctionForm.check_out_at) {
+      newErrors.check_in_at = 'Jam pulang tidak boleh diisi tanpa jam masuk';
+    }
+
+    if (trimmedReason.length < 10) {
+      newErrors.reason = 'Alasan wajib diisi minimal 10 karakter';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setCorrectionErrors(newErrors);
       return;
     }
-    
+
     setIsSubmittingCorrection(true);
     try {
+      const toIso = (date: string, hhmm: string) => `${date}T${hhmm}:00+07:00`;
+      const date = correctionTarget.attendance_date.slice(0, 10);
+
+      let checkOutDate = date;
+      // Jam pulang lebih kecil dari jam masuk = lembur lewat tengah malam, pakai tanggal esoknya
+      if (correctionForm.check_out_at && correctionForm.check_in_at &&
+          correctionForm.check_out_at <= correctionForm.check_in_at) {
+        const d = new Date(`${date}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1);
+        checkOutDate = d.toISOString().slice(0, 10);
+      }
+
       const payload: CorrectAttendancePayload = {
-        ...correctionForm,
-        check_in_at: correctionForm.check_in_at ? `${correctionForm.check_in_at}:00` : undefined,
-        check_out_at: correctionForm.check_out_at ? `${correctionForm.check_out_at}:00` : undefined,
+        status: correctionForm.status,
+        reason: trimmedReason,
+        updated_at: correctionForm.updated_at,
+        check_in_at: needsTime && correctionForm.check_in_at
+          ? toIso(date, correctionForm.check_in_at) : null,
+        check_out_at: needsTime && correctionForm.check_out_at
+          ? toIso(checkOutDate, correctionForm.check_out_at) : null,
       };
+
       const res = await correctAttendanceApi(correctionTarget.id, payload);
       setAlertInfo({ open: true, title: 'Berhasil', message: res.message || 'Absensi berhasil dikoreksi.', type: 'success' });
       setCorrectionTarget(null);
@@ -152,6 +199,18 @@ export function AllAttendancesPage() {
       if (isStaleData(err)) {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
+      } else if (err.errors && Array.isArray(err.errors)) {
+        const backendErrors: Record<string, string> = {};
+        err.errors.forEach((item: any) => {
+          if (item.field) {
+            backendErrors[item.field] = item.message;
+          }
+        });
+        if (Object.keys(backendErrors).length > 0) {
+          setCorrectionErrors(backendErrors);
+          return;
+        }
+        setAlertInfo({ open: true, title: 'Validasi Gagal', message: err.message || 'Data koreksi tidak valid.', type: 'error' });
       } else {
         setAlertInfo({ open: true, title: 'Error', message: err.message || 'Gagal menyimpan koreksi absensi.', type: 'error' });
       }
@@ -278,14 +337,6 @@ export function AllAttendancesPage() {
         )}
       </div>
 
-      <AlertModal
-        isOpen={alertInfo.open}
-        title={alertInfo.title}
-        type={alertInfo.type}
-        message={alertInfo.message}
-        onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
-      />
-
       {/* Modal Koreksi */}
       {correctionTarget && (
         <div className="modal-overlay" onClick={() => !isSubmittingCorrection && setCorrectionTarget(null)}>
@@ -312,9 +363,20 @@ export function AllAttendancesPage() {
                 <div className="form-group">
                   <label className="form-label">Status Absensi <span style={{ color: '#ef4444' }}>*</span></label>
                   <select 
-                    className="input-field" 
+                    className={`input-field ${correctionErrors.status ? 'error-border' : ''}`}
+                    style={correctionErrors.status ? { borderColor: '#ef4444' } : undefined}
                     value={correctionForm.status} 
-                    onChange={e => setCorrectionForm(prev => ({ ...prev, status: e.target.value as any }))}
+                    onChange={e => {
+                      const newStatus = e.target.value as any;
+                      const isNoTime = ['absent', 'leave', 'holiday'].includes(newStatus);
+                      setCorrectionForm(prev => ({
+                        ...prev,
+                        status: newStatus,
+                        check_in_at: isNoTime ? '' : prev.check_in_at,
+                        check_out_at: isNoTime ? '' : prev.check_out_at,
+                      }));
+                      setCorrectionErrors(prev => ({ ...prev, status: '', check_in_at: '', check_out_at: '' }));
+                    }}
                     required
                   >
                     <option value="present">Hadir</option>
@@ -323,43 +385,63 @@ export function AllAttendancesPage() {
                     <option value="leave">Cuti</option>
                     <option value="holiday">Libur</option>
                   </select>
+                  {correctionErrors.status && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{correctionErrors.status}</span>}
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">
-                    <label className="form-label">Jam Masuk</label>
+                    <label className="form-label">
+                      Jam Masuk {['present', 'late'].includes(correctionForm.status) && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
                     <input 
                       type="time" 
-                      className="input-field" 
-                      value={correctionForm.check_in_at} 
-                      onChange={e => setCorrectionForm(prev => ({ ...prev, check_in_at: e.target.value }))}
+                      className={`input-field ${correctionErrors.check_in_at ? 'error-border' : ''}`}
+                      style={correctionErrors.check_in_at ? { borderColor: '#ef4444' } : undefined}
+                      value={correctionForm.check_in_at || ''} 
+                      onChange={e => {
+                        setCorrectionForm(prev => ({ ...prev, check_in_at: e.target.value }));
+                        setCorrectionErrors(prev => ({ ...prev, check_in_at: '' }));
+                      }}
                       disabled={['absent', 'leave', 'holiday'].includes(correctionForm.status)}
                     />
+                    {correctionErrors.check_in_at && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{correctionErrors.check_in_at}</span>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Jam Pulang</label>
                     <input 
                       type="time" 
-                      className="input-field" 
-                      value={correctionForm.check_out_at} 
-                      onChange={e => setCorrectionForm(prev => ({ ...prev, check_out_at: e.target.value }))}
+                      className={`input-field ${correctionErrors.check_out_at ? 'error-border' : ''}`}
+                      style={correctionErrors.check_out_at ? { borderColor: '#ef4444' } : undefined}
+                      value={correctionForm.check_out_at || ''} 
+                      onChange={e => {
+                        setCorrectionForm(prev => ({ ...prev, check_out_at: e.target.value }));
+                        setCorrectionErrors(prev => ({ ...prev, check_out_at: '' }));
+                      }}
                       disabled={['absent', 'leave', 'holiday'].includes(correctionForm.status)}
                     />
+                    {correctionErrors.check_out_at && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{correctionErrors.check_out_at}</span>}
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Alasan Koreksi <span style={{ color: '#ef4444' }}>*</span></label>
                   <textarea 
-                    className="input-field" 
+                    className={`input-field ${correctionErrors.reason ? 'error-border' : ''}`}
+                    style={correctionErrors.reason ? { borderColor: '#ef4444' } : undefined}
                     placeholder="Contoh: Lupa tap absen, mesin error..."
                     rows={3}
-                    minLength={10}
                     required
                     value={correctionForm.reason} 
-                    onChange={e => setCorrectionForm(prev => ({ ...prev, reason: e.target.value }))}
+                    onChange={e => {
+                      setCorrectionForm(prev => ({ ...prev, reason: e.target.value }));
+                      setCorrectionErrors(prev => ({ ...prev, reason: '' }));
+                    }}
                   />
-                  <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Minimal 10 karakter.</p>
+                  {correctionErrors.reason ? (
+                    <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{correctionErrors.reason}</span>
+                  ) : (
+                    <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Minimal 10 karakter.</p>
+                  )}
                 </div>
               </div>
 
@@ -395,6 +477,14 @@ export function AllAttendancesPage() {
           onReload={handleStaleReload}
         />
       )}
+
+      <AlertModal
+        isOpen={alertInfo.open}
+        title={alertInfo.title}
+        type={alertInfo.type}
+        message={alertInfo.message}
+        onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

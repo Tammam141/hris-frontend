@@ -13,7 +13,7 @@ export function AlertModal({ isOpen, title, message, onClose, type = 'error' }: 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ color: type === 'error' ? '#dc2626' : type === 'warning' ? '#d97706' : '#0f172a' }}>

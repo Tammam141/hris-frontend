@@ -24,7 +24,7 @@ export function StaleDataModal({ isOpen, onClose, onReload, details }: StaleData
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ color: '#dc2626' }}>Data Sudah Berubah</h2>

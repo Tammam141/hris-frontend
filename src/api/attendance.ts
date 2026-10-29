@@ -80,8 +80,8 @@ export async function getAttendanceReportApi(params?: Record<string, any>): Prom
 // Tipe data untuk fitur koreksi absensi oleh HR
 export interface CorrectAttendancePayload {
   status: 'present' | 'late' | 'absent' | 'leave' | 'holiday';
-  check_in_at?: string;
-  check_out_at?: string;
+  check_in_at?: string | null;
+  check_out_at?: string | null;
   reason: string;
   updated_at?: string;
 }
