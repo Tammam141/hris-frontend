@@ -288,17 +288,29 @@ export function AllAttendancesPage() {
 
       {/* Modal Koreksi */}
       {correctionTarget && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>Koreksi Absensi</h2>
-            <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
-              Anda sedang mengoreksi absensi <strong>{correctionTarget.employee_name}</strong> pada tanggal {formatPlainDate(correctionTarget.attendance_date)}.
-            </p>
+        <div className="modal-overlay" onClick={() => !isSubmittingCorrection && setCorrectionTarget(null)}>
+          <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Koreksi Absensi</h2>
+              <button 
+                type="button" 
+                className="modal-close-btn" 
+                onClick={() => setCorrectionTarget(null)}
+                disabled={isSubmittingCorrection}
+                title="Tutup"
+              >
+                &times;
+              </button>
+            </div>
 
-            <form onSubmit={handleCorrectionSubmit}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                <div>
-                  <label className="form-label">Status Absensi *</label>
+            <form onSubmit={handleCorrectionSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', margin: 0 }}>
+              <div className="modal-body" style={{ overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
+                <div style={{ backgroundColor: '#f0f9ff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #bae6fd', fontSize: '13.5px', color: '#0369a1', lineHeight: '1.5' }}>
+                  Anda sedang mengoreksi absensi <strong>{correctionTarget.employee_name}</strong> pada tanggal <strong>{formatPlainDate(correctionTarget.attendance_date)}</strong>.
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Status Absensi <span style={{ color: '#ef4444' }}>*</span></label>
                   <select 
                     className="input-field" 
                     value={correctionForm.status} 
@@ -313,8 +325,8 @@ export function AllAttendancesPage() {
                   </select>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ flex: 1 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
                     <label className="form-label">Jam Masuk</label>
                     <input 
                       type="time" 
@@ -324,7 +336,7 @@ export function AllAttendancesPage() {
                       disabled={['absent', 'leave', 'holiday'].includes(correctionForm.status)}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className="form-group">
                     <label className="form-label">Jam Pulang</label>
                     <input 
                       type="time" 
@@ -336,8 +348,8 @@ export function AllAttendancesPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="form-label">Alasan Koreksi *</label>
+                <div className="form-group">
+                  <label className="form-label">Alasan Koreksi <span style={{ color: '#ef4444' }}>*</span></label>
                   <textarea 
                     className="input-field" 
                     placeholder="Contoh: Lupa tap absen, mesin error..."
@@ -351,12 +363,13 @@ export function AllAttendancesPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div className="modal-footer" style={{ padding: '20px 28px 24px 28px', gap: '16px', flexShrink: 0 }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary" 
                   onClick={() => setCorrectionTarget(null)}
                   disabled={isSubmittingCorrection}
+                  style={{ minWidth: '100px', padding: '10px 20px' }}
                 >
                   Batal
                 </button>
@@ -364,6 +377,7 @@ export function AllAttendancesPage() {
                   type="submit" 
                   className="btn btn-primary" 
                   disabled={isSubmittingCorrection}
+                  style={{ minWidth: '140px', padding: '10px 20px' }}
                 >
                   {isSubmittingCorrection ? 'Menyimpan...' : 'Simpan Koreksi'}
                 </button>

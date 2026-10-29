@@ -18,6 +18,11 @@ import '../components/ui/attendance.css';
 
 export function AttendancePage() {
   const { user } = useAuth();
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [period, setPeriod] = useState<{ month?: number; year?: number; start_date?: string; end_date?: string } | null>(null);
+
   const [todayData, setTodayData] = useState<AttendanceTodayResponse | null>(null);
   const [history, setHistory] = useState<Attendance[]>([]);
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
@@ -30,19 +35,30 @@ export function AttendancePage() {
   const dispatch = useDispatch();
   const offlineQueue = useSelector((state: RootState) => state.attendance.offlineQueue);
 
-  const loadData = useCallback(async () => {
+  const selectedMonthRef = useRef(selectedMonth);
+  const selectedYearRef = useRef(selectedYear);
+  useEffect(() => {
+    selectedMonthRef.current = selectedMonth;
+    selectedYearRef.current = selectedYear;
+  }, [selectedMonth, selectedYear]);
+
+  const loadData = useCallback(async (m?: number, y?: number) => {
     setIsLoading(true);
+    const month = m ?? selectedMonthRef.current;
+    const year = y ?? selectedYearRef.current;
+
     try {
       // Parallel fetch
       const [todayRes, historyRes] = await Promise.all([
         getTodayAttendanceApi(),
-        getMyAttendancesApi() // Default to current month
+        getMyAttendancesApi({ month, year })
       ]);
 
       if (todayRes.success) setTodayData(todayRes.data);
       if (historyRes.success) {
         setHistory(historyRes.data);
         if (historyRes.summary) setSummary(historyRes.summary);
+        if (historyRes.period) setPeriod(historyRes.period);
       }
 
       // Fetch log absensi mentah secara terpisah agar tidak merusak halaman jika API 404 (belum siap)
@@ -65,8 +81,58 @@ export function AttendancePage() {
   }, [user?.employee?.id]);
 
   useEffect(() => {
-    loadData();
+    loadData(selectedMonth, selectedYear);
+  }, [loadData, selectedMonth, selectedYear]);
+
+  // Refresh otomatis saat tab kembali aktif (visibilitychange)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [loadData]);
+
+  // Refresh otomatis saat batas absen lewat (absent_cutoff_time + 1 menit zona Asia/Jakarta)
+  useEffect(() => {
+    if (!todayData?.schedule?.absent_cutoff_time) return;
+
+    try {
+      const [cutH, cutM] = todayData.schedule.absent_cutoff_time.split(':').map(Number);
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).formatToParts(new Date());
+
+      const map: Record<string, number> = {};
+      for (const p of parts) {
+        if (p.type !== 'literal') {
+          map[p.type] = parseInt(p.value, 10);
+        }
+      }
+
+      // Target cutoff + 1 menit dalam detik hari ini di Jakarta
+      const targetSec = cutH * 3600 + (cutM + 1) * 60;
+      const currentSec = (map.hour || 0) * 3600 + (map.minute || 0) * 60 + (map.second || 0);
+      const diffSec = targetSec - currentSec;
+
+      if (diffSec > 0) {
+        const timer = setTimeout(() => {
+          loadData();
+        }, diffSec * 1000);
+        return () => clearTimeout(timer);
+      }
+    } catch (err) {
+      console.error('Error setting cutoff refresh timer:', err);
+    }
+  }, [todayData?.schedule?.absent_cutoff_time, loadData]);
 
   const isSyncingRef = useRef(false);
 
@@ -321,6 +387,15 @@ export function AttendancePage() {
                 )}
               </div>
 
+              {todayData?.attendance && !todayData.attendance.check_in_at && todayData.attendance.status && (
+                <div className="attendance-time-block">
+                  <p className="attendance-time-label">Status Hari Ini</p>
+                  <div style={{ marginTop: '4px' }}>
+                    {translateStatus(todayData.attendance.status)}
+                  </div>
+                </div>
+              )}
+
               <div className="attendance-time-block">
                 <p className="attendance-time-label">Jam Masuk</p>
                 <div className={`attendance-time-value ${todayData?.attendance?.check_in_at ? 'check-in' : 'empty'}`}>
@@ -380,6 +455,10 @@ export function AttendancePage() {
                 <p className="attendance-summary-label">Total Cuti</p>
               </div>
               <div className="attendance-summary-card">
+                <p className="attendance-summary-value holiday">{summary.holiday ?? 0}</p>
+                <p className="attendance-summary-label">Total Libur</p>
+              </div>
+              <div className="attendance-summary-card">
                 <p className="attendance-summary-value work">{formatMinutesToDuration(summary.total_work_minutes)}</p>
                 <p className="attendance-summary-label">Total Jam Kerja</p>
               </div>
@@ -388,8 +467,61 @@ export function AttendancePage() {
 
           {/* Riwayat Absensi */}
           <div className="attendance-history-card">
-            <div className="attendance-card-header">
-              <h2 className="attendance-history-title">Riwayat Absensi Bulan Ini</h2>
+            <div className="attendance-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h2 className="attendance-history-title">Riwayat Absensi</h2>
+                {period?.start_date && period?.end_date && (
+                  <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.25rem 0 0' }}>
+                    Periode: {formatPlainDate(period.start_date)} &ndash; {formatPlainDate(period.end_date)}
+                  </p>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="attendance-select-filter"
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '0.375rem',
+                    border: '1px solid #d1d5db',
+                    fontSize: '0.875rem',
+                    backgroundColor: '#fff',
+                    color: '#374151'
+                  }}
+                >
+                  <option value={1}>Januari</option>
+                  <option value={2}>Februari</option>
+                  <option value={3}>Maret</option>
+                  <option value={4}>April</option>
+                  <option value={5}>Mei</option>
+                  <option value={6}>Juni</option>
+                  <option value={7}>Juli</option>
+                  <option value={8}>Agustus</option>
+                  <option value={9}>September</option>
+                  <option value={10}>Oktober</option>
+                  <option value={11}>November</option>
+                  <option value={12}>Desember</option>
+                </select>
+
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="attendance-select-filter"
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '0.375rem',
+                    border: '1px solid #d1d5db',
+                    fontSize: '0.875rem',
+                    backgroundColor: '#fff',
+                    color: '#374151'
+                  }}
+                >
+                  {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="attendance-table-wrapper">
               <table className="attendance-table">
@@ -442,7 +574,7 @@ export function AttendancePage() {
                   ))}
                   {history.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="table-cell-no-data">Tidak ada data absensi di bulan ini.</td>
+                      <td colSpan={7} className="table-cell-no-data">Tidak ada data absensi pada periode ini.</td>
                     </tr>
                   )}
                 </tbody>

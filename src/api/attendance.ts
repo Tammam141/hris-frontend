@@ -39,6 +39,12 @@ export interface AttendanceListResponse {
   success: boolean;
   data: Attendance[];
   summary?: AttendanceSummary;
+  period?: {
+    month?: number;
+    year?: number;
+    start_date?: string;
+    end_date?: string;
+  };
   meta: {
     page: number;
     limit: number;

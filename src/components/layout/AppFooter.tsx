@@ -44,6 +44,18 @@ export function AppFooter({ className = '', variant = 'default' }: AppFooterProp
               </a>
             </div>
           </div>
+          <div className="app-footer-dev-card">
+            <span className="app-footer-role">Quality Assurance (QA)</span>
+            <div className="app-footer-dev-info">
+              <span className="app-footer-name">Zahrah Purnama Alam</span>
+              <a href="https://github.com/zhrahprn" target="_blank" rel="noopener noreferrer" title="GitHub" className="app-footer-social-link">
+                <GithubIcon size={14} />
+              </a>
+              <a href="https://www.linkedin.com/in/zahrah-purnama-alam-464b312b0" target="_blank" rel="noopener noreferrer" title="LinkedIn" className="app-footer-social-link">
+                <LinkedinIcon size={14} />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
