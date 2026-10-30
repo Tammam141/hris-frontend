@@ -82,6 +82,14 @@ export function Pagination({
         <button
           type="button"
           className="app-pagination-btn"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage <= 1}
+        >
+          First
+        </button>
+        <button
+          type="button"
+          className="app-pagination-btn"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage <= 1}
         >
@@ -112,6 +120,15 @@ export function Pagination({
           disabled={currentPage >= maxPages}
         >
           {nextLabel}
+        </button>
+
+        <button
+          type="button"
+          className="app-pagination-btn"
+          onClick={() => onPageChange(maxPages)}
+          disabled={currentPage >= maxPages}
+        >
+          Last
         </button>
       </div>
     </div>
