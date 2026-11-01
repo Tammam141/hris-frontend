@@ -111,7 +111,7 @@ export function WorkScheduleManagementPage() {
               <thead style={{ backgroundColor: '#f8fafc' }}>
                 <tr>
                   <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Nama Jadwal</th>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Departemen</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Divisi</th>
                   <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Jam Kerja</th>
                   <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Hari Kerja</th>
                   <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Toleransi Telat</th>
@@ -121,11 +121,26 @@ export function WorkScheduleManagementPage() {
               </thead>
               <tbody>
                 {schedules.map(schedule => {
-                  const isDefault = schedule.department_id === null;
+                  const isDefault = schedule.is_default;
                   return (
                     <tr key={schedule.id} style={{ borderBottom: '1px solid #e2e8f0', transition: 'background-color 0.2s' }} className="matrix-row">
                       <td style={{ fontWeight: 600, padding: '16px 24px', color: '#0f172a' }}>{schedule.name} {isDefault && <span style={{ fontSize: '11px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>Bawaan</span>}</td>
-                      <td style={{ padding: '16px 24px' }}>{schedule.department_id ? <span style={{ color: '#0f172a' }}>Spesifik Departemen</span> : <span style={{ color: '#64748b' }}>Semua Departemen</span>}</td>
+                      <td style={{ padding: '16px 24px' }}>
+                        {isDefault ? (
+                          <span style={{ color: '#64748b' }}>Semua Divisi (Bawaan)</span>
+                        ) : (schedule.departments || []).length === 0 ? (
+                          <span style={{ color: '#94a3b8' }}>-</span>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {schedule.departments.slice(0, 3).map(d => (
+                              <span key={d.id} style={{ fontSize: '12px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '12px', fontWeight: 500 }}>{d.name}</span>
+                            ))}
+                            {schedule.departments.length > 3 && (
+                              <span style={{ fontSize: '12px', color: '#64748b', padding: '2px 4px' }}>+{schedule.departments.length - 3} lainnya</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '16px 24px', fontWeight: 500, color: '#334155' }}>{schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}</td>
                       <td style={{ padding: '16px 24px', color: '#475569' }}>{formatDays(schedule)}</td>
                       <td style={{ padding: '16px 24px', color: '#475569' }}>{schedule.late_tolerance_minutes} Menit</td>

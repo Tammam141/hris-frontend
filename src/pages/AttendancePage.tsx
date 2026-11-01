@@ -27,6 +27,8 @@ export function AttendancePage() {
   const [history, setHistory] = useState<Attendance[]>([]);
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -263,12 +265,14 @@ export function AttendancePage() {
     // JIKA ONLINE
     setIsSubmitting(true);
     try {
+      let successMessage = `Berhasil melakukan absensi ${label}.`;
       if (type === 'check-in') {
         await checkInApi(undefined);
       } else {
-        await checkOutApi(undefined);
+        const res = await checkOutApi(undefined);
+        if (res?.message) successMessage = res.message;
       }
-      setAlertInfo({ open: true, title: 'Berhasil', message: `Berhasil melakukan absensi ${label}.`, type: 'success' });
+      setAlertInfo({ open: true, title: 'Berhasil', message: successMessage, type: 'success' });
       loadData();
     } catch (e: any) {
       if (e.isNetworkError) {
@@ -347,6 +351,85 @@ export function AttendancePage() {
     }
   };
 
+  const statusLabels: Record<string, string> = {
+    present: 'Hadir',
+    late: 'Terlambat',
+    absent: 'Tidak Hadir',
+    leave: 'Cuti',
+    holiday: 'Libur'
+  };
+
+  const filteredHistory = history.filter(row => {
+    if (filterDate && row.attendance_date.slice(0, 10) !== filterDate) return false;
+    if (filterStatus && row.status !== filterStatus) return false;
+    return true;
+  });
+
+  const handleDateFilterChange = (value: string) => {
+    setFilterDate(value);
+    // Riwayat dimuat per bulan, jadi pindahkan periode ke bulan dari tanggal yang dipilih
+    if (value) {
+      const [y, m] = value.split('-').map(Number);
+      if (y && m) {
+        setSelectedYear(y);
+        setSelectedMonth(m);
+      }
+    }
+  };
+
+  const handleResetFilter = () => {
+    setFilterDate('');
+    setFilterStatus('');
+  };
+
+  const handleDownload = () => {
+    const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const header = ['Tanggal', 'Jam Masuk (WIB)', 'Jam Pulang (WIB)', 'Status', 'Terlambat (menit)', 'Jam Kerja (menit)', 'Lembur (menit)', 'Catatan'];
+    const rows = filteredHistory.map(row => [
+      row.attendance_date.slice(0, 10),
+      row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '',
+      row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '',
+      statusLabels[row.status] || row.status,
+      row.late_minutes || 0,
+      row.work_minutes || 0,
+      row.overtime_minutes || 0,
+      row.note || ''
+    ]);
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const formatLongDate = (iso: string) => {
+      const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+      return `${d} ${monthNames[m - 1]} ${y}`;
+    };
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    const startIso = period?.start_date || `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    const endIso = period?.end_date || `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const periodText = `${formatLongDate(startIso)} - ${formatLongDate(endIso)}`;
+
+    const emp = user?.employee;
+    const employeeName = emp?.full_name || user?.full_name || '-';
+    const identity = [
+      ['Nama Karyawan', employeeName],
+      ['NIK', emp?.employee_number || user?.employee_number || '-'],
+      ['Departemen', emp?.department_name || '-'],
+      ['Jabatan', emp?.position_name || '-'],
+      ['Periode', periodText],
+    ];
+    const identityLines = identity.map(r => r.map(csvCell).join(','));
+
+    const tableLines = [header, ...rows].map(r => r.map(csvCell).join(','));
+    const csv = [...identityLines, '', ...tableLines].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = employeeName.trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Karyawan';
+    a.download = `Absensi_${safeName}_${monthNames[selectedMonth - 1]}_${selectedYear}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header-row">
@@ -364,6 +447,13 @@ export function AttendancePage() {
           {/* Card Absensi Hari Ini */}
           <div className="attendance-today-card">
             <h2 className="attendance-today-title">Absensi Hari Ini ({todayData?.date})</h2>
+
+            {todayData?.overnight_attendance && (
+              <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px' }}>
+                Anda belum absen pulang untuk <strong>{formatPlainDate(todayData.overnight_attendance.attendance_date)}</strong>
+                {todayData.overnight_attendance.check_in_at ? `, masuk ${formatToJakartaTimeOnly(todayData.overnight_attendance.check_in_at)}` : ''}.
+              </div>
+            )}
             
             <div className="attendance-today-content">
               {offlineQueue.length > 0 && (
@@ -462,6 +552,11 @@ export function AttendancePage() {
                 <p className="attendance-summary-value work">{formatMinutesToDuration(summary.total_work_minutes)}</p>
                 <p className="attendance-summary-label">Total Jam Kerja</p>
               </div>
+              <div className="attendance-summary-card">
+                <p className="attendance-summary-value work">{formatMinutesToDuration(summary.total_overtime_minutes ?? 0)}</p>
+                <p className="attendance-summary-label">Total Lembur</p>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{summary.overtime_days ?? 0} hari</p>
+              </div>
             </div>
           )}
 
@@ -523,6 +618,38 @@ export function AttendancePage() {
                 </select>
               </div>
             </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', margin: '12px 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Tanggal</label>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={e => handleDateFilterChange(e.target.value)}
+                  style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', fontSize: '0.875rem', backgroundColor: '#fff', color: '#374151' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={e => setFilterStatus(e.target.value)}
+                  style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', fontSize: '0.875rem', backgroundColor: '#fff', color: '#374151' }}
+                >
+                  <option value="">Semua Status</option>
+                  <option value="present">Hadir</option>
+                  <option value="late">Terlambat</option>
+                  <option value="absent">Tidak Hadir</option>
+                  <option value="leave">Cuti</option>
+                  <option value="holiday">Libur</option>
+                </select>
+              </div>
+              {(filterDate || filterStatus) && (
+                <button type="button" className="btn btn-secondary" onClick={handleResetFilter} style={{ padding: '0.4rem 0.9rem', fontSize: '0.875rem' }}>Reset</button>
+              )}
+              <button type="button" className="btn btn-primary" onClick={handleDownload} disabled={filteredHistory.length === 0} style={{ padding: '0.4rem 0.9rem', fontSize: '0.875rem', marginLeft: 'auto' }}>
+                Download CSV
+              </button>
+            </div>
             <div className="attendance-table-wrapper">
               <table className="attendance-table">
                 <thead>
@@ -533,11 +660,12 @@ export function AttendancePage() {
                     <th>Status</th>
                     <th>Terlambat</th>
                     <th>Jam Kerja</th>
+                    <th>Lembur</th>
                     <th>Catatan</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map(row => (
+                  {filteredHistory.map(row => (
                     <tr key={row.id}>
                       <td className="table-cell-date">{formatPlainDate(row.attendance_date)}</td>
                       <td>{row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '-'}</td>
@@ -545,6 +673,7 @@ export function AttendancePage() {
                       <td>{translateStatus(row.status)}</td>
                       <td>{row.late_minutes > 0 ? <span className="table-cell-late">{row.late_minutes} mnt</span> : <span className="table-cell-empty">-</span>}</td>
                       <td>{row.work_minutes ? formatMinutesToDuration(row.work_minutes) : <span className="table-cell-empty">-</span>}</td>
+                      <td>{row.overtime_minutes > 0 ? formatMinutesToDuration(row.overtime_minutes) : <span className="table-cell-empty">-</span>}</td>
                       <td>
                         {(() => {
                           if (!row.note) return <span className="note-empty">Tidak ada</span>;
@@ -572,9 +701,9 @@ export function AttendancePage() {
                       </td>
                     </tr>
                   ))}
-                  {history.length === 0 && (
+                  {filteredHistory.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="table-cell-no-data">Tidak ada data absensi pada periode ini.</td>
+                      <td colSpan={8} className="table-cell-no-data">Tidak ada data absensi pada periode ini.</td>
                     </tr>
                   )}
                 </tbody>

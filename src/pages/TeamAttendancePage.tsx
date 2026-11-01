@@ -2,7 +2,7 @@ import { ApiError } from '../api/client';
 import { useState, useEffect } from 'react';
 import { getTeamAttendancesApi } from '../api/attendance';
 import { Attendance } from '../types/attendance';
-import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
+import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
@@ -131,6 +131,7 @@ export function TeamAttendancePage() {
                   <th>Departemen</th>
                   <th>Jam Masuk</th>
                   <th>Jam Pulang</th>
+                  <th>Lembur</th>
                   <th>Status</th>
                   <th>Catatan</th>
                 </tr>
@@ -150,6 +151,7 @@ export function TeamAttendancePage() {
                     <td>{row.department_name || '-'}</td>
                     <td>{row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '-'}</td>
                     <td>{row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '-'}</td>
+                    <td>{row.overtime_minutes > 0 ? formatMinutesToDuration(row.overtime_minutes) : '-'}</td>
                     <td>{translateStatus(row.status)}</td>
                     <td>
                       {row.check_in_source === 'offline_sync' || row.check_out_source === 'offline_sync' ? (
@@ -172,7 +174,7 @@ export function TeamAttendancePage() {
                 ))}
                 {teamAttendanceResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
+                    <td colSpan={9} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
                   </tr>
                 )}
               </tbody>

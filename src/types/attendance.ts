@@ -11,6 +11,7 @@ export interface Attendance {
   status: AttendanceStatus;
   late_minutes: number;
   work_minutes: number | null;
+  overtime_minutes: number;
   leave_request_id: string | null;
   note: string | null;
   check_in_source?: 'online' | 'offline_sync' | 'system' | 'correction';
@@ -29,6 +30,7 @@ export interface AttendanceTodayResponse {
   server_time: string;           
   schedule: WorkSchedule | null;
   attendance: Attendance | null;
+  overnight_attendance: Attendance | null;
   can_check_in: boolean;
   can_check_out: boolean;
   blocked_reason: string | null;
@@ -42,6 +44,8 @@ export interface AttendanceSummary {
   holiday: number;
   total_late_minutes: number;
   total_work_minutes: number;
+  total_overtime_minutes: number;
+  overtime_days: number;
 }
 
 export interface MonthlyReportRow {
@@ -57,6 +61,8 @@ export interface MonthlyReportRow {
   holiday: number;
   total_late_minutes: number;
   total_work_minutes: number;
+  total_overtime_minutes: number;
+  overtime_days: number;
 }
 
 export interface AttendanceEvent {

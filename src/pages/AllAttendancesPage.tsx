@@ -4,7 +4,7 @@ import { getAllAttendancesApi, correctAttendanceApi, CorrectAttendancePayload } 
 import { getDepartments } from '../api/department';
 import { Attendance } from '../types/attendance';
 import { Department } from '../types/employee';
-import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
+import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { ShowIf } from '../components/ShowIf';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
@@ -466,6 +466,7 @@ export function AllAttendancesPage() {
                   <th>Departemen</th>
                   <th>Jam Masuk</th>
                   <th>Jam Pulang</th>
+                  <th>Lembur</th>
                   <th>Status</th>
                   <th>Catatan</th>
                   <th>Aksi</th>
@@ -486,6 +487,7 @@ export function AllAttendancesPage() {
                     <td>{row.department_name || '-'}</td>
                     <td>{row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '-'}</td>
                     <td>{row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '-'}</td>
+                    <td>{row.overtime_minutes > 0 ? formatMinutesToDuration(row.overtime_minutes) : '-'}</td>
                     <td>{translateStatus(row.status)}</td>
                     <td>
                       {row.check_in_source === 'offline_sync' || row.check_out_source === 'offline_sync' ? (
@@ -530,7 +532,7 @@ export function AllAttendancesPage() {
                 ))}
                 {attendanceResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="table-cell-no-data">
+                    <td colSpan={10} className="table-cell-no-data">
                       {hasActiveFilter 
                         ? 'Tidak ada data absensi yang sesuai dengan filter yang dipilih.' 
                         : 'Belum ada data absensi yang tercatat.'}
