@@ -21,7 +21,7 @@ const API_URL = API_BASE + '/api/v1';
 const NO_AUTO_LOGOUT = ['/auth/login', '/auth/password', '/auth/logout'];
 
 export function format401Message(msg?: string): string {
-  if (!msg) return 'Sesi Anda sudah berakhir. Silakan login kembali.';
+  if (!msg) return 'Sesi Anda sudah berakhir. Silakan masuk kembali.';
   const lower = msg.toLowerCase();
   if (lower.includes('deactivated')) {
     return 'Akun Anda dinonaktifkan. Hubungi admin.';
@@ -30,12 +30,12 @@ export function format401Message(msg?: string): string {
     return 'Akun Anda sudah tidak terdaftar. Hubungi admin.';
   }
   if (lower.includes('password was changed') || lower.includes('password has been changed') || lower.includes('the password was changed')) {
-    return 'Password Anda telah diganti. Silakan login kembali.';
+    return 'Kata sandi Anda telah diganti. Silakan masuk kembali.';
   }
   if (lower.includes('logged out') || lower.includes('session')) {
-    return 'Sesi Anda sudah berakhir. Silakan login kembali.';
+    return 'Sesi Anda sudah berakhir. Silakan masuk kembali.';
   }
-  return msg || 'Sesi Anda sudah berakhir. Silakan login kembali.';
+  return msg || 'Sesi Anda sudah berakhir. Silakan masuk kembali.';
 }
 
 export async function apiRequest(endpoint: string, method: string, body?: object, options?: { timeout?: number }) {
@@ -80,12 +80,10 @@ export async function apiRequest(endpoint: string, method: string, body?: object
       const text = await response.text();
       data = text ? JSON.parse(text) : {};
     } catch {
-      const fullUrl = API_URL + endpoint;
-      const err = new Error(
-        !response.ok
-          ? `Terjadi kesalahan pada server (Status: ${response.status}) saat mengakses ${fullUrl}. Respons bukan JSON yang valid.`
-          : 'Gagal memproses respons dari server'
-      ) as ApiError;
+      if (import.meta.env.DEV) {
+        console.warn(`Non-JSON response from ${API_URL + endpoint} (Status: ${response.status})`);
+      }
+      const err = new Error('Terjadi gangguan di server. Coba lagi beberapa saat lagi.') as ApiError;
       err.status = response.status;
       throw err;
     }

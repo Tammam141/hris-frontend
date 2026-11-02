@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyEmailApi, resendVerificationApi } from '../api/auth';
+import { toUserMessage } from '../utils/apiMessage';
 import '../components/ui/auth.css';
 
 export function VerifyEmailPage() {
@@ -51,11 +52,11 @@ export function VerifyEmailPage() {
       await verifyEmailApi(email, code);
       navigate('/login', {
         state: { 
-          message: 'Email berhasil diverifikasi. Akun Anda sekarang menunggu persetujuan HR. Anda akan menerima email begitu akun disetujui, setelah itu Anda bisa login.' 
+          message: 'Email berhasil diverifikasi. Akun Anda sekarang menunggu persetujuan admin. Anda akan menerima email begitu akun disetujui, setelah itu Anda bisa masuk.' 
         }
       });
     } catch (err: any) {
-      setError(err.message || 'Gagal memverifikasi email');
+      setError(toUserMessage(err, 'Gagal memverifikasi email. Periksa kembali kode Anda.'));
     } finally {
       setLoading(false);
     }
@@ -76,8 +77,8 @@ export function VerifyEmailPage() {
       setSuccess('Kode verifikasi telah dikirim ulang ke email Anda.');
       setCountdown(60);
     } catch (err: any) {
-      if (err.code === 'TOO_MANY_REQUESTS') {
-        setError(err.message || 'Terlalu banyak permintaan. Silakan tunggu sebentar.');
+      if (err.code === 'TOO_MANY_REQUESTS' || err.status === 429) {
+        setError(toUserMessage(err, 'Terlalu banyak permintaan. Silakan tunggu sebentar.'));
         // Mengekstrak angka detik dari pesan jika ada, atau gunakan default 60
         const match = err.message?.match(/(\d+)/);
         if (match && match[1]) {
@@ -86,7 +87,7 @@ export function VerifyEmailPage() {
           setCountdown(60);
         }
       } else {
-        setError(err.message || 'Gagal mengirim ulang kode');
+        setError(toUserMessage(err, 'Gagal mengirim ulang kode verifikasi.'));
       }
     } finally {
       setLoading(false);

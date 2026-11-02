@@ -9,6 +9,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
 
 export function LeaveTypePage() {
   const [types, setTypes] = useState<LeaveType[]>([]);
@@ -58,6 +59,17 @@ export function LeaveTypePage() {
     loadTypes();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isModalOpen) setIsModalOpen(false);
+        if (quotaConflict) setQuotaConflict(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, quotaConflict]);
+
   async function loadTypes() {
     setLoading(true);
     setError('');
@@ -67,8 +79,7 @@ export function LeaveTypePage() {
         setTypes(res.data);
       }
     } catch (e: any) {
-      const err = e as ApiError;
-      setError(err.message || 'Gagal memuat data jenis cuti');
+      setError(toUserMessage(e, 'Gagal memuat data jenis cuti.'));
     } finally {
       setLoading(false);
     }
@@ -138,7 +149,7 @@ export function LeaveTypePage() {
     }
 
     if (noticeDaysNum !== null && (noticeDaysNum < 0 || noticeDaysNum > 90)) {
-      newErrors.min_notice_days = 'Minimal notice harus antara 0 dan 90 hari.';
+      newErrors.min_notice_days = 'Batas pengajuan harus antara 0 dan 90 hari sebelumnya.';
     }
 
     // Validasi antarkolom:
@@ -229,14 +240,14 @@ export function LeaveTypePage() {
         }
         setAlertTitle('Peringatan');
         setAlertType('error');
-        setAlertMessage(err.message || 'Terdapat kesalahan validasi data');
+        setAlertMessage(toUserMessage(err, 'Terdapat kesalahan validasi data.'));
         setAlertOpen(true);
       } else if (err.status === 409) {
-        setFormErrors({ code: err.message || 'Kode jenis cuti sudah digunakan.' });
+        setFormErrors({ code: toUserMessage(err, 'Kode jenis cuti sudah digunakan.') });
       } else {
         setAlertTitle('Peringatan');
         setAlertType('error');
-        setAlertMessage(err.message || 'Gagal menyimpan jenis cuti');
+        setAlertMessage(toUserMessage(err, 'Gagal menyimpan jenis cuti.'));
         setAlertOpen(true);
       }
     }
@@ -298,7 +309,7 @@ export function LeaveTypePage() {
           setAlertMessage(`Jenis cuti "${typeToDelete.name}" tidak bisa dihapus karena sudah dipakai di ${err.details.leave_request_count} pengajuan cuti. Anda bisa menonaktifkannya agar tidak bisa dipilih lagi.`);
           setSuggestDeactivateOpen(true);
         } else {
-          setAlertMessage(err.message || 'Gagal menghapus jenis cuti');
+          setAlertMessage(toUserMessage(e, 'Gagal menghapus jenis cuti.'));
           setAlertOpen(true);
         }
       }
@@ -315,12 +326,12 @@ export function LeaveTypePage() {
         setAlertMessage('Jenis cuti berhasil dinonaktifkan.');
         setAlertOpen(true);
       } catch (e: any) {
-      const err = e as ApiError;
+        const err = e as ApiError;
         if (isStaleData(err)) {
           setStaleDetails(err.details);
           setIsStaleModalOpen(true);
         } else {
-          setAlertMessage(err.message || 'Gagal menonaktifkan jenis cuti');
+          setAlertMessage(toUserMessage(e, 'Gagal menonaktifkan jenis cuti.'));
           setAlertOpen(true);
         }
       }
@@ -333,9 +344,9 @@ export function LeaveTypePage() {
         <div className="employee-header-actions">
           <div>
             <h1 className="dashboard-title">Master Jenis Cuti</h1>
-            <p className="dashboard-subtitle">Kelola tipe-tipe cuti beserta aturannya.</p>
+            <p className="dashboard-subtitle">Atur jenis cuti beserta aturannya.</p>
           </div>
-          <button className="btn btn-success" onClick={openCreateModal}>+ Tambah Jenis Cuti</button>
+          <button className="btn btn-primary" onClick={openCreateModal}>+ Tambah Jenis Cuti</button>
         </div>
 
         {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
@@ -372,7 +383,7 @@ export function LeaveTypePage() {
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
                         {type.requires_attachment ? (
-                          <span>Lampiran: {type.attachment_required_after ? `> ${type.attachment_required_after} hari` : 'Wajib'}</span>
+                          <span>Lampiran: {type.attachment_required_after ? `wajib jika > ${type.attachment_required_after} hari` : 'Wajib'}</span>
                         ) : (
                           <span style={{ color: '#64748b' }}>Lampiran: Opsional</span>
                         )}
@@ -381,7 +392,7 @@ export function LeaveTypePage() {
                         )}
                         {type.exempt_from_staffing_limit && (
                           <span style={{ color: '#0369a1', fontSize: '12px', fontWeight: 500 }}>
-                            Bebas Batas Departemen
+                            Tidak terkena batas unit
                           </span>
                         )}
                       </div>
@@ -395,7 +406,7 @@ export function LeaveTypePage() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-icon btn-edit" onClick={() => openEditModal(type)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                        <button className="btn-icon btn-edit" onClick={() => openEditModal(type)} title="Ubah" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
                         <button className="btn-icon btn-delete" onClick={() => handleDelete(type)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                       </div>
                     </td>
@@ -410,10 +421,17 @@ export function LeaveTypePage() {
       {/* Modal Form */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+          <div 
+            className="modal-content" 
+            style={{ maxWidth: '600px' }} 
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-type-modal-title"
+          >
             <div className="modal-header">
-              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Jenis Cuti' : 'Ubah Jenis Cuti'}</h2>
-              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
+              <h2 id="leave-type-modal-title" className="modal-title">{modalMode === 'create' ? 'Tambah Jenis Cuti' : 'Ubah Jenis Cuti'}</h2>
+              <button className="modal-close-btn" aria-label="Tutup" onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
             <form onSubmit={handleModalSubmit}>
               <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -427,7 +445,7 @@ export function LeaveTypePage() {
                       value={code} 
                       onChange={e => { setCode(e.target.value.toUpperCase()); setFormErrors(prev => ({ ...prev, code: '' })); }} 
                       required 
-                      placeholder="Contoh: CT-ANNUAL" 
+                      placeholder="Contoh: ANNUAL" 
                     />
                     {formErrors.code && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.code}</span>}
                   </div>
@@ -572,7 +590,7 @@ export function LeaveTypePage() {
                   />
                   <div>
                     <label htmlFor="exemptFromStaffingLimit" className="form-label" style={{ margin: 0, cursor: 'pointer', fontWeight: 600 }}>
-                      Tidak terkena batas cuti bersamaan departemen
+                      Tidak terkena batas cuti bersamaan unit
                     </label>
                     <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginTop: '2px' }}>
                       Untuk cuti darurat seperti sakit, duka, melahirkan
@@ -621,10 +639,17 @@ export function LeaveTypePage() {
 
       {quotaConflict && (
         <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setQuotaConflict(null)}>
-          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+          <div 
+            className="modal-content" 
+            style={{ maxWidth: '640px' }} 
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quota-conflict-title"
+          >
             <div className="modal-header">
-              <h2 className="modal-title">Kuota Tidak Dapat Diturunkan</h2>
-              <button className="modal-close-btn" onClick={() => setQuotaConflict(null)}>&times;</button>
+              <h2 id="quota-conflict-title" className="modal-title">Kuota Tidak Dapat Diturunkan</h2>
+              <button className="modal-close-btn" aria-label="Tutup" onClick={() => setQuotaConflict(null)}>&times;</button>
             </div>
             <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               <p style={{ fontSize: '14px', color: '#475569', lineHeight: 1.5, marginTop: 0 }}>

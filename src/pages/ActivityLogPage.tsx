@@ -6,6 +6,9 @@ import { ApiError } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
+import { getEntityLabel, getActivityActionLabel, ENTITY_LABELS, ACTIVITY_ACTION_LABELS } from '../utils/labels';
 
 // Ukuran data yang diambil per batch pada infinite scroll
 const PAGE_SIZE = 20;
@@ -143,7 +146,7 @@ export function ActivityLogPage() {
         }
 
         setIsOfflineMode(false);
-        setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat log aktivitas.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Error', message: toUserMessage(e, 'Gagal memuat log aktivitas.'), type: 'error' });
       })
       .finally(() => {
         if (!ignore) {
@@ -238,7 +241,7 @@ export function ActivityLogPage() {
 
       {isOfflineMode && (
         <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginTop: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <AlertTriangleIcon style={{ width: 18, height: 18, color: '#b45309', flexShrink: 0 }} />
           <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data log lokal terakhir yang tersimpan di perangkat.</span>
         </div>
       )}
@@ -249,11 +252,21 @@ export function ActivityLogPage() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Tindakan</label>
-            <input name="action" value={filters.action} onChange={handleFilterChange} placeholder="Contoh: create, update" style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }} />
+            <select name="action" value={filters.action} onChange={handleFilterChange} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
+              <option value="">Semua Tindakan</option>
+              {Object.entries(ACTIVITY_ACTION_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Modul/Entitas</label>
-            <input name="entity" value={filters.entity} onChange={handleFilterChange} placeholder="Contoh: employee" style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }} />
+            <select name="entity" value={filters.entity} onChange={handleFilterChange} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
+              <option value="">Semua Entitas</option>
+              {Object.entries(ENTITY_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Status</label>
@@ -277,7 +290,7 @@ export function ActivityLogPage() {
             </button>
             {(filters.action || filters.entity || filters.status || filters.start_date || filters.end_date) && (
               <button onClick={handleResetFilter} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '4px' }}>
-                Reset
+                Atur ulang
               </button>
             )}
           </div>
@@ -301,26 +314,28 @@ export function ActivityLogPage() {
             <table className="attendance-table">
               <thead>
                 <tr>
-                  <th style={{ width: '60px', textAlign: 'center' }}>NO</th>
+                  <th style={{ width: '60px', textAlign: 'center' }}>No</th>
                   <th>Waktu</th>
-                  <th>Aktor</th>
+                  <th>Pelaku</th>
                   <th>Tindakan</th>
                   <th>Entitas</th>
                   <th>Status</th>
                   <th>Keterangan</th>
-                  <th>IP & Agent</th>
+                  <th>Perangkat</th>
                 </tr>
               </thead>
               <tbody>
                 {logResponse.data && logResponse.data.length > 0 && logResponse.data.map((log, index) => {
                   const isLatest = latestBatchIds.has(log.id);
+                  const actionInfo = getActivityActionLabel(log.action);
+                  const ipDisplay = log.ip_address === '::1' || log.ip_address === '127.0.0.1' ? 'Lokal' : (log.ip_address || '-');
                   return (
                     <tr 
                       key={log.id}
                       className={isLatest ? 'log-row-unseen' : 'log-row-seen'}
                     >
                       <td className="log-cell-number" style={{ textAlign: 'center' }}>
-                        {isLatest && <span className="log-dot-unseen" title="Batch terbaru" />}
+                        {isLatest && <span className="log-dot-unseen" title="Terbaru" />}
                         {index + 1}.
                       </td>
                       <td className="table-cell-date" style={{ whiteSpace: 'nowrap' }}>
@@ -328,19 +343,23 @@ export function ActivityLogPage() {
                         <span className="log-cell-time">{formatToJakartaTimeOnly(log.created_at)}</span>
                       </td>
                       <td>
-                        <div className="log-cell-actor">{log.actor_name || 'System / Anonymous'}</div>
+                        <div className="log-cell-actor">{log.actor_name || 'Sistem'}</div>
                       </td>
                       <td>
-                        <span className="log-cell-action">{log.action}</span>
+                        <span className="log-cell-action" title={actionInfo.isKnown ? log.action : undefined}>
+                          {actionInfo.label}
+                        </span>
                       </td>
                       <td>
-                        <span className="log-cell-source">{log.entity}</span>
+                        <span className="log-cell-source" title={log.entity_id ? `ID: ${log.entity_id}` : undefined}>
+                          {getEntityLabel(log.entity)}
+                        </span>
                         {log.entity_id && <div className="log-cell-entity-id" style={{ fontSize: '11px' }}>ID: {log.entity_id}</div>}
                       </td>
                       <td>{renderStatus(log.status)}</td>
                       <td><span className="log-cell-desc">{log.description || '-'}</span></td>
                       <td>
-                        <div className="log-cell-ip" style={{ fontSize: '12px' }}>{log.ip_address || '-'}</div>
+                        <div className="log-cell-ip" style={{ fontSize: '12px' }}>{ipDisplay}</div>
                         <div className="log-cell-agent" style={{ fontSize: '10px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.user_agent || ''}>{log.user_agent || '-'}</div>
                       </td>
                     </tr>

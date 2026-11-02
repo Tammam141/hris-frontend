@@ -13,6 +13,7 @@ import {
   PHONE_ALREADY_REGISTERED_MSG, 
   PHONE_FORMAT_INVALID_MSG 
 } from '../../utils/phoneValidation';
+import { toUserMessage } from '../../utils/apiMessage';
 import './employee-modal.css';
 
 interface EmployeeModalProps {
@@ -61,6 +62,15 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       if (photoPreview) URL.revokeObjectURL(photoPreview);
     };
   }, [photoPreview]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -190,7 +200,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         throw err;
       }
       if ((err as any)?.status === 409 && (err as any)?.details?.field === 'position_id') {
-        const msg = (err as any)?.message || 'Kuota kursi jabatan ini sudah penuh';
+        const msg = toUserMessage(err, 'Kuota kursi jabatan ini sudah penuh');
         setPositionError(msg);
         setError(msg);
         return;
@@ -205,7 +215,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         setError(PHONE_FORMAT_INVALID_MSG);
         return;
       }
-      setError((err as any)?.message || 'Terjadi kesalahan saat menyimpan data');
+      setError(toUserMessage(err, 'Terjadi kesalahan saat menyimpan data'));
     } finally {
       setLoading(false);
     }
@@ -256,7 +266,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       // We don't call onSubmit here because it's a separate endpoint and we just updated the photo.
       // But we might want the parent to refresh list. The parent will refresh when modal closes if needed.
     } catch (err: any) {
-      setPhotoMessage({ text: err.message || 'Gagal mengunggah foto', type: 'error' });
+      setPhotoMessage({ text: toUserMessage(err, 'Gagal mengunggah foto'), type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -271,20 +281,20 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
       setCurrentPhotoUrl(null);
       setPhotoMessage({ text: 'Foto profil berhasil dihapus', type: 'success' });
     } catch (err: any) {
-      setPhotoMessage({ text: err.message || 'Gagal menghapus foto', type: 'error' });
+      setPhotoMessage({ text: toUserMessage(err, 'Gagal menghapus foto'), type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">
+          <h2 id="employee-modal-title" className="modal-title">
             Ubah Data Karyawan
           </h2>
-          <button className="modal-close-btn" onClick={onClose}>&times;</button>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Tutup">&times;</button>
         </div>
 
         <div className="modal-body">
@@ -429,7 +439,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
               </div>
 
               <div className="form-group">
-                <label className="input-label">Departemen</label>
+                <label className="input-label">Unit</label>
                 <select 
                   className="input-field" 
                   value={departmentId}
@@ -446,7 +456,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                     }
                   }}
                 >
-                  <option value="">- Pilih Departemen -</option>
+                  <option value="">- Pilih Unit -</option>
                   {departments.map(d => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
@@ -463,7 +473,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                     const newPosId = e.target.value;
                     setPositionId(newPosId);
                     setPositionError('');
-                    // Jika jabatan dipilih lebih dulu, isi Departemen otomatis
+                    // Jika jabatan dipilih lebih dulu, isi Unit otomatis
                     if (newPosId) {
                       const pos = positions.find(p => p.id === newPosId);
                       if (pos?.department_id) {
@@ -513,11 +523,11 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
                   onChange={e => setEmploymentStatus(e.target.value as any)}
                 >
                   <option value="" disabled>-- Pilih --</option>
-                  <option value="probation">Probation</option>
-                  <option value="contract">Contract</option>
-                  <option value="permanent">Permanent</option>
-                  <option value="intern">Intern</option>
-                  <option value="resigned">Resigned</option>
+                  <option value="probation">Masa percobaan (Probation)</option>
+                  <option value="contract">Kontrak (Contract)</option>
+                  <option value="permanent">Tetap (Permanent)</option>
+                  <option value="intern">Magang (Intern)</option>
+                  <option value="resigned">Mengundurkan diri (Resigned)</option>
                 </select>
               </div>
 
@@ -532,7 +542,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
               </div>
 
               <div className="form-group">
-                <label className="input-label">Tanggal Resign</label>
+                <label className="input-label">Tanggal keluar (resign)</label>
                 <input 
                   type="date" 
                   className="input-field" 
@@ -548,7 +558,7 @@ export function EmployeeModal({ isOpen, onClose, onSubmit, employeeData, departm
         <div className="modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onClose} style={{ width: 'auto' }}>Batal</button>
           <button type="submit" form="employeeForm" className="btn btn-primary" disabled={loading} style={{ width: 'auto' }}>
-            {loading ? 'Menyimpan...' : 'Simpan Data'}
+            {loading ? 'Menyimpan...' : 'Simpan'}
           </button>
         </div>
       </div>

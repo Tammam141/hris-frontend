@@ -5,9 +5,10 @@ import { Attendance } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useAuth } from '../hooks/useAuth';
-import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 import { Pagination } from '../components/ui/Pagination';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 export function TeamAttendancePage() {
   const { user } = useAuth();
@@ -74,7 +75,7 @@ export function TeamAttendancePage() {
       }
 
       setIsOfflineMode(false);
-      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi tim.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Error', message: toUserMessage(e, 'Gagal memuat data absensi tim.'), type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -95,17 +96,17 @@ export function TeamAttendancePage() {
     <div className="dashboard-container">
       <div className="dashboard-header-row">
         <div>
-          <h1 className="dashboard-title">Absensi Tim (Manajer)</h1>
+          <h1 className="dashboard-title">Absensi Tim</h1>
           <p className="dashboard-subtitle">Pantau riwayat kehadiran bawahan Anda.</p>
         </div>
         <button onClick={loadData} className="btn btn-secondary">
-          Refresh
+          Segarkan
         </button>
       </div>
 
       {isOfflineMode && (
         <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginTop: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <AlertTriangleIcon size={18} />
           <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data absensi tim lokal terakhir yang tersimpan di perangkat.</span>
         </div>
       )}
@@ -125,12 +126,12 @@ export function TeamAttendancePage() {
             <table className="attendance-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                  <th style={{ width: '50px', textAlign: 'center' }}>No</th>
                   <th>Tanggal</th>
                   <th>Karyawan</th>
-                  <th>Departemen</th>
-                  <th>Jam Masuk</th>
-                  <th>Jam Pulang</th>
+                  <th>Unit</th>
+                  <th>Jam masuk</th>
+                  <th>Jam pulang</th>
                   <th>Lembur</th>
                   <th>Status</th>
                   <th>Catatan</th>

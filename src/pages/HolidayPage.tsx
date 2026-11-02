@@ -12,6 +12,8 @@ import { parseISO, format } from 'date-fns';
 import { ApiError } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { Pagination } from '../components/ui/Pagination';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 export function HolidayPage() {
   const { user } = useAuth();
@@ -97,7 +99,7 @@ export function HolidayPage() {
       }
 
       setIsOfflineMode(false);
-      setError(err.message || 'Gagal memuat data hari libur');
+      setError(toUserMessage(e, 'Gagal memuat data hari libur.'));
     } finally {
       setLoading(false);
     }
@@ -106,6 +108,17 @@ export function HolidayPage() {
   useEffect(() => {
     loadHolidays();
   }, [loadHolidays]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
 
   function openCreateModal() {
     setModalMode('create');
@@ -148,7 +161,7 @@ export function HolidayPage() {
         setStaleDetails(err.details);
         setIsStaleModalOpen(true);
       } else {
-        setAlertMessage(err.message || 'Gagal menyimpan hari libur');
+        setAlertMessage(toUserMessage(e, 'Gagal menyimpan hari libur.'));
         setAlertOpen(true);
       }
     }
@@ -179,9 +192,8 @@ export function HolidayPage() {
         setHolidayToDelete(null);
         loadHolidays();
       } catch (e: any) {
-      const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
-        setAlertMessage(err.message || 'Gagal menghapus hari libur');
+        setAlertMessage(toUserMessage(e, 'Gagal menghapus hari libur.'));
         setAlertOpen(true);
       }
     }
@@ -215,7 +227,7 @@ export function HolidayPage() {
 
         {isOfflineMode && (
           <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <AlertTriangleIcon style={{ width: 18, height: 18, color: '#b45309', flexShrink: 0 }} />
             <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data hari libur lokal terakhir yang tersimpan di perangkat.</span>
           </div>
         )}
@@ -226,9 +238,9 @@ export function HolidayPage() {
           <table className="employee-table">
             <thead>
               <tr>
-                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                <th style={{ width: '50px', textAlign: 'center' }}>No</th>
                 <th>Tanggal</th>
-                <th>Nama Hari Libur</th>
+                <th>Nama hari libur</th>
                 <th>Tipe</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
@@ -268,7 +280,7 @@ export function HolidayPage() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-icon btn-edit" onClick={() => openEditModal(holiday)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                        <button className="btn-icon btn-edit" onClick={() => openEditModal(holiday)} title="Ubah" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
                         <button className="btn-icon btn-delete" onClick={() => handleDelete(holiday)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                       </div>
                     </td>
@@ -296,10 +308,10 @@ export function HolidayPage() {
       {/* Modal Form */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="holiday-modal-title">
             <div className="modal-header">
-              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Hari Libur' : 'Ubah Hari Libur'}</h2>
-              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
+              <h2 id="holiday-modal-title" className="modal-title">{modalMode === 'create' ? 'Tambah Hari Libur' : 'Ubah Hari Libur'}</h2>
+              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)} aria-label="Tutup">&times;</button>
             </div>
             <form onSubmit={handleModalSubmit}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -329,7 +341,7 @@ export function HolidayPage() {
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
         title="Hapus Hari Libur"
-        message={`Apakah Anda yakin ingin menghapus "${holidayToDelete?.name}"?`}
+        message={`Apakah Anda yakin ingin menghapus hari libur "${holidayToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
         confirmText="Hapus"
         isDestructive={true}
         onConfirm={confirmDelete}

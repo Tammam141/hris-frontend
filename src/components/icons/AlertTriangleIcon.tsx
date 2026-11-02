@@ -1,4 +1,6 @@
-export function AlertTriangleIcon({ className = "", size = 18 }: { className?: string; size?: number }) {
+import React from 'react';
+
+export function AlertTriangleIcon({ className = "", size = 18, style }: { className?: string; size?: number; style?: React.CSSProperties }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -11,6 +13,7 @@ export function AlertTriangleIcon({ className = "", size = 18 }: { className?: s
       strokeLinecap="round"
       strokeLinejoin="round"
       className={`icon icon-tabler ${className}`}
+      style={style}
     >
       <path stroke="none" d="M0 0h24v24H0z" fill="none" />
       <path d="M12 9v4" />

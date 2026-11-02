@@ -3,6 +3,7 @@ import { OrgHolder, LineManagerResponse } from '../../types/org';
 import { getLineManager } from '../../api/org';
 import { useAuth } from '../../hooks/useAuth';
 import { Avatar } from '../../components/ui/Avatar';
+import { toUserMessage } from '../../utils/apiMessage';
 
 interface LineManagerPopoverProps {
   holder: OrgHolder | null;
@@ -21,6 +22,17 @@ export const LineManagerPopover: FC<LineManagerPopoverProps> = ({
   const [loading, setLoading] = useState(false);
   const [managerData, setManagerData] = useState<LineManagerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!holder) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [holder, onClose]);
 
   useEffect(() => {
     if (!holder) {
@@ -55,7 +67,7 @@ export const LineManagerPopover: FC<LineManagerPopoverProps> = ({
       })
       .catch(err => {
         if (!isMounted) return;
-        setError(err.message || 'Gagal memuat atasan langsung.');
+        setError(toUserMessage(err, 'Gagal memuat atasan langsung.'));
       })
       .finally(() => {
         if (isMounted) setLoading(false);

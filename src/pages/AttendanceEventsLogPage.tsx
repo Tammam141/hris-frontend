@@ -6,6 +6,8 @@ import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 import { AlertModal } from '../components/ui/AlertModal';
 import { Pagination } from '../components/ui/Pagination';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 export function AttendanceEventsLogPage() {
   const { user } = useAuth();
@@ -76,7 +78,7 @@ export function AttendanceEventsLogPage() {
       }
 
       setIsOfflineMode(false);
-      setErrorMsg(err.message || 'Gagal memuat log absensi');
+      setErrorMsg(toUserMessage(err, 'Gagal memuat log absensi'));
     } finally {
       setLoading(false);
     }
@@ -111,30 +113,30 @@ export function AttendanceEventsLogPage() {
     <div className="dashboard-container">
       <div className="dashboard-header-row">
         <div>
-          <h1 className="dashboard-title">Log Absensi Mentah</h1>
-          <p className="dashboard-subtitle">Jejak rekaman penekanan tombol absensi secara real-time</p>
+          <h1 className="dashboard-title">Riwayat Tombol Absen</h1>
+          <p className="dashboard-subtitle">Jejak rekaman penekanan tombol absen karyawan.</p>
         </div>
       </div>
 
       {isOfflineMode && (
         <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <AlertTriangleIcon size={18} />
           <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data log absensi lokal terakhir yang tersimpan di perangkat.</span>
         </div>
       )}
 
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px', display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div>
-          <label className="form-label" style={{ marginBottom: '8px' }}>Filter Jenis</label>
+          <label className="form-label" style={{ marginBottom: '8px' }}>Jenis absen</label>
           <select 
             className="input-field" 
             style={{ width: '260px' }}
             value={kind} 
             onChange={(e) => { setKind(e.target.value as any); setPage(1); }}
           >
-            <option value="">Semua (Masuk & Keluar)</option>
-            <option value="check_in">Hanya Check-In</option>
-            <option value="check_out">Hanya Check-Out</option>
+            <option value="">Semua (masuk & pulang)</option>
+            <option value="check_in">Hanya absen masuk</option>
+            <option value="check_out">Hanya absen pulang</option>
           </select>
         </div>
         
@@ -146,7 +148,7 @@ export function AttendanceEventsLogPage() {
               onChange={(e) => { setOnlyRejected(e.target.checked); setPage(1); }}
               style={{ width: '18px', height: '18px' }}
             />
-            Hanya Tampilkan yang Ditolak
+            Hanya yang ditolak
           </label>
         </div>
       </div>
@@ -160,14 +162,14 @@ export function AttendanceEventsLogPage() {
           <table className="attendance-table" style={{ margin: 0 }}>
             <thead>
               <tr>
-                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                <th style={{ width: '50px', textAlign: 'center' }}>No</th>
                 <th>Karyawan</th>
                 <th>Jenis</th>
-                <th>Waktu Ditekan (Occurred At)</th>
-                <th>Diterima Server (Received At)</th>
-                <th>Delay</th>
+                <th>Waktu ditekan</th>
+                <th>Diterima server</th>
+                <th>Jeda server</th>
                 <th>Sumber</th>
-                <th>Status / Alasan Ditolak</th>
+                <th>Status / alasan ditolak</th>
               </tr>
             </thead>
             <tbody>
@@ -187,7 +189,7 @@ export function AttendanceEventsLogPage() {
                       backgroundColor: evt.kind === 'check_in' ? '#dcfce7' : '#f1f5f9',
                       color: evt.kind === 'check_in' ? '#166534' : '#475569'
                     }}>
-                      {evt.kind === 'check_in' ? 'Check-In' : 'Check-Out'}
+                      {evt.kind === 'check_in' ? 'Absen masuk' : 'Absen pulang'}
                     </span>
                   </td>
                   <td style={{ fontSize: '13px' }}>{formatDate(evt.occurred_at)}</td>
@@ -208,7 +210,7 @@ export function AttendanceEventsLogPage() {
                   <td>
                     {evt.rejection_reason ? (
                       <div>
-                        <span style={{ display: 'inline-block', padding: '2px 6px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>DITOLAK</span>
+                        <span style={{ display: 'inline-block', padding: '2px 6px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>Ditolak</span>
                         <div style={{ fontSize: '13px', color: '#b91c1c' }}>{evt.rejection_reason}</div>
                       </div>
                     ) : (

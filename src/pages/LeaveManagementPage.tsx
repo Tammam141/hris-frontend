@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { isStaffingLimitError, formatStaffingLimitMessage } from '../utils/staffingLimit';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
 
 type StatusFilterType = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
 
@@ -185,6 +186,18 @@ export function LeaveManagementPage() {
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({ isOpen: false, title: '', message: '', type: 'success' });
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (confirmModal.isOpen && !isSubmitting) setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        if (overrideModal.isOpen && !isSubmitting) setOverrideModal(prev => ({ ...prev, isOpen: false }));
+        if (selectedRequest) setSelectedRequest(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmModal.isOpen, overrideModal.isOpen, selectedRequest, isSubmitting]);
+
   const openConfirm = async (id: string, action: 'approve' | 'reject', name: string) => {
     setConfirmModal({ isOpen: true, id, action, name });
     setDecisionNote('');
@@ -252,7 +265,7 @@ export function LeaveManagementPage() {
         } else {
           setAlertModal({
             isOpen: true,
-            title: 'Kuota Cuti Departemen Penuh',
+            title: 'Batas Cuti Bersamaan Unit Penuh',
             message: `${formatStaffingLimitMessage(err.details)} Pengajuan ini tidak dapat disetujui.`,
             type: 'error'
           });
@@ -263,7 +276,7 @@ export function LeaveManagementPage() {
       setAlertModal({
         isOpen: true,
         title: 'Gagal',
-        message: err.message || 'Terjadi kesalahan.',
+        message: toUserMessage(err, 'Terjadi kesalahan saat memproses cuti.'),
         type: 'error'
       });
     } finally {
@@ -287,12 +300,12 @@ export function LeaveManagementPage() {
       setAlertModal({
         isOpen: true,
         title: 'Berhasil',
-        message: `Cuti untuk ${overrideModal.name} berhasil disetujui (override kuota cuti departemen).`,
+        message: `Cuti untuk ${overrideModal.name} berhasil disetujui melebihi batas unit.`,
         type: 'success'
       });
       refreshActiveData();
     } catch (err: any) {
-      setOverrideError(err.message || 'Gagal menyetujui pengajuan cuti.');
+      setOverrideError(toUserMessage(err, 'Gagal menyetujui pengajuan cuti.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -309,7 +322,7 @@ export function LeaveManagementPage() {
       case 'failed':
         return <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Gagal</span>;
       default:
-        return <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Menunggu</span>;
+        return <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600 }}>Menunggu persetujuan atasan</span>;
     }
   };
 
@@ -370,11 +383,11 @@ export function LeaveManagementPage() {
           <table className="employee-table">
             <thead>
               <tr>
-                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
-                <th>Nama Karyawan</th>
-                <th>Jenis Cuti</th>
+                <th style={{ width: '50px', textAlign: 'center' }}>No</th>
+                <th>Nama karyawan</th>
+                <th>Jenis cuti</th>
                 <th>Tanggal</th>
-                <th>Total Hari</th>
+                <th>Total hari</th>
                 <th>Alasan</th>
                 <th>Penyetuju</th>
                 <th>Status</th>
@@ -402,7 +415,7 @@ export function LeaveManagementPage() {
                     </td>
                     <td><div style={{ fontWeight: 500, color: '#0f172a' }}>{req.employee_name}</div></td>
                     <td>{req.leave_type_name}</td>
-                    <td>{req.start_date.substring(0, 10)} s/d {req.end_date.substring(0, 10)}</td>
+                    <td>{formatShortDateRange(req.start_date, req.end_date)}</td>
                     <td>{req.total_days} hari</td>
                     <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{req.reason}</td>
                     <td>
@@ -473,10 +486,17 @@ export function LeaveManagementPage() {
       {/* Custom Action Modal (Setujui / Tolak) */}
       {confirmModal.isOpen && (
         <div className="modal-overlay" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="modal-content" 
+            style={{ maxWidth: '440px' }} 
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-action-title"
+          >
             <div className="modal-header">
-              <h2 className="modal-title">{confirmModal.action === 'approve' ? 'Setujui Pengajuan' : 'Tolak Pengajuan'}</h2>
-              <button type="button" className="modal-close-btn" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>&times;</button>
+              <h2 id="confirm-action-title" className="modal-title">{confirmModal.action === 'approve' ? 'Setujui Pengajuan' : 'Tolak Pengajuan'}</h2>
+              <button type="button" className="modal-close-btn" aria-label="Tutup" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>&times;</button>
             </div>
             <form onSubmit={handleAction}>
               <div className="modal-body">
@@ -489,12 +509,12 @@ export function LeaveManagementPage() {
                   <>
                     {isLoadingColleagues ? (
                       <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px', fontStyle: 'italic' }}>
-                        Memeriksa jadwal rekan satu divisi...
+                        Memeriksa jadwal rekan satu unit...
                       </div>
                     ) : colleaguesOnLeave.length > 0 ? (
                       <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px' }}>
                         <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>
-                          ⚠️ Rekan satu divisi yang cutinya bentrok:
+                          ⚠️ Rekan satu unit yang cutinya bersamaan:
                         </div>
                         <ul style={{ margin: '0', paddingLeft: '18px', color: '#78350f', lineHeight: '1.6' }}>
                           {colleaguesOnLeave.map((c, idx) => (
@@ -509,7 +529,7 @@ export function LeaveManagementPage() {
                 )}
 
                 <div className="form-group">
-                  <label className="form-label">Catatan (Opsional)</label>
+                  <label className="form-label">Catatan (opsional)</label>
                   <textarea 
                     className="input-field" 
                     rows={3} 
@@ -542,15 +562,22 @@ export function LeaveManagementPage() {
       {/* Override Staffing Limit Modal */}
       {overrideModal.isOpen && (
         <div className="modal-overlay" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>
-          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="modal-content" 
+            style={{ maxWidth: '460px' }} 
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="override-modal-title"
+          >
             <div className="modal-header">
-              <h2 className="modal-title" style={{ color: '#b45309' }}>Konfirmasi Paksa Setujui (Override)</h2>
-              <button type="button" className="modal-close-btn" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>&times;</button>
+              <h2 id="override-modal-title" className="modal-title" style={{ color: '#b45309' }}>Setujui melebihi batas unit</h2>
+              <button type="button" className="modal-close-btn" aria-label="Tutup" onClick={() => setOverrideModal({ ...overrideModal, isOpen: false })}>&times;</button>
             </div>
             <form onSubmit={handleOverrideSubmit}>
               <div className="modal-body">
                 <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', lineHeight: '1.5' }}>
-                  Kuota cuti departemen penuh pada <strong>{overrideModal.fullDatesStr}</strong>. Tetap setujui pengajuan cuti untuk <strong>{overrideModal.name}</strong>?
+                  Batas cuti bersamaan unit sudah penuh pada <strong>{overrideModal.fullDatesStr}</strong>. Tetap setujui pengajuan cuti untuk <strong>{overrideModal.name}</strong>?
                 </div>
 
                 {overrideError && (
@@ -561,14 +588,14 @@ export function LeaveManagementPage() {
 
                 <div className="form-group">
                   <label className="form-label">
-                    Alasan Tetap Menyetujui <span style={{ color: '#dc2626' }}>*</span> (Min. 10 karakter)
+                    Alasan persetujuan <span style={{ color: '#dc2626' }}>*</span> (min. 10 karakter)
                   </label>
                   <textarea 
                     className="input-field" 
                     rows={3} 
                     required
                     minLength={10}
-                    placeholder="Masukkan alasan mengapa kuota departemen dilewati..."
+                    placeholder="Masukkan alasan mengapa batas unit dilewati..."
                     value={overrideModal.note}
                     onChange={(e) => {
                       setOverrideModal({ ...overrideModal, note: e.target.value });
@@ -593,7 +620,7 @@ export function LeaveManagementPage() {
                     cursor: overrideModal.note.trim().length < 10 ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {isSubmitting ? 'Memproses...' : 'Ya, Tetap Setujui'}
+                  {isSubmitting ? 'Memproses...' : 'Tetap setujui'}
                 </button>
               </div>
             </form>

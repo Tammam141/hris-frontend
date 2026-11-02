@@ -49,6 +49,17 @@ export function LeaveDetailModal({ isOpen, request, onClose }: LeaveDetailModalP
     };
   }, [isOpen, request]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !request) return null;
 
   const getStatusBadge = (status: string) => {
@@ -68,10 +79,18 @@ export function LeaveDetailModal({ isOpen, request, onClose }: LeaveDetailModalP
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '520px' }} 
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leave-detail-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2 className="modal-title">Detail Pengajuan Cuti</h2>
-          <button className="modal-close-btn" onClick={onClose}>&times;</button>
+          <h2 id="leave-detail-modal-title" className="modal-title">Detail Pengajuan Cuti</h2>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Tutup">&times;</button>
         </div>
         
         <div className="modal-body" style={{ padding: '16px 24px' }}>

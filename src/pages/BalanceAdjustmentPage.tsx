@@ -6,6 +6,7 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { toUserMessage } from '../utils/apiMessage';
 
 export function BalanceAdjustmentPage() {
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
@@ -77,11 +78,11 @@ export function BalanceAdjustmentPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployeeId || !selectedLeaveTypeId || amount === '' || !reason.trim()) {
-      setAlertInfo({ open: true, title: 'Error', message: 'Harap lengkapi semua field.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Peringatan', message: 'Lengkapi semua isian terlebih dahulu.', type: 'error' });
       return;
     }
     if (amountValidationError) {
-      setAlertInfo({ open: true, title: 'Error', message: amountValidationError, type: 'error' });
+      setAlertInfo({ open: true, title: 'Peringatan', message: amountValidationError, type: 'error' });
       return;
     }
     setIsConfirmOpen(true);
@@ -126,7 +127,7 @@ export function BalanceAdjustmentPage() {
           type: 'error'
         });
       } else {
-        setAlertInfo({ open: true, title: 'Gagal', message: err.message || 'Gagal menyesuaikan saldo cuti.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(err, 'Gagal menyesuaikan saldo cuti.'), type: 'error' });
       }
     } finally {
       setIsSubmitting(false);

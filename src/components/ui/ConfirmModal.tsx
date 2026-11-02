@@ -22,14 +22,33 @@ export function ConfirmModal({
   onConfirm, 
   onCancel 
 }: ConfirmModalProps) {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={onCancel}>
-      <div className="modal-content" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '400px' }} 
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button className="modal-close-btn" onClick={onCancel}>&times;</button>
+          <h2 id="confirm-modal-title" className="modal-title">{title}</h2>
+          <button className="modal-close-btn" onClick={onCancel} aria-label="Tutup">&times;</button>
         </div>
         
         <div className="modal-body">
