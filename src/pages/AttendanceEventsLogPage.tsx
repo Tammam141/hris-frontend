@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 import { AlertModal } from '../components/ui/AlertModal';
+import { Pagination } from '../components/ui/Pagination';
 
 export function AttendanceEventsLogPage() {
   const { user } = useAuth();
@@ -227,30 +228,15 @@ export function AttendanceEventsLogPage() {
       </div>
 
       {!loading && totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-          <div style={{ fontSize: '14px', color: '#64748b' }}>
-            Total {eventResponse.total} data
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              Sebelumnya
-            </button>
-            <span style={{ padding: '8px 16px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              Halaman {page} / {totalPages}
-            </span>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Selanjutnya
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={eventResponse.total}
+          itemLabel="data log absensi"
+          prevLabel="Sebelumnya"
+          nextLabel="Selanjutnya"
+          onPageChange={(p) => setPage(p)}
+        />
       )}
 
       <AlertModal

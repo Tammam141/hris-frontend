@@ -167,6 +167,7 @@
 .attendance-summary-value.late { color: #9a3412; }
 .attendance-summary-value.absent { color: #991b1b; }
 .attendance-summary-value.leave { color: #1d4ed8; }
+.attendance-summary-value.holiday { color: #0284c7; }
 .attendance-summary-value.work { color: #0f172a; font-size: 24px; margin-top: 8px; }
 
 .attendance-summary-label {

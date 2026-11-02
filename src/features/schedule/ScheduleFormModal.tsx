@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WorkSchedule } from '../../types/schedule';
-import { createScheduleApi, updateScheduleApi } from '../../api/schedule';
+import { createScheduleApi, updateScheduleApi, getSchedulesApi } from '../../api/schedule';
 import { getDepartments } from '../../api/department';
 import { XIcon } from '../../components/icons/XIcon';
 import { StaleDataModal } from '../../components/ui/StaleDataModal';
@@ -19,20 +19,24 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [otherSchedules, setOtherSchedules] = useState<WorkSchedule[]>([]);
+  const [deptSearch, setDeptSearch] = useState('');
+  const [deptError, setDeptError] = useState('');
   
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
   const [currentUpdatedAt, setCurrentUpdatedAt] = useState<string | undefined>(undefined);
   
-  const isDefaultSchedule = schedule?.department_id === null && schedule?.id !== undefined;
+  const isDefaultSchedule = schedule?.is_default === true;
 
   const [formData, setFormData] = useState({
     name: '',
-    department_id: '',
+    department_ids: [] as string[],
     start_time: '08:00',
     end_time: '17:00',
     late_tolerance_minutes: 5,
     absent_cutoff_time: '18:00',
+    overtime_min_minutes: 30,
     works_monday: true,
     works_tuesday: true,
     works_wednesday: true,
@@ -50,11 +54,12 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
         setCurrentUpdatedAt(schedule.updated_at);
         setFormData({
           name: schedule.name,
-          department_id: schedule.department_id || '',
+          department_ids: schedule.department_ids || [],
           start_time: schedule.start_time.substring(0, 5), // "HH:MM:SS" -> "HH:MM"
           end_time: schedule.end_time.substring(0, 5),
           late_tolerance_minutes: schedule.late_tolerance_minutes,
           absent_cutoff_time: schedule.absent_cutoff_time.substring(0, 5),
+          overtime_min_minutes: schedule.overtime_min_minutes ?? 30,
           works_monday: schedule.works_monday,
           works_tuesday: schedule.works_tuesday,
           works_wednesday: schedule.works_wednesday,
@@ -67,11 +72,12 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
       } else {
         setFormData({
           name: '',
-          department_id: '',
+          department_ids: [],
           start_time: '08:00',
           end_time: '17:00',
           late_tolerance_minutes: 5,
           absent_cutoff_time: '18:00',
+          overtime_min_minutes: 30,
           works_monday: true,
           works_tuesday: true,
           works_wednesday: true,
@@ -83,18 +89,40 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
         });
       }
       setErrorMsg('');
+      setDeptError('');
+      setDeptSearch('');
     }
   }, [isOpen, schedule]);
 
   const loadDepartments = async () => {
     try {
-      const res = await getDepartments();
-      if (res.success) {
-        setDepartments(res.data);
+      const [depRes, schRes] = await Promise.all([getDepartments(), getSchedulesApi()]);
+      if (depRes.success) {
+        setDepartments(depRes.data);
+      }
+      if (schRes.success) {
+        setOtherSchedules(schRes.data);
       }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  // Peta divisi -> nama jadwal lain yang sudah memakainya (jadwal yang sedang diedit dikecualikan)
+  const usedByOther = new Map<string, string>();
+  otherSchedules.forEach(s => {
+    if (s.id === schedule?.id || s.is_default) return;
+    (s.department_ids || []).forEach(id => usedByOther.set(id, s.name));
+  });
+
+  const toggleDepartment = (id: string) => {
+    setDeptError('');
+    setFormData(prev => ({
+      ...prev,
+      department_ids: prev.department_ids.includes(id)
+        ? prev.department_ids.filter(x => x !== id)
+        : [...prev.department_ids, id]
+    }));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -112,6 +140,20 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg('');
+    setDeptError('');
+
+    if (!isDefaultSchedule && formData.department_ids.length === 0) {
+      setDeptError('Pilih minimal 1 divisi untuk jadwal ini.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const otMin = Number(formData.overtime_min_minutes);
+    if (isNaN(otMin) || otMin < 0 || otMin > 240) {
+      setErrorMsg('Minimal lembur dihitung harus antara 0 dan 240 menit.');
+      setIsSubmitting(false);
+      return;
+    }
 
     // Frontend Time Validation
     const timeToMinutes = (timeStr: string) => {
@@ -144,11 +186,14 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     }
 
     try {
+      const { department_ids, ...rest } = formData;
       const payload: Partial<WorkSchedule> = {
-        ...formData,
-        department_id: formData.department_id || null, // convert empty string back to null
+        ...rest,
         late_tolerance_minutes: tolMin,
+        overtime_min_minutes: otMin,
       };
+      // Jadwal bawaan tidak memakai pilihan divisi
+      if (!isDefaultSchedule) payload.department_ids = department_ids;
 
       if (schedule?.id) {
         await updateScheduleApi(schedule.id, { ...payload, updated_at: currentUpdatedAt });
@@ -162,6 +207,15 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
       if (isStaleData(error)) {
         setStaleDetails(error.details);
         setIsStaleModalOpen(true);
+      } else if (error.status === 409 && Array.isArray(error.details?.conflicts)) {
+        const msgs = error.details.conflicts.map((c: any) =>
+          `${c.department_name} sudah memakai ${c.schedule_name}. Lepaskan dulu dari jadwal itu.`
+        );
+        setDeptError(msgs.join(' '));
+      } else if (error.status === 400 && Array.isArray(error.details?.missing_department_ids)) {
+        setDeptError('Sebagian divisi yang dipilih tidak ditemukan. Muat ulang halaman lalu coba lagi.');
+      } else if (error.status === 400 && /at least one department/i.test(error.message || '')) {
+        setDeptError('Pilih minimal 1 divisi untuk jadwal ini.');
       } else {
         setErrorMsg(error.message || 'Gagal menyimpan jadwal kerja.');
       }
@@ -175,11 +229,12 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
       const current = staleDetails.current as WorkSchedule;
       setFormData({
         name: current.name,
-        department_id: current.department_id || '',
+        department_ids: current.department_ids || [],
         start_time: current.start_time.substring(0, 5),
         end_time: current.end_time.substring(0, 5),
         late_tolerance_minutes: current.late_tolerance_minutes,
         absent_cutoff_time: current.absent_cutoff_time.substring(0, 5),
+        overtime_min_minutes: current.overtime_min_minutes ?? 30,
         works_monday: current.works_monday,
         works_tuesday: current.works_tuesday,
         works_wednesday: current.works_wednesday,
@@ -226,20 +281,43 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           </div>
 
           <div className="form-group">
-            <label className="input-label">Departemen</label>
-            <select 
-              name="department_id"
-              className="input-field" 
-              value={formData.department_id}
-              onChange={handleChange}
-              disabled={isDefaultSchedule} // Jadwal Bawaan TIDAK BISA dipindah ke departemen
-            >
-              <option value="">Semua Departemen (Bawaan)</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            {isDefaultSchedule && <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Jadwal bawaan tidak dapat dipindahkan ke departemen tertentu.</p>}
+            <label className="input-label">Divisi</label>
+            {isDefaultSchedule ? (
+              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Berlaku untuk semua divisi yang tidak punya jadwal sendiri</p>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Cari divisi..."
+                  value={deptSearch}
+                  onChange={e => setDeptSearch(e.target.value)}
+                  style={{ marginBottom: '8px' }}
+                />
+                <div style={{ maxHeight: '180px', overflowY: 'auto', border: deptError ? '1px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', backgroundColor: '#f8fafc' }}>
+                  {departments
+                    .filter(d => d.name.toLowerCase().includes(deptSearch.trim().toLowerCase()))
+                    .map(d => {
+                      const usedBy = usedByOther.get(d.id);
+                      return (
+                        <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '14px' }}>
+                          <input
+                            type="checkbox"
+                            checked={formData.department_ids.includes(d.id)}
+                            onChange={() => toggleDepartment(d.id)}
+                            style={{ width: '16px', height: '16px', accentColor: '#2563eb' }}
+                          />
+                          <span>{d.name}</span>
+                          {usedBy && <span style={{ fontSize: '12px', color: '#94a3b8' }}>dipakai: {usedBy}</span>}
+                        </label>
+                      );
+                    })}
+                  {departments.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>Tidak ada divisi.</span>}
+                </div>
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{formData.department_ids.length} divisi dipilih</p>
+                {deptError && <span style={{ color: '#ef4444', fontSize: '12px', display: 'block', marginTop: '4px' }}>{deptError}</span>}
+              </>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -291,6 +369,21 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
                 required 
               />
               <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Datang setelah jam ini dihitung tidak hadir.</p>
+            </div>
+
+            <div className="form-group">
+              <label className="input-label">Minimal lembur dihitung (menit)</label>
+              <input 
+                type="number" 
+                name="overtime_min_minutes"
+                className="input-field" 
+                value={formData.overtime_min_minutes} 
+                onChange={handleChange} 
+                min="0"
+                max="240"
+                required 
+              />
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Lembur dihitung penuh sejak jam pulang bila mencapai batas ini.</p>
             </div>
           </div>
 

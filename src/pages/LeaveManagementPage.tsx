@@ -4,6 +4,7 @@ import '../components/ui/employee.css';
 import '../components/ui/leavemanagement.css';
 import '../components/ui/leave.css';
 import { AlertModal } from '../components/ui/AlertModal';
+import { Pagination } from '../components/ui/Pagination';
 import { LeaveDetailModal } from '../components/ui/LeaveDetailModal';
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { XIcon } from '../components/icons/XIcon';
@@ -457,23 +458,15 @@ export function LeaveManagementPage() {
 
         {/* Pagination */}
         {leaveResponse.total_pages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-            <button 
-              disabled={leaveResponse.page === 1} 
-              onClick={() => setLeaveResponse(prev => ({ ...prev, page: prev.page - 1 }))}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: leaveResponse.page === 1 ? '#f1f5f9' : '#fff', cursor: leaveResponse.page === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {leaveResponse.page} dari {leaveResponse.total_pages}</span>
-            <button 
-              disabled={leaveResponse.page === leaveResponse.total_pages} 
-              onClick={() => setLeaveResponse(prev => ({ ...prev, page: prev.page + 1 }))}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: leaveResponse.page === leaveResponse.total_pages ? '#f1f5f9' : '#fff', cursor: leaveResponse.page === leaveResponse.total_pages ? 'not-allowed' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={leaveResponse.page}
+            totalPages={leaveResponse.total_pages}
+            totalItems={leaveResponse.total}
+            itemLabel="pengajuan cuti"
+            prevLabel="Prev"
+            nextLabel="Next"
+            onPageChange={(p) => setLeaveResponse(prev => ({ ...prev, page: p }))}
+          />
         )}
       </div>
 

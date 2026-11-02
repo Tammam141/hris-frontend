@@ -14,7 +14,7 @@ export function BalanceAdjustmentPage() {
   // Selection State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [selectedLeaveTypeId, setSelectedLeaveTypeId] = useState<string>('');
-  const [periodYear, setPeriodYear] = useState<number>(new Date().getFullYear());
+  const [periodYear, setPeriodYear] = useState<number>(Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric' }).format(new Date())));
   
   // Current Balance Info
   const [currentBalanceInfo, setCurrentBalanceInfo] = useState<any>(null);

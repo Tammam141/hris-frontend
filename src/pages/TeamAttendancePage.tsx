@@ -2,11 +2,12 @@ import { ApiError } from '../api/client';
 import { useState, useEffect } from 'react';
 import { getTeamAttendancesApi } from '../api/attendance';
 import { Attendance } from '../types/attendance';
-import { formatPlainDate, formatToJakartaTimeOnly } from '../utils/dateFormatter';
+import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useAuth } from '../hooks/useAuth';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
+import { Pagination } from '../components/ui/Pagination';
 
 export function TeamAttendancePage() {
   const { user } = useAuth();
@@ -130,6 +131,7 @@ export function TeamAttendancePage() {
                   <th>Departemen</th>
                   <th>Jam Masuk</th>
                   <th>Jam Pulang</th>
+                  <th>Lembur</th>
                   <th>Status</th>
                   <th>Catatan</th>
                 </tr>
@@ -149,6 +151,7 @@ export function TeamAttendancePage() {
                     <td>{row.department_name || '-'}</td>
                     <td>{row.check_in_at ? formatToJakartaTimeOnly(row.check_in_at) : '-'}</td>
                     <td>{row.check_out_at ? formatToJakartaTimeOnly(row.check_out_at) : '-'}</td>
+                    <td>{row.overtime_minutes > 0 ? formatMinutesToDuration(row.overtime_minutes) : '-'}</td>
                     <td>{translateStatus(row.status)}</td>
                     <td>
                       {row.check_in_source === 'offline_sync' || row.check_out_source === 'offline_sync' ? (
@@ -171,7 +174,7 @@ export function TeamAttendancePage() {
                 ))}
                 {teamAttendanceResponse.data.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
+                    <td colSpan={9} className="table-cell-no-data">Belum ada data absensi tim yang tercatat.</td>
                   </tr>
                 )}
               </tbody>
@@ -180,23 +183,15 @@ export function TeamAttendancePage() {
         )}
 
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-            <button 
-              disabled={page === 1} 
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === 1 ? '#f1f5f9' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ padding: '6px 12px', fontSize: '14px' }}>Halaman {page} dari {totalPages}</span>
-            <button 
-              disabled={page === totalPages} 
-              onClick={() => setPage(p => p + 1)}
-              style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: page === totalPages ? '#f1f5f9' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={teamAttendanceResponse.total}
+            itemLabel="data absensi tim"
+            prevLabel="Prev"
+            nextLabel="Next"
+            onPageChange={(p) => setPage(p)}
+          />
         )}
       </div>
 
