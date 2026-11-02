@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getOrgTree } from '../api/org';
 import { OrgTree, OrgHolder, LineManagerResponse } from '../types/org';
-import { ApiError } from '../api/client';
 import {
   indexPositions,
   summarize,
@@ -14,6 +13,8 @@ import { OrgUnitNode } from '../features/org/OrgUnitNode';
 import { LineManagerPopover } from '../features/org/LineManagerPopover';
 import '../components/ui/dashboard.css';
 import '../components/ui/org-chart.css';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 export function OrgChartPage() {
   const [tree, setTree] = useState<OrgTree | null>(null);
@@ -59,8 +60,7 @@ export function OrgChartPage() {
         setError('Gagal memuat struktur organisasi');
       }
     } catch (e: any) {
-      const err = e as ApiError;
-      setError(err.message || 'Gagal memuat struktur organisasi');
+      setError(toUserMessage(e, 'Gagal memuat struktur organisasi.'));
     } finally {
       setLoading(false);
     }
@@ -245,7 +245,7 @@ export function OrgChartPage() {
           <div className="org-empty-state">
             Struktur organisasi belum disusun.
             <Link to="/department" className="org-empty-state-link">
-              Atur di halaman Department
+              Atur di halaman Unit Organisasi
             </Link>
           </div>
         ) : (
@@ -279,7 +279,7 @@ export function OrgChartPage() {
           <div className="org-unassigned-card">
             <div className="org-unassigned-header">
               <div className="org-unassigned-title">
-                <span>⚠️</span>
+                <AlertTriangleIcon size={18} style={{ color: '#b45309', flexShrink: 0 }} />
                 <span>{tree.unassigned_positions.length} jabatan belum punya unit dan tidak masuk struktur</span>
               </div>
               <Link to="/position" className="org-unassigned-link">

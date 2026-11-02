@@ -20,7 +20,7 @@ export const ROUTE_PERMISSIONS: Record<string, AccessRule> = {
   '/leave': {}, // Semua bisa akses cuti sendiri
   '/profile': {}, // Semua bisa edit profil sendiri
   '/features': { adminOnly: true }, // Hanya admin (Akses Jabatan)
-  '/access-profiles': { adminOnly: true }, // Hanya admin (Paket Akses)
+  '/access-profiles': { adminOnly: true }, // Hanya admin (Hak Akses)
   '/work-schedules': { features: ['organization.schedule'] },
   '/attendance': {}, // Semua bisa akses
   '/attendance/team': { features: ['attendance.view_team'] },

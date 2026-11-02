@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { changePasswordApi } from '../../api/auth';
 import { clearSession } from '../../utils/session';
 import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../../utils/passwordValidation';
 import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
-import '../employee/employee-modal.css'; // Reusing the same modal CSS
+import { toUserMessage } from '../../utils/apiMessage';
+import '../employee/employee-modal.css';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -20,6 +21,17 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
   const [success, setSuccess] = useState('');
   const [currentPasswordError, setCurrentPasswordError] = useState('');
 
+  useEffect(() => {
+    if (!isOpen || mustChange) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, mustChange]);
+
   if (!isOpen) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -35,14 +47,14 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Password baru dan konfirmasi tidak cocok');
+      setError('Kata sandi baru dan konfirmasi kata sandi tidak cocok.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await changePasswordApi(currentPassword, newPassword);
-      setSuccess(response.message || 'Password berhasil diubah');
+      await changePasswordApi(currentPassword, newPassword);
+      setSuccess('Kata sandi berhasil diubah. Silakan masuk kembali...');
       setTimeout(async () => {
         await clearSession();
         window.location.href = '/login';
@@ -54,7 +66,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
         await clearSession();
         window.location.href = '/login';
       } else {
-        setError(err.message || 'Gagal mengubah password');
+        setError(toUserMessage(err, 'Gagal mengubah kata sandi.'));
       }
     } finally {
       setLoading(false);
@@ -73,11 +85,19 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
 
   return (
     <div className="modal-overlay" onClick={mustChange ? undefined : handleClose}>
-      <div className="modal-content" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '450px' }} 
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="change-password-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2 className="modal-title">Ganti Password</h2>
+          <h2 id="change-password-modal-title" className="modal-title">Ubah Kata Sandi</h2>
           {!mustChange && (
-            <button className="modal-close-btn" onClick={handleClose}>&times;</button>
+            <button className="modal-close-btn" onClick={handleClose} aria-label="Tutup">&times;</button>
           )}
         </div>
 
@@ -87,7 +107,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
           
           <form id="changePasswordForm" onSubmit={handleSubmit}>
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="input-label">Password Saat Ini</label>
+              <label className="input-label">Kata Sandi Saat Ini</label>
               <input 
                 type="password" 
                 className="input-field" 
@@ -101,7 +121,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
             </div>
             
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="input-label">Password Baru</label>
+              <label className="input-label">Kata Sandi Baru</label>
               <input 
                 type="password" 
                 className="input-field" 
@@ -116,7 +136,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
             </div>
 
             <div className="form-group">
-              <label className="input-label">Konfirmasi Password Baru</label>
+              <label className="input-label">Konfirmasi Kata Sandi Baru</label>
               <input 
                 type="password" 
                 className="input-field" 
@@ -124,7 +144,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
                 onChange={e => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
-                placeholder="Ulangi password baru"
+                placeholder="Ulangi kata sandi baru"
                 disabled={loading || !!success}
               />
             </div>
@@ -136,7 +156,7 @@ export function ChangePasswordModal({ isOpen, onClose, mustChange = false }: Cha
             <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={loading} style={{ width: 'auto' }}>Tutup</button>
           )}
           <button type="submit" form="changePasswordForm" className="btn btn-primary" disabled={loading || !!success} style={{ width: 'auto' }}>
-            {loading ? 'Memproses...' : 'Simpan Password'}
+            {loading ? 'Memproses...' : 'Simpan Kata Sandi'}
           </button>
         </div>
       </div>

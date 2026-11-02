@@ -12,6 +12,8 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import '../components/ui/dashboard.css';
 import '../components/ui/attendance.css';
 import { Pagination } from '../components/ui/Pagination';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 import { useAuth } from '../hooks/useAuth';
 
@@ -84,6 +86,17 @@ export function AllAttendancesPage() {
         } catch {}
       });
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!correctionTarget) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmittingCorrection) {
+        setCorrectionTarget(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [correctionTarget, isSubmittingCorrection]);
 
   const page = attendanceResponse.page;
   const setPage = (updater: number | ((p: number) => number)) =>
@@ -171,7 +184,7 @@ export function AllAttendancesPage() {
         }
 
         setIsOfflineMode(false);
-        setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Error', message: toUserMessage(e, 'Gagal memuat data absensi.'), type: 'error' });
       })
       .finally(() => {
         if (!ignore) setIsLoading(false);
@@ -318,9 +331,9 @@ export function AllAttendancesPage() {
           setCorrectionErrors(backendErrors);
           return;
         }
-        setAlertInfo({ open: true, title: 'Validasi Gagal', message: err.message || 'Data koreksi tidak valid.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Validasi Gagal', message: toUserMessage(err, 'Data koreksi tidak valid.'), type: 'error' });
       } else {
-        setAlertInfo({ open: true, title: 'Error', message: err.message || 'Gagal menyimpan koreksi absensi.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Error', message: toUserMessage(err, 'Gagal menyimpan koreksi absensi.'), type: 'error' });
       }
     } finally {
       setIsSubmittingCorrection(false);
@@ -337,17 +350,17 @@ export function AllAttendancesPage() {
     <div className="dashboard-container">
       <div className="dashboard-header-row">
         <div>
-          <h1 className="dashboard-title">Semua Absensi (Admin)</h1>
+          <h1 className="dashboard-title">Semua Absensi</h1>
           <p className="dashboard-subtitle">Pantau riwayat kehadiran seluruh karyawan di perusahaan.</p>
         </div>
-        <button onClick={loadData} className="btn btn-secondary" >
-          Refresh
+        <button onClick={loadData} className="btn btn-secondary">
+          Segarkan
         </button>
       </div>
 
       {isOfflineMode && (
         <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginTop: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <AlertTriangleIcon size={18} />
           <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data absensi lokal terakhir yang tersimpan di perangkat.</span>
         </div>
       )}
@@ -383,23 +396,23 @@ export function AllAttendancesPage() {
             <input 
               type="text" 
               className="input-field" 
-              placeholder="Cari nama atau NIK..." 
+              placeholder="Cari nama atau nomor karyawan..." 
               value={filterEmployee} 
               onChange={e => setFilterEmployee(e.target.value)} 
               style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
             />
           </div>
 
-          {/* Departemen */}
+          {/* Unit */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 180px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Departemen</label>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Unit</label>
             <select 
               className="input-field" 
               value={filterDepartment} 
               onChange={e => setFilterDepartment(e.target.value)} 
               style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
             >
-              <option value="">Semua Departemen</option>
+              <option value="">Semua Unit</option>
               {departments.map(dept => (
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}
@@ -415,7 +428,7 @@ export function AllAttendancesPage() {
               onChange={e => setFilterStatus(e.target.value)} 
               style={{ padding: '8px 12px', fontSize: '13.5px', height: '40px', boxSizing: 'border-box' }}
             >
-              <option value="">Semua Status</option>
+              <option value="">Semua status</option>
               <option value="present">Hadir</option>
               <option value="late">Terlambat</option>
               <option value="absent">Tidak Hadir</option>
@@ -441,7 +454,7 @@ export function AllAttendancesPage() {
                 className="btn btn-secondary" 
                 style={{ padding: '8px 14px', fontSize: '13.5px', height: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
               >
-                Reset
+                Atur ulang
               </button>
             </div>
           </div>
@@ -460,12 +473,12 @@ export function AllAttendancesPage() {
             <table className="attendance-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
+                  <th style={{ width: '50px', textAlign: 'center' }}>No</th>
                   <th>Tanggal</th>
                   <th>Karyawan</th>
-                  <th>Departemen</th>
-                  <th>Jam Masuk</th>
-                  <th>Jam Pulang</th>
+                  <th>Unit</th>
+                  <th>Jam masuk</th>
+                  <th>Jam pulang</th>
                   <th>Lembur</th>
                   <th>Status</th>
                   <th>Catatan</th>
@@ -558,15 +571,16 @@ export function AllAttendancesPage() {
 
       {/* Modal Koreksi */}
       {correctionTarget && (
-        <div className="modal-overlay" onClick={() => !isSubmittingCorrection && setCorrectionTarget(null)}>
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="correction-modal-title" onClick={() => !isSubmittingCorrection && setCorrectionTarget(null)}>
           <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Koreksi Absensi</h2>
+              <h2 id="correction-modal-title" className="modal-title">Koreksi Absensi</h2>
               <button 
                 type="button" 
                 className="modal-close-btn" 
                 onClick={() => setCorrectionTarget(null)}
                 disabled={isSubmittingCorrection}
+                aria-label="Tutup"
                 title="Tutup"
               >
                 &times;
@@ -679,7 +693,7 @@ export function AllAttendancesPage() {
                   disabled={isSubmittingCorrection}
                   style={{ minWidth: '140px', padding: '10px 20px' }}
                 >
-                  {isSubmittingCorrection ? 'Menyimpan...' : 'Simpan Koreksi'}
+                  {isSubmittingCorrection ? 'Menyimpan...' : 'Simpan koreksi'}
                 </button>
               </div>
             </form>

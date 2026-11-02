@@ -24,7 +24,7 @@ export function LeavePage() {
   return (
     <div className="dashboard-container leave-page-container">
       <div className="dashboard-card leave-page-card">
-        <h1 className="dashboard-title">Pengajuan Cuti</h1>
+        <h1 className="dashboard-title">Ajukan Cuti</h1>
         <p className="dashboard-subtitle">Silakan tentukan periode cuti yang Anda inginkan.</p>
         
         {/* Saldo Cuti */}

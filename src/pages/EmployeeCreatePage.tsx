@@ -7,6 +7,8 @@ import { Department, Position, EmployeeListItem, CreateEmployeePayload, position
 import { validateEmployeeDates } from '../utils/dateValidation';
 import { validateFullName } from '../utils/nameValidation';
 import { AlertModal } from '../components/ui/AlertModal';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { toUserMessage } from '../utils/apiMessage';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { LineManagerField } from '../features/employee/LineManagerField';
 import '../components/ui/dashboard.css';
@@ -119,6 +121,7 @@ export function EmployeeCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '' as React.ReactNode, type: 'success' as 'success' | 'error' | 'warning' });
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   // State untuk menyimpan error dari backend. 
   // Format key field error: `${rowIndex}-${fieldName}`
@@ -178,7 +181,7 @@ export function EmployeeCreatePage() {
           loadManagers();
         }
       } catch (err: any) {
-        setAlertInfo({ open: true, title: 'Error', message: (err as any)?.message || 'Gagal memuat referensi data', type: 'error' });
+        setAlertInfo({ open: true, title: 'Error', message: toUserMessage(err, 'Gagal memuat referensi data'), type: 'error' });
       } finally {
         setLoading(false);
       }
@@ -371,7 +374,7 @@ export function EmployeeCreatePage() {
                 const rowIndex = d.index !== undefined ? d.index : idx;
                 return (
                   <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
-                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee.full_name}</strong> (NIK: {d.employee.employee_number})<br/>
+                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee.full_name}</strong> (Nomor karyawan: {d.employee.employee_number})<br/>
                     Email: {d.account.email}
                   </div>
                 );
@@ -398,7 +401,7 @@ export function EmployeeCreatePage() {
         err.errors.forEach((e: any) => {
           if (e.field) {
             // Karena ini single object, indexnya selalu 0
-            let msg = e.message;
+            let msg = toUserMessage(e, 'Isian ini belum benar.');
             if (e.field === 'phone') {
               msg = phoneRowErrorMessage(e.message);
             } else if (e.field === 'email') {
@@ -411,16 +414,16 @@ export function EmployeeCreatePage() {
       } else if (err.code === 'BAD_REQUEST' && err.details?.failed_rows && Array.isArray(err.details.failed_rows)) {
         // Array payload:
         err.details.failed_rows.forEach((row: any) => {
-          parsedErrors[`${row.index}-row`] = row.message;
+          parsedErrors[`${row.index}-row`] = toUserMessage(row, 'Baris ini belum benar.');
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
-              let msg = e.message;
+              let msg = toUserMessage(e, 'Isian ini belum benar.');
               if (e.field === 'phone') {
                 msg = phoneRowErrorMessage(e.message);
               } else if (e.field === 'email') {
                 msg = emailRowErrorMessage(e.message);
               } else if (e.field === 'position_id') {
-                msg = e.message || 'Kuota kursi jabatan ini sudah penuh';
+                msg = toUserMessage(e, 'Kuota kursi jabatan ini sudah penuh.');
               }
               parsedErrors[`${row.index}-${e.field}`] = msg;
             });
@@ -432,9 +435,9 @@ export function EmployeeCreatePage() {
         if (isPhoneAlreadyRegisteredError(err)) {
           parsedErrors['0-phone'] = PHONE_ALREADY_REGISTERED_MSG;
         } else if (err.details?.field === 'position_id' || err.message?.toLowerCase().includes('position') || err.message?.toLowerCase().includes('kuota') || err.message?.toLowerCase().includes('quota')) {
-          parsedErrors['0-position_id'] = err.message || 'Kuota kursi jabatan ini sudah penuh';
+          parsedErrors['0-position_id'] = toUserMessage(err, 'Kuota kursi jabatan ini sudah penuh');
         } else {
-          parsedErrors['0-email'] = err.message || 'Email sudah terdaftar';
+          parsedErrors['0-email'] = toUserMessage(err, 'Email sudah terdaftar');
         }
         errorParsed = true;
       }
@@ -442,7 +445,7 @@ export function EmployeeCreatePage() {
       if (errorParsed) {
         setValidationErrors(parsedErrors);
         
-        let summaryMessage = err.message || 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.';
+        let summaryMessage = toUserMessage(err, 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.');
         if (err.details && err.details.total !== undefined) {
           summaryMessage = `${err.details.invalid} baris perlu diperbaiki, belum ada yang ditambahkan (Total: ${err.details.total}).`;
         }
@@ -458,7 +461,7 @@ export function EmployeeCreatePage() {
         setAlertInfo({
           open: true,
           title: 'Error',
-          message: err.message || 'Terjadi kesalahan saat memproses data',
+          message: toUserMessage(err, 'Terjadi kesalahan saat memproses data'),
           type: 'error'
         });
       }
@@ -471,11 +474,14 @@ export function EmployeeCreatePage() {
   const getRowError = (index: number) => validationErrors[`${index}-row`];
 
   const handleResetForm = () => {
-    if (window.confirm('Apakah Anda yakin ingin membersihkan semua data pada form ini? Data yang belum tersimpan akan hilang.')) {
-      localStorage.removeItem('employeeFormsDraft');
-      setForms([createEmptyForm()]);
-      setValidationErrors({});
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetForm = () => {
+    localStorage.removeItem('employeeFormsDraft');
+    setForms([createEmptyForm()]);
+    setValidationErrors({});
+    setIsResetConfirmOpen(false);
   };
 
   return (
@@ -557,7 +563,7 @@ export function EmployeeCreatePage() {
                   {/* Informasi Dasar */}
                   <div>
                     <label className="form-label">Nama Lengkap *</label>
-                    <input type="text" className={`input-field ${getError(index, 'full_name') ? 'error-border' : ''}`} style={getError(index, 'full_name') ? { borderColor: '#ef4444' } : {}} required placeholder="John Doe" value={form.full_name} onChange={e => updateForm(form.id, 'full_name', e.target.value)} />
+                    <input type="text" className={`input-field ${getError(index, 'full_name') ? 'error-border' : ''}`} style={getError(index, 'full_name') ? { borderColor: '#ef4444' } : {}} required placeholder="Contoh: Budi Santoso" value={form.full_name} onChange={e => updateForm(form.id, 'full_name', e.target.value)} />
                     {getError(index, 'full_name') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'full_name')}</span>}
                   </div>
                   <div>
@@ -595,12 +601,12 @@ export function EmployeeCreatePage() {
                   <div>
                     <label className="form-label">Role Akses *</label>
                     <select className="input-field" value={form.role} onChange={e => updateForm(form.id, 'role', e.target.value)}>
-                      <option value="employee">Employee</option>
+                      <option value="employee">Karyawan (Employee)</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">Departemen *</label>
+                    <label className="form-label">Unit *</label>
                     <select 
                       className={`input-field ${getError(index, 'department_id') ? 'error-border' : ''}`}
                       style={getError(index, 'department_id') ? { borderColor: '#ef4444' } : {}}
@@ -608,13 +614,13 @@ export function EmployeeCreatePage() {
                       value={form.department_id} 
                       onChange={e => handleDepartmentChange(form.id, e.target.value)}
                     >
-                      <option value="">-- Pilih Departemen --</option>
+                      <option value="">-- Pilih Unit --</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                     {getError(index, 'department_id') && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{getError(index, 'department_id')}</span>}
                   </div>
                   <div>
-                    <label className="form-label">Posisi / Jabatan *</label>
+                    <label className="form-label">Jabatan *</label>
                     <select 
                       className={`input-field ${getError(index, 'position_id') ? 'error-border' : ''}`}
                       style={getError(index, 'position_id') ? { borderColor: '#ef4444' } : {}}
@@ -623,7 +629,7 @@ export function EmployeeCreatePage() {
                       value={form.position_id} 
                       onChange={e => handlePositionChange(form.id, e.target.value)}
                     >
-                      <option value="">{form.department_id ? '-- Pilih Posisi --' : 'Pilih departemen terlebih dahulu'}</option>
+                      <option value="">{form.department_id ? '-- Pilih Jabatan --' : 'Pilih unit terlebih dahulu'}</option>
                       {(form.department_id ? positions.filter(p => p.department_id === form.department_id) : []).map(p => {
                         let label = positionLabel(p);
                         if (p.max_holders !== null && p.max_holders !== undefined) {
@@ -649,10 +655,10 @@ export function EmployeeCreatePage() {
                   <div>
                     <label className="form-label">Status Kepegawaian</label>
                     <select className="input-field" value={form.employment_status} onChange={e => updateForm(form.id, 'employment_status', e.target.value as any)}>
-                      <option value="probation">Probation</option>
-                      <option value="contract">Contract</option>
-                      <option value="permanent">Permanent</option>
-                      <option value="intern">Intern</option>
+                      <option value="probation">Masa percobaan (Probation)</option>
+                      <option value="contract">Kontrak (Contract)</option>
+                      <option value="permanent">Tetap (Permanent)</option>
+                      <option value="intern">Magang (Intern)</option>
                     </select>
                   </div>
                   <div>
@@ -684,6 +690,16 @@ export function EmployeeCreatePage() {
         type={alertInfo.type}
         message={alertInfo.message}
         onClose={() => setAlertInfo(prev => ({ ...prev, open: false }))}
+      />
+
+      <ConfirmModal
+        isOpen={isResetConfirmOpen}
+        title="Bersihkan Form"
+        message="Apakah Anda yakin ingin membersihkan semua data pada form ini? Data yang belum tersimpan akan hilang."
+        confirmText="Ya, Bersihkan"
+        isDestructive={true}
+        onConfirm={confirmResetForm}
+        onCancel={() => setIsResetConfirmOpen(false)}
       />
     </div>
   );

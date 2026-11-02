@@ -42,6 +42,7 @@ export interface FeatureMatrixResponse {
     department_name?: string | null;
     is_unit_head?: boolean;
     access_profile_id?: string | null;
+    holder_count?: number;
     updated_at: string;
   }[];
   categories: FeatureCategory[];

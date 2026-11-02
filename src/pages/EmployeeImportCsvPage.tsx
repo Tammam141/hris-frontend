@@ -15,6 +15,7 @@ import '../components/ui/employee.css';
 import { isRateLimited } from '../utils/rateLimit';
 import { validatePassword } from '../utils/passwordValidation';
 import { phoneRowErrorMessage, emailRowErrorMessage } from '../utils/phoneValidation';
+import { toUserMessage } from '../utils/apiMessage';
 
 interface CsvRow {
   full_name: string;
@@ -454,7 +455,7 @@ export function EmployeeImportCsvPage() {
                 const rowIndex = d.index !== undefined ? d.index : idx;
                 return (
                   <div key={idx} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: idx < dataArray.length - 1 ? '1px solid #cbd5e1' : 'none' }}>
-                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee?.full_name || '-'}</strong> (NIK: {d.employee?.employee_number || '-'})<br/>
+                    <span style={{ fontWeight: 600, color: '#2563eb' }}>Baris {rowIndex + 1}</span> ➔ <strong>{d.employee?.full_name || '-'}</strong> (Nomor karyawan: {d.employee?.employee_number || '-'})<br/>
                     Email: {d.account?.email || '-'}
                   </div>
                 );
@@ -477,10 +478,10 @@ export function EmployeeImportCsvPage() {
       // 4. Parsing pesan error validasi per baris
       if (err.code === 'BAD_REQUEST' && err.details?.failed_rows && Array.isArray(err.details.failed_rows)) {
         err.details.failed_rows.forEach((row: any) => {
-          parsedErrors[`${row.index}-row`] = row.message;
+          parsedErrors[`${row.index}-row`] = toUserMessage(row, 'Baris ini belum benar.');
           if (row.errors && Array.isArray(row.errors)) {
             row.errors.forEach((e: any) => {
-              let msg = e.message;
+              let msg = toUserMessage(e, 'Isian ini belum benar.');
               if (e.field === 'phone') {
                 msg = phoneRowErrorMessage(e.message);
               } else if (e.field === 'email') {
@@ -496,7 +497,7 @@ export function EmployeeImportCsvPage() {
       if (errorParsed) {
         setValidationErrors(parsedErrors);
         
-        let summaryMessage = err.message || 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.';
+        let summaryMessage = toUserMessage(err, 'Terdapat baris yang bermasalah. Tidak ada karyawan yang ditambahkan. Silakan perbaiki lalu coba lagi.');
         if (err.details && err.details.total !== undefined) {
           summaryMessage = `${err.details.invalid} baris perlu diperbaiki, belum ada yang ditambahkan (Total: ${err.details.total}).`;
         }
@@ -511,7 +512,7 @@ export function EmployeeImportCsvPage() {
         setAlertInfo({
           open: true,
           title: 'Error',
-          message: err.message || 'Terjadi kesalahan saat memproses data',
+          message: toUserMessage(err, 'Terjadi kesalahan saat memproses data'),
           type: 'error'
         });
       }
@@ -536,8 +537,8 @@ export function EmployeeImportCsvPage() {
           <button onClick={() => navigate('/employee')} className="create-employee-back-btn" disabled={isSubmitting}>
             ← Kembali ke Daftar Karyawan
           </button>
-          <h1 className="dashboard-title">Upload Karyawan via CSV</h1>
-          <p className="dashboard-subtitle">Tambahkan data banyak karyawan sekaligus menggunakan file CSV.</p>
+          <h1 className="dashboard-title">Impor Karyawan via CSV</h1>
+          <p className="dashboard-subtitle">Tambahkan data banyak karyawan sekaligus menggunakan berkas CSV.</p>
         </div>
       </div>
 
@@ -551,21 +552,21 @@ export function EmployeeImportCsvPage() {
           </svg>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', margin: 0 }}>Template CSV</h3>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '2px 0 0 0' }}>Download template, isi data karyawan, lalu upload kembali di bawah.</p>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '2px 0 0 0' }}>Unduh template, isi data karyawan, lalu unggah kembali di bawah.</p>
           </div>
         </div>
         <button type="button" className="btn btn-primary csv-download-btn" onClick={handleDownloadTemplate} disabled={isSubmitting}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Download Template
+          Unduh Template
         </button>
       </div>
 
       <div className="csv-main-content">
         <div className="dashboard-card csv-upload-area">
           <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
-            {isReviewing ? 'Review Data Karyawan' : 'Upload File CSV'}
+            {isReviewing ? 'Tinjau Data Karyawan' : 'Unggah Berkas CSV'}
           </h2>
 
           {!isReviewing && (
@@ -575,15 +576,15 @@ export function EmployeeImportCsvPage() {
                   <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <p style={{ color: '#475569', marginBottom: '4px', fontWeight: 500 }}>Pilih file CSV untuk di-upload</p>
+                <p style={{ color: '#475569', marginBottom: '4px', fontWeight: 500 }}>Pilih berkas CSV untuk diunggah</p>
                 <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>Format yang didukung: .csv</p>
                 <input type="file" accept=".csv" onChange={handleFileChange} style={{ display: 'none' }} id="csv-upload" />
                 <label htmlFor="csv-upload" className="btn btn-secondary" style={{ display: 'inline-block', cursor: 'pointer', margin: 0 }}>
-                  Telusuri File
+                  Pilih Berkas
                 </label>
                 {file && (
                   <div style={{ marginTop: '16px', padding: '10px 16px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', color: '#065f46', fontWeight: 500, fontSize: '14px' }}>
-                    File terpilih: <strong>{file.name}</strong>
+                    Berkas terpilih: <strong>{file.name}</strong>
                   </div>
                 )}
               </div>
@@ -591,7 +592,7 @@ export function EmployeeImportCsvPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
                 <button className="btn btn-secondary" onClick={() => navigate('/employee')}>Batal</button>
                 <button className="btn btn-primary" onClick={handleParseCSV} disabled={!file || isLoadingRefs}>
-                  {isLoadingRefs ? 'Memuat data...' : 'Upload & Review'}
+                  {isLoadingRefs ? 'Memuat data...' : 'Unggah & Tinjau'}
                 </button>
               </div>
             </>
@@ -614,18 +615,18 @@ export function EmployeeImportCsvPage() {
                   <thead>
                     <tr>
                       <th className="csv-sticky-header">No</th>
-                      <th className="csv-sticky-header">Nama Lengkap</th>
+                      <th className="csv-sticky-header">Nama lengkap</th>
                       <th className="csv-sticky-header">Email</th>
                       <th className="csv-sticky-header">Telepon</th>
-                      <th className="csv-sticky-header">Password</th>
-                      <th className="csv-sticky-header">Gender</th>
+                      <th className="csv-sticky-header">Kata sandi</th>
+                      <th className="csv-sticky-header">Jenis kelamin</th>
                       <th className="csv-sticky-header">Role</th>
-                      <th className="csv-sticky-header">Tanggal Lahir</th>
-                      <th className="csv-sticky-header">Tgl Gabung</th>
+                      <th className="csv-sticky-header">Tanggal lahir</th>
+                      <th className="csv-sticky-header">Tanggal bergabung</th>
                       <th className="csv-sticky-header">Status</th>
-                      <th className="csv-sticky-header">Departemen</th>
-                      <th className="csv-sticky-header">Posisi</th>
-                      <th className="csv-sticky-header">Manajer</th>
+                      <th className="csv-sticky-header">Unit</th>
+                      <th className="csv-sticky-header">Jabatan</th>
+                      <th className="csv-sticky-header">Atasan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -687,12 +688,12 @@ export function EmployeeImportCsvPage() {
                               value={row.employment_status || 'probation'} 
                               onChange={(e) => updateRowField(idx, 'employment_status', e.target.value)}
                               className="input-field"
-                              style={{ width: '120px', padding: '6px', fontSize: '13px' }}
+                              style={{ width: '150px', padding: '6px', fontSize: '13px' }}
                             >
-                              <option value="probation">Probation</option>
-                              <option value="contract">Contract</option>
-                              <option value="permanent">Permanent</option>
-                              <option value="intern">Intern</option>
+                              <option value="probation">Masa percobaan (Probation)</option>
+                              <option value="contract">Kontrak (Contract)</option>
+                              <option value="permanent">Tetap (Permanent)</option>
+                              <option value="intern">Magang (Intern)</option>
                             </select>
                           </td>
                           <td>
@@ -718,7 +719,7 @@ export function EmployeeImportCsvPage() {
                               {departmentList.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
                             {getError(idx, 'department_id') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{getError(idx, 'department_id')}</div>}
-                            {(row.department && !row.department_id && !getError(idx, 'department_id')) && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>Departemen tidak ditemukan</div>}
+                            {(row.department && !row.department_id && !getError(idx, 'department_id')) && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>Unit tidak ditemukan</div>}
                           </td>
                           <td>
                             <select 
@@ -758,7 +759,7 @@ export function EmployeeImportCsvPage() {
                               {managerList.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.employee_number})</option>)}
                             </select>
                             {getError(idx, 'manager_id') && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{getError(idx, 'manager_id')}</div>}
-                            {(row.manager && !row.manager_id && !getError(idx, 'manager_id')) && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>Manajer tidak ditemukan</div>}
+                            {(row.manager && !row.manager_id && !getError(idx, 'manager_id')) && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>Atasan tidak ditemukan</div>}
                           </td>
                         </tr>
                       );
@@ -816,7 +817,7 @@ export function EmployeeImportCsvPage() {
 
           <div style={{ backgroundColor: '#f0fdf4', padding: '16px', borderRadius: '8px', fontSize: '13px', color: '#166534', marginTop: '12px', lineHeight: '1.6' }}>
             <strong>Tips:</strong>
-            <p style={{ marginTop: '4px' }}>Download template di atas, buka dengan Excel/Spreadsheet, isi data lalu simpan sebagai CSV.</p>
+            <p style={{ marginTop: '4px' }}>Unduh templat di atas, buka dengan Excel/Spreadsheet, isi data lalu simpan sebagai CSV.</p>
           </div>
         </div>
       </div>

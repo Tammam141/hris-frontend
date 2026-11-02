@@ -4,6 +4,7 @@ import '../components/ui/dashboard.css';
 import '../components/ui/employee.css';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { AlertModal } from '../components/ui/AlertModal';
+import { toUserMessage } from '../utils/apiMessage';
 
 export function ApprovalPage() {
   const [users, setUsers] = useState<PendingUser[]>([]);
@@ -32,7 +33,7 @@ export function ApprovalPage() {
         setUsers(res.data);
       }
     } catch (err: any) {
-      setError(err.message || 'Gagal memuat data persetujuan pengguna');
+      setError(toUserMessage(err, 'Gagal memuat data persetujuan pengguna.'));
     } finally {
       setLoading(false);
     }
@@ -54,14 +55,7 @@ export function ApprovalPage() {
         loadUsers();
       }
     } catch (err: any) {
-      if (
-        err.message === 'This account cannot be approved until its email has been verified' ||
-        err.message?.toLowerCase().includes('cannot be approved until its email')
-      ) {
-        setAlertMessage('Akun ini belum bisa disetujui karena pemiliknya belum memverifikasi email.');
-      } else {
-        setAlertMessage(err.message || 'Gagal menyetujui akun');
-      }
+      setAlertMessage(toUserMessage(err, 'Gagal menyetujui akun.'));
       setAlertOpen(true);
     } finally {
       setSelectedUser(null);
@@ -86,7 +80,7 @@ export function ApprovalPage() {
             <thead>
               <tr>
                 <th>Email</th>
-                <th>Tanggal Mendaftar</th>
+                <th>Tanggal mendaftar</th>
                 <th style={{ width: '120px' }}>Aksi</th>
               </tr>
             </thead>

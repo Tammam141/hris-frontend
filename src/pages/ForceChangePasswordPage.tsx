@@ -3,6 +3,7 @@ import { clearSession } from '../utils/session';
 import { changePasswordApi } from '../api/auth';
 import { validatePassword, isWrongCurrentPasswordError, WRONG_CURRENT_PASSWORD_MSG } from '../utils/passwordValidation';
 import { PasswordRequirements } from '../components/ui/PasswordRequirements';
+import { toUserMessage } from '../utils/apiMessage';
 import { useAuth } from '../hooks/useAuth';
 
 export function ForceChangePasswordPage() {
@@ -28,14 +29,14 @@ export function ForceChangePasswordPage() {
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Password baru dan konfirmasi tidak cocok');
+      setError('Kata sandi baru dan konfirmasi kata sandi tidak cocok.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await changePasswordApi(currentPassword, newPassword);
-      setSuccess(response.message || 'Password berhasil diubah. Mengalihkan ke halaman login...');
+      await changePasswordApi(currentPassword, newPassword);
+      setSuccess('Kata sandi berhasil diubah. Mengalihkan ke halaman masuk...');
       setTimeout(async () => {
         await clearSession();
         window.location.href = '/login';
@@ -47,7 +48,7 @@ export function ForceChangePasswordPage() {
         await clearSession();
         window.location.href = '/login';
       } else {
-        setError(err.message || 'Gagal mengubah password');
+        setError(toUserMessage(err, 'Gagal mengubah kata sandi.'));
       }
     } finally {
       setLoading(false);
@@ -58,9 +59,9 @@ export function ForceChangePasswordPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' }}>
       <div style={{ maxWidth: '450px', width: '100%', backgroundColor: 'white', padding: '32px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px' }}>Ganti Password Wajib</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px' }}>Wajib Ubah Kata Sandi</h2>
           <p style={{ color: '#475569', fontSize: '14px' }}>
-            Halo <strong>{user?.full_name}</strong>, demi keamanan, Anda diwajibkan untuk mengganti password bawaan dari Admin sebelum dapat menggunakan aplikasi.
+            Halo <strong>{user?.full_name}</strong>, demi keamanan, Anda diwajibkan untuk mengubah kata sandi bawaan dari admin sebelum dapat menggunakan aplikasi.
           </p>
         </div>
 
@@ -69,7 +70,7 @@ export function ForceChangePasswordPage() {
         
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Password Saat Ini</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Kata Sandi Saat Ini</label>
             <input 
               type="password" 
               style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: currentPasswordError ? '1px solid #ef4444' : '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
@@ -82,7 +83,7 @@ export function ForceChangePasswordPage() {
           </div>
           
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Password Baru</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Kata Sandi Baru</label>
             <input 
               type="password" 
               style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
@@ -97,7 +98,7 @@ export function ForceChangePasswordPage() {
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Konfirmasi Password Baru</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>Konfirmasi Kata Sandi Baru</label>
             <input 
               type="password" 
               style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
@@ -105,7 +106,7 @@ export function ForceChangePasswordPage() {
               onChange={e => setConfirmPassword(e.target.value)}
               required
               minLength={8}
-              placeholder="Ulangi password baru"
+              placeholder="Ulangi kata sandi baru"
               disabled={loading || !!success}
             />
           </div>
@@ -126,7 +127,7 @@ export function ForceChangePasswordPage() {
             }}
             disabled={loading || !!success}
           >
-            {loading ? 'Memproses...' : 'Simpan Password Baru'}
+            {loading ? 'Memproses...' : 'Simpan Kata Sandi Baru'}
           </button>
         </form>
       </div>

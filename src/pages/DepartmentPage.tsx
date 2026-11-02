@@ -10,6 +10,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
 
 export function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -43,6 +44,17 @@ export function DepartmentPage() {
     loadDepartments();
   }, []);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   async function loadDepartments() {
     setLoading(true);
     setError('');
@@ -52,8 +64,7 @@ export function DepartmentPage() {
         setDepartments(res.data);
       }
     } catch (e: any) {
-      const err = e as ApiError;
-      setError(err.message || 'Gagal memuat data unit organisasi');
+      setError(toUserMessage(e, 'Gagal memuat data unit organisasi.'));
     } finally {
       setLoading(false);
     }
@@ -137,9 +148,9 @@ export function DepartmentPage() {
       } else {
         const field = err.details?.field;
         if (field) {
-          setFieldErrors({ [field]: err.message });
+          setFieldErrors({ [field]: toUserMessage(err, err.message) });
         } else {
-          setFormError(err.message || 'Gagal menyimpan unit organisasi');
+          setFormError(toUserMessage(err, 'Gagal menyimpan unit organisasi.'));
         }
       }
     }
@@ -173,9 +184,8 @@ export function DepartmentPage() {
         setDeptToDelete(null);
         loadDepartments();
       } catch (e: any) {
-        const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
-        setAlertMessage(err.message || 'Gagal menghapus unit organisasi');
+        setAlertMessage(toUserMessage(e, 'Gagal menghapus unit organisasi.'));
         setAlertOpen(true);
       }
     }
@@ -204,10 +214,10 @@ export function DepartmentPage() {
             <thead>
               <tr>
                 <th>Kode</th>
-                <th>Nama Unit</th>
+                <th>Nama unit</th>
                 <th>Jenis</th>
-                <th>Unit Induk</th>
-                <th>Maks. Cuti Bersamaan</th>
+                <th>Unit induk</th>
+                <th>Maks. cuti bersamaan</th>
                 <th style={{ width: '100px' }}>Aksi</th>
               </tr>
             </thead>
@@ -238,7 +248,7 @@ export function DepartmentPage() {
                     <td>{dept.max_concurrent_leave ? `${dept.max_concurrent_leave} orang` : 'Tanpa batas'}</td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                        <button className="btn-icon btn-edit" onClick={() => openEditModal(dept)} title="Ubah" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
                         <button className="btn-icon btn-delete" onClick={() => handleDelete(dept)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                       </div>
                     </td>
@@ -253,10 +263,10 @@ export function DepartmentPage() {
       {/* Modal Form Unit Organisasi */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="dept-modal-title">
             <div className="modal-header">
-              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Unit Organisasi Baru' : 'Ubah Data Unit Organisasi'}</h2>
-              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
+              <h2 id="dept-modal-title" className="modal-title">{modalMode === 'create' ? 'Tambah Unit Organisasi Baru' : 'Ubah Data Unit Organisasi'}</h2>
+              <button className="modal-close-btn" onClick={() => setIsModalOpen(false)} aria-label="Tutup">&times;</button>
             </div>
             <form onSubmit={handleModalSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="modal-body">
@@ -376,9 +386,9 @@ export function DepartmentPage() {
       {/* Confirm & Alert Modals */}
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
-        title="Konfirmasi Hapus"
-        message={`Apakah kamu yakin ingin menghapus unit organisasi ${deptToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText="Ya, Hapus"
+        title="Hapus Unit Organisasi"
+        message={`Apakah Anda yakin ingin menghapus unit organisasi ${deptToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Hapus"
         isDestructive={true}
         onConfirm={confirmDelete}
         onCancel={() => {

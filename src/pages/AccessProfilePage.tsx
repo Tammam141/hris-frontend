@@ -14,6 +14,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
 import '../components/ui/access-profiles.css';
 
 export function AccessProfilePage() {
@@ -52,6 +53,16 @@ export function AccessProfilePage() {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isReviewModalOpen && !isSaving) {
+        setIsReviewModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReviewModalOpen, isSaving]);
+
   const loadAllData = async (keepSelectedId?: string | null) => {
     setIsLoading(true);
     try {
@@ -78,11 +89,10 @@ export function AccessProfilePage() {
         }
       }
     } catch (e: any) {
-      const error = e as ApiError;
       setAlertInfo({
         open: true,
-        title: 'Error',
-        message: error.message || 'Gagal memuat data paket akses',
+        title: 'Gagal',
+        message: toUserMessage(e, 'Gagal memuat data hak akses.'),
         type: 'error',
       });
     } finally {
@@ -192,7 +202,7 @@ export function AccessProfilePage() {
       const autoAddedCodes = Array.from(toAdd).filter(c => c !== code && !formCodes.has(c));
       if (autoAddedCodes.length > 0) {
         const autoNames = autoAddedCodes.map(c => allFeaturesMap.get(c)?.name || c).join(', ');
-        showCalloutInfo(`"${autoNames}" ikut dicentang karena dibutuhkan oleh "${targetName}".`);
+        showCalloutInfo(`Izin ${autoNames} ikut dicentang karena dibutuhkan oleh ${targetName}.`);
       }
 
       setFormCodes(prev => {
@@ -221,7 +231,7 @@ export function AccessProfilePage() {
       const autoRemovedCodes = Array.from(toRemove).filter(c => c !== code);
       if (autoRemovedCodes.length > 0) {
         const autoNames = autoRemovedCodes.map(c => allFeaturesMap.get(c)?.name || c).join(', ');
-        showCalloutInfo(`"${autoNames}" ikut dicabut karena membutuhkan "${targetName}".`);
+        showCalloutInfo(`Izin ${autoNames} ikut dicabut karena membutuhkan ${targetName}.`);
       }
 
       setFormCodes(prev => {
@@ -285,7 +295,7 @@ export function AccessProfilePage() {
         setAlertInfo({
           open: true,
           title: 'Berhasil',
-          message: res.message || `Paket akses "${res.data.name}" berhasil dibuat.`,
+          message: res.message ? toUserMessage(res, `Hak akses "${res.data.name}" berhasil dibuat.`) : `Hak akses "${res.data.name}" berhasil dibuat.`,
           type: 'success',
         });
 
@@ -302,7 +312,7 @@ export function AccessProfilePage() {
         setAlertInfo({
           open: true,
           title: 'Berhasil',
-          message: res.message || `Paket akses "${res.data.name}" berhasil diperbarui.`,
+          message: res.message ? toUserMessage(res, `Hak akses "${res.data.name}" berhasil diperbarui.`) : `Hak akses "${res.data.name}" berhasil diperbarui.`,
           type: 'success',
         });
 
@@ -316,16 +326,10 @@ export function AccessProfilePage() {
         setStaleDetails(error.details);
         setIsStaleModalOpen(true);
       } else {
-        let msg = error.message || 'Gagal menyimpan paket akses';
-        if (error.details?.missing_requirements) {
-          msg = 'Fitur yang dibutuhkan belum lengkap: ' + JSON.stringify(error.details.missing_requirements);
-        } else if (error.details?.unknown_codes) {
-          msg = 'Kode fitur tidak dikenal: ' + error.details.unknown_codes.join(', ');
-        }
         setAlertInfo({
           open: true,
           title: 'Gagal Menyimpan',
-          message: msg,
+          message: toUserMessage(error, 'Gagal menyimpan hak akses.'),
           type: 'error',
         });
       }
@@ -343,21 +347,16 @@ export function AccessProfilePage() {
       setAlertInfo({
         open: true,
         title: 'Berhasil Dihapus',
-        message: res.message || `Paket "${selectedProfile.name}" telah dihapus.`,
+        message: res.message ? toUserMessage(res, `Hak akses "${selectedProfile.name}" telah dihapus.`) : `Hak akses "${selectedProfile.name}" telah dihapus.`,
         type: 'success',
       });
       setConfirmDeleteOpen(false);
       await loadAllData();
     } catch (e: any) {
-      const error = e as ApiError;
-      let msg = error.message || 'Gagal menghapus paket akses';
-      if (error.status === 409) {
-        msg = `Paket tidak dapat dihapus karena masih digunakan oleh ${selectedProfile.position_count} jabatan.`;
-      }
       setAlertInfo({
         open: true,
         title: 'Gagal Menghapus',
-        message: msg,
+        message: toUserMessage(e, 'Gagal menghapus hak akses.'),
         type: 'error',
       });
     } finally {
@@ -376,7 +375,7 @@ export function AccessProfilePage() {
   if (isLoading) {
     return (
       <div className="access-page-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <p style={{ color: '#64748b' }}>Memuat data paket akses...</p>
+        <p style={{ color: '#64748b' }}>Memuat data hak akses...</p>
       </div>
     );
   }
@@ -385,9 +384,9 @@ export function AccessProfilePage() {
     <div className="access-page-container">
       {/* Header */}
       <div className="access-page-header">
-        <h1 className="access-page-title">Paket Akses</h1>
+        <h1 className="access-page-title">Hak Akses</h1>
         <p className="access-page-subtitle">
-          Kelola template paket fitur. Perubahan fitur di dalam paket langsung berlaku ke semua jabatan pemakainya.
+          Atur izin di dalam setiap hak akses. Perubahan langsung berlaku untuk semua jabatan yang memakainya.
         </p>
       </div>
 
@@ -399,11 +398,11 @@ export function AccessProfilePage() {
             <input
               type="text"
               className="access-search-input"
-              placeholder="Cari paket akses..."
+              placeholder="Cari hak akses..."
               value={searchProfileQuery}
               onChange={e => setSearchProfileQuery(e.target.value)}
               style={{ flex: 1 }}
-              aria-label="Cari paket akses"
+              aria-label="Cari hak akses"
             />
             <button
               type="button"
@@ -411,7 +410,7 @@ export function AccessProfilePage() {
               onClick={startNewProfile}
               style={{ whiteSpace: 'nowrap', padding: '10px 14px' }}
             >
-              + Paket Baru
+              + Hak akses baru
             </button>
           </div>
 
@@ -432,7 +431,7 @@ export function AccessProfilePage() {
                     {prof.is_system ? (
                       <span className="badge-standard">Standar</span>
                     ) : (
-                      <span className="badge-custom">Kustom</span>
+                      <span className="badge-custom">Buatan perusahaan</span>
                     )}
                   </div>
 
@@ -441,7 +440,7 @@ export function AccessProfilePage() {
                   </p>
 
                   <div className="profile-card-footer">
-                    <span>{prof.codes?.length || 0} fitur</span>
+                    <span>{prof.codes?.length || 0} izin</span>
                     <span>·</span>
                     <span>{prof.position_count || 0} jabatan</span>
                     <span>·</span>
@@ -458,14 +457,14 @@ export function AccessProfilePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                {isCreatingNew ? 'Buat Paket Akses Baru' : `Editor: ${selectedProfile?.name || 'Paket'}`}
+                {isCreatingNew ? 'Buat hak akses baru' : `Ubah hak akses: ${selectedProfile?.name || ''}`}
               </h2>
               <span style={{ fontSize: '12px', color: '#64748b' }}>
                 {isCreatingNew
-                  ? 'Tentukan nama dan pilih hak akses fitur untuk paket ini.'
+                  ? 'Tentukan nama dan pilih izin untuk hak akses ini.'
                   : selectedProfile?.is_system
-                  ? 'Paket standar sistem (dapat disesuaikan).'
-                  : 'Paket kustom yang dibuat organisasi.'}
+                  ? 'Hak akses standar. Isinya boleh diubah, tetapi tidak bisa dihapus.'
+                  : 'Hak akses buatan perusahaan.'}
               </span>
             </div>
 
@@ -474,11 +473,11 @@ export function AccessProfilePage() {
                 type="button"
                 className="btn-access btn-access-danger"
                 disabled={selectedProfile.position_count > 0}
-                title={selectedProfile.position_count > 0 ? `Paket masih digunakan oleh ${selectedProfile.position_count} jabatan.` : 'Hapus paket ini'}
+                title={selectedProfile.position_count > 0 ? `Hak akses masih dipakai oleh ${selectedProfile.position_count} jabatan.` : 'Hapus hak akses'}
                 onClick={() => setConfirmDeleteOpen(true)}
                 style={{ padding: '8px 12px', minHeight: '38px', fontSize: '13px' }}
               >
-                Hapus Paket
+                Hapus hak akses
               </button>
             )}
           </div>
@@ -486,7 +485,7 @@ export function AccessProfilePage() {
           {/* Form fields */}
           <div className="editor-form-group">
             <label htmlFor="input-profile-name" className="editor-label">
-              Nama Paket <span style={{ color: '#dc2626' }}>*</span>
+              Nama hak akses <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <input
               id="input-profile-name"
@@ -507,7 +506,7 @@ export function AccessProfilePage() {
             <textarea
               id="input-profile-desc"
               className="editor-textarea"
-              placeholder="Jelaskan tujuan dan fungsi utama dari paket akses ini..."
+              placeholder="Jelaskan tujuan dan fungsi utama dari hak akses ini..."
               value={formDesc}
               onChange={e => setFormDesc(e.target.value)}
               rows={2}
@@ -531,7 +530,7 @@ export function AccessProfilePage() {
           {/* Feature Categories & Checkboxes */}
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>
-              Daftar Fitur Sistem
+              Izin dalam hak akses ini
             </h3>
 
             {matrixData?.categories?.map(category => {
@@ -581,12 +580,12 @@ export function AccessProfilePage() {
                             </div>
 
                             <p className="feature-card-desc">
-                              {feat.description || 'Tidak ada keterangan fitur.'}
+                              {feat.description || 'Tidak ada keterangan izin.'}
                             </p>
 
                             {requiresNames.length > 0 && (
                               <div className="feature-card-requires">
-                                Otomatis ikut: {requiresNames.join(', ')}
+                                Membutuhkan: {requiresNames.join(', ')} (ikut tercentang)
                               </div>
                             )}
                           </div>
@@ -606,12 +605,12 @@ export function AccessProfilePage() {
         <div className="access-sticky-bar">
           <div className="access-sticky-text">
             <span>
-              {isCreatingNew ? 'Paket baru belum disimpan' : 'Perubahan paket belum disimpan'}
+              {isCreatingNew ? 'Hak akses baru belum disimpan' : 'Perubahan belum disimpan'}
             </span>
             <span style={{ color: '#94a3b8' }}>·</span>
             <span style={{ color: '#475569', fontWeight: 500 }}>
               {isCreatingNew
-                ? 'Paket baru akan tersedia untuk semua jabatan'
+                ? 'Setelah disimpan, hak akses ini bisa dipilih di halaman Akses Jabatan.'
                 : `Berlaku untuk ${selectedProfile?.position_count || 0} jabatan dan ${selectedProfile?.employee_count || 0} karyawan`}
             </span>
           </div>
@@ -644,11 +643,15 @@ export function AccessProfilePage() {
             className="modal-content"
             style={{ maxWidth: '600px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-profile-title"
           >
             <div className="modal-header">
-              <h2 className="modal-title">Tinjau Perubahan Paket Akses</h2>
+              <h2 id="review-profile-title" className="modal-title">Tinjau perubahan hak akses</h2>
               <button
                 className="modal-close-btn"
+                aria-label="Tutup"
                 onClick={() => !isSaving && setIsReviewModalOpen(false)}
                 disabled={isSaving}
               >
@@ -677,7 +680,7 @@ export function AccessProfilePage() {
               {diffFeatures.added.length > 0 && (
                 <div className="diff-section">
                   <span className="diff-title" style={{ color: '#16a34a' }}>
-                    + Fitur Ditambah ({diffFeatures.added.length}):
+                    + Izin Ditambah ({diffFeatures.added.length}):
                   </span>
                   <div>
                     {diffFeatures.added.map(f => (
@@ -693,7 +696,7 @@ export function AccessProfilePage() {
               {diffFeatures.removed.length > 0 && (
                 <div className="diff-section">
                   <span className="diff-title" style={{ color: '#dc2626' }}>
-                    - Fitur Dicabut ({diffFeatures.removed.length}):
+                    - Izin Dicabut ({diffFeatures.removed.length}):
                   </span>
                   <div>
                     {diffFeatures.removed.map(f => (
@@ -707,7 +710,7 @@ export function AccessProfilePage() {
 
               {diffFeatures.added.length === 0 && diffFeatures.removed.length === 0 && (
                 <p style={{ fontSize: '13px', color: '#64748b' }}>
-                  Hanya nama atau deskripsi paket yang diubah.
+                  Hanya nama atau deskripsi yang diubah.
                 </p>
               )}
 
@@ -715,7 +718,7 @@ export function AccessProfilePage() {
               {diffFeatures.hasAddedSensitive && (
                 <div className="warning-callout-box" style={{ marginTop: '16px' }}>
                   <p className="warning-callout-text" style={{ fontWeight: 600, marginBottom: '8px' }}>
-                    ⚠️ Perhatian: Paket ini menambahkan fitur berstatus Sensitif:
+                    ⚠️ Perhatian: Hak akses ini menambahkan izin berstatus Sensitif:
                   </p>
                   <ul style={{ margin: '0 0 12px 18px', fontSize: '13px', color: '#92400e' }}>
                     {diffFeatures.addedSensitiveNames.map(name => (
@@ -744,7 +747,7 @@ export function AccessProfilePage() {
                       style={{ marginTop: '3px', width: '18px', height: '18px', accentColor: '#d97706' }}
                     />
                     <span>
-                      Saya paham paket ini memberi fitur sensitif ({diffFeatures.addedSensitiveNames.join(', ')}) kepada {selectedProfile?.employee_count || 0} karyawan.
+                      Saya paham hak akses ini memberi izin sensitif ({diffFeatures.addedSensitiveNames.join(', ')}) kepada {selectedProfile?.employee_count || 0} karyawan.
                     </span>
                   </label>
                 </div>
@@ -776,9 +779,9 @@ export function AccessProfilePage() {
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmDeleteOpen}
-        title="Hapus Paket Akses"
-        message={`Apakah Anda yakin ingin menghapus paket akses "${selectedProfile?.name}"? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText="Hapus"
+        title="Hapus hak akses"
+        message={`Apakah Anda yakin ingin menghapus hak akses "${selectedProfile?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Hapus hak akses"
         isDestructive={true}
         onConfirm={handleDeleteProfile}
         onCancel={() => setConfirmDeleteOpen(false)}

@@ -7,6 +7,7 @@ import { isBefore, startOfDay, parseISO } from 'date-fns';
 import { LeaveCalendar } from './LeaveCalendar';
 import '../../components/ui/leave.css';
 import { Pagination } from '../../components/ui/Pagination';
+import { toUserMessage } from '../../utils/apiMessage';
 
 interface LeaveHistoryProps {
   refreshKey?: number;
@@ -76,7 +77,7 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
       setAlertInfo({ open: true, type: 'success', message: 'Pengajuan cuti berhasil dibatalkan.' });
       loadRequests();
     } catch (err: any) {
-      setAlertInfo({ open: true, type: 'error', message: err.message || 'Gagal membatalkan cuti.' });
+      setAlertInfo({ open: true, type: 'error', message: toUserMessage(err, 'Gagal membatalkan cuti.') });
     } finally {
       setIsCancelConfirmOpen(false);
       setRequestToCancel(null);

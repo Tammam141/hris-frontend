@@ -10,6 +10,7 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { validateFullName } from '../utils/nameValidation';
 import { compressImage } from '../utils/imageCompressor';
+import { toUserMessage } from '../utils/apiMessage';
 import { 
   isPhoneAlreadyRegisteredError, 
   isPhoneFormatValidationError, 
@@ -99,8 +100,7 @@ export function ProfileEditPage() {
       setPhotoFile(null);
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil diperbarui', type: 'success' });
     } catch (error) {
-      const e = error as ApiError;
-      setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal mengunggah foto.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(error, 'Gagal mengunggah foto.'), type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -120,8 +120,7 @@ export function ProfileEditPage() {
       
       setAlertInfo({ open: true, title: 'Berhasil', message: 'Foto profil berhasil dihapus', type: 'success' });
     } catch (error) {
-      const e = error as ApiError;
-      setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal menghapus foto.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(error, 'Gagal menghapus foto.'), type: 'error' });
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -172,7 +171,7 @@ export function ProfileEditPage() {
         setPhoneError(PHONE_FORMAT_INVALID_MSG);
         setAlertInfo({ open: true, title: 'Gagal', message: PHONE_FORMAT_INVALID_MSG, type: 'error' });
       } else {
-        setAlertInfo({ open: true, title: 'Gagal', message: e.message || 'Gagal memperbarui profil.', type: 'error' });
+        setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(e, 'Gagal memperbarui profil.'), type: 'error' });
       }
     } finally {
       setIsSubmitting(false);
@@ -318,7 +317,7 @@ export function ProfileEditPage() {
 
           {/* Section: Read Only Fields */}
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>Informasi Pekerjaan (Tidak Bisa Diedit)</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>Informasi Pekerjaan (Tidak Dapat Diubah)</h3>
             <div className="form-grid-2">
               
               <div className="form-group">
@@ -327,27 +326,27 @@ export function ProfileEditPage() {
               </div>
               
               <div className="form-group">
-                <label className="form-label">Nomor Induk Karyawan (NIK)</label>
+                <label className="form-label">Nomor karyawan</label>
                 <input type="text" className="input-field" value={user?.employee?.employee_number || ''} readOnly style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Departemen</label>
+                <label className="form-label">Unit</label>
                 <input type="text" className="input-field" value={user?.employee?.department_name || '-'} readOnly style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Jabatan (Position)</label>
+                <label className="form-label">Jabatan</label>
                 <input type="text" className="input-field" value={user?.employee?.position_name || '-'} readOnly style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Atasan (Manager)</label>
+                <label className="form-label">Atasan</label>
                 <input type="text" className="input-field" value={user?.employee?.manager_name || '-'} readOnly style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Status Kepegawaian</label>
+                <label className="form-label">Status kepegawaian</label>
                 <input type="text" className="input-field" value={user?.employee?.employment_status || '-'} readOnly style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', textTransform: 'capitalize' }} />
               </div>
 

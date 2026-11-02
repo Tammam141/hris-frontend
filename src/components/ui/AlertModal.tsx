@@ -10,16 +10,35 @@ interface AlertModalProps {
 }
 
 export function AlertModal({ isOpen, title, message, onClose, type = 'error' }: AlertModalProps) {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '400px' }} 
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="alert-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2 className="modal-title" style={{ color: type === 'error' ? '#dc2626' : type === 'warning' ? '#d97706' : '#0f172a' }}>
+          <h2 id="alert-modal-title" className="modal-title" style={{ color: type === 'error' ? '#dc2626' : type === 'warning' ? '#d97706' : '#0f172a' }}>
             {title}
           </h2>
-          <button className="modal-close-btn" onClick={onClose}>&times;</button>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Tutup">&times;</button>
         </div>
         
         <div className="modal-body">

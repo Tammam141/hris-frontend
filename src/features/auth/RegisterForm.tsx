@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { registerApi } from '../../api/auth';
 import { registerSchema } from './authSchema';
 import { PASSWORD_MAX_LENGTH } from '../../utils/passwordValidation';
+import { toUserMessage } from '../../utils/apiMessage';
 import { 
   isPhoneAlreadyRegisteredError, 
   isPhoneFormatValidationError, 
@@ -89,9 +90,8 @@ export function RegisterForm() {
           state: { email: email }
         });
       } else {
-        // Fallback jika tidak perlu verifikasi (seharusnya tidak terjadi berdasar instruksi)
         navigate('/login', {
-          state: { message: response.message || 'Registrasi berhasil! Akun Anda sedang menunggu persetujuan HR.' }
+          state: { message: 'Pendaftaran berhasil! Akun Anda sedang menunggu persetujuan admin.' }
         });
       }
     } catch (err: any) {
@@ -105,7 +105,7 @@ export function RegisterForm() {
         setError(PHONE_FORMAT_INVALID_MSG);
         return;
       }
-      setError(err.message || 'Gagal terhubung ke server');
+      setError(toUserMessage(err, 'Gagal mendaftar akun. Periksa kembali data Anda.'));
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export function RegisterForm() {
   return (
     <div className="auth-page-container">
       <div className="ui-card">
-        <h2 className="ui-card-title">Register</h2>
+        <h2 className="ui-card-title">Daftar Akun HRIS</h2>
 
         {error && <div className="alert-error">{error}</div>}
         {success && <div className="alert-success">{success}</div>}
@@ -149,7 +149,7 @@ export function RegisterForm() {
             required
           />
 
-          <label htmlFor="password" className="input-label">Password</label>
+          <label htmlFor="password" className="input-label">Kata Sandi</label>
           <div style={{ position: 'relative' }}>
             <input
               id="password"
@@ -187,8 +187,8 @@ export function RegisterForm() {
                 justifyContent: 'center',
                 padding: '4px'
               }}
-              title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
-              aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+              title={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+              aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
             >
               {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
             </button>
@@ -196,7 +196,7 @@ export function RegisterForm() {
           <PasswordRequirements password={password} />
           {passwordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{passwordError}</span>}
 
-          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password</label>
+          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Kata Sandi</label>
           <div style={{ position: 'relative' }}>
             <input
               id="confirmPassword"
@@ -207,7 +207,7 @@ export function RegisterForm() {
                 width: '100%',
                 ...(confirmPasswordError ? { borderColor: '#ef4444' } : {})
               }}
-              placeholder="Ulangi password di atas"
+              placeholder="Ulangi kata sandi di atas"
               value={confirmPassword}
               maxLength={PASSWORD_MAX_LENGTH}
               onChange={(e) => {
@@ -234,8 +234,8 @@ export function RegisterForm() {
                 justifyContent: 'center',
                 padding: '4px'
               }}
-              title={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Lihat konfirmasi password'}
-              aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Lihat konfirmasi password'}
+              title={showConfirmPassword ? 'Sembunyikan konfirmasi kata sandi' : 'Lihat konfirmasi kata sandi'}
+              aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi kata sandi' : 'Lihat konfirmasi kata sandi'}
             >
               {showConfirmPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
             </button>
@@ -269,7 +269,7 @@ export function RegisterForm() {
               onChange={(e) => {
                 setPhoneNumber(e.target.value.replace(/\D/g, ''));
                 setPhoneError('');
-              }} // Hanya menerima angka
+              }}
               disabled={loading}
               required
             />
@@ -316,14 +316,14 @@ export function RegisterForm() {
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }} disabled={loading}>
-            {loading ? 'Memproses...' : 'Register'}
+            {loading ? 'Memproses...' : 'Daftar'}
           </button>
         </form>
 
         <div className="auth-links">
           <p className="auth-text">
-            Sudah punya akun?
-            <Link to="/login" className="auth-link">Login</Link>
+            Sudah punya akun?{' '}
+            <Link to="/login" className="auth-link">Masuk</Link>
           </p>
         </div>
       </div>

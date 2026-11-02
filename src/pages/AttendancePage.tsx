@@ -9,6 +9,8 @@ import {
 } from '../api/attendance';
 import { AttendanceTodayResponse, Attendance, AttendanceSummary, AttendanceEvent } from '../types/attendance';
 import { formatPlainDate, formatToJakartaTimeOnly, formatMinutesToDuration } from '../utils/dateFormatter';
+import { toUserMessage, toFieldErrorMessage } from '../utils/apiMessage';
+import { formatTodayAttendanceHeader } from '../utils/labels';
 import { AlertModal } from '../components/ui/AlertModal';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, store } from '../store';
@@ -76,7 +78,7 @@ export function AttendancePage() {
       }
 
     } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat data absensi.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(e, 'Gagal memuat data absensi.'), type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -196,10 +198,10 @@ export function AttendancePage() {
                   }
                 }
               }
-              setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: e.message || 'Absensi sudah tercatat sebelumnya.', type: 'error' });
+              setAlertInfo({ open: true, title: 'Sinkronisasi Ditolak', message: toUserMessage(e, 'Absensi sudah tercatat sebelumnya.'), type: 'error' });
             } else if (e.status === 400 || e.code === 'VALIDATION_ERROR') {
               dispatch(removeOfflineAttendance(item.id));
-              setAlertInfo({ open: true, title: 'Absen Ditolak', message: e.message || 'Data offline ditolak oleh sistem.', type: 'error' });
+              setAlertInfo({ open: true, title: 'Absen Ditolak', message: toUserMessage(e, 'Data offline ditolak oleh sistem.'), type: 'error' });
             } else if (e.status === 401) {
               break;
             }
@@ -297,7 +299,7 @@ export function AttendancePage() {
           }
         });
       } else {
-        setAlertInfo({ open: true, title: 'Gagal Absen', message: e.message || `Gagal melakukan absensi ${label}.`, type: 'error' });
+        setAlertInfo({ open: true, title: 'Gagal Absen', message: toUserMessage(e, `Gagal melakukan absensi ${label}.`), type: 'error' });
         loadData();
       }
     } finally {
@@ -408,9 +410,9 @@ export function AttendancePage() {
     const emp = user?.employee;
     const employeeName = emp?.full_name || user?.full_name || '-';
     const identity = [
-      ['Nama Karyawan', employeeName],
-      ['NIK', emp?.employee_number || user?.employee_number || '-'],
-      ['Departemen', emp?.department_name || '-'],
+      ['Nama karyawan', employeeName],
+      ['Nomor karyawan', emp?.employee_number || user?.employee_number || '-'],
+      ['Unit', emp?.department_name || '-'],
       ['Jabatan', emp?.position_name || '-'],
       ['Periode', periodText],
     ];
@@ -446,7 +448,7 @@ export function AttendancePage() {
           
           {/* Card Absensi Hari Ini */}
           <div className="attendance-today-card">
-            <h2 className="attendance-today-title">Absensi Hari Ini ({todayData?.date})</h2>
+            <h2 className="attendance-today-title">{formatTodayAttendanceHeader(todayData?.date)}</h2>
 
             {todayData?.overnight_attendance && (
               <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px' }}>
@@ -538,7 +540,7 @@ export function AttendancePage() {
               </div>
               <div className="attendance-summary-card">
                 <p className="attendance-summary-value absent">{summary.absent}</p>
-                <p className="attendance-summary-label">Tidak Hadir (Alpa)</p>
+                <p className="attendance-summary-label">Tidak hadir</p>
               </div>
               <div className="attendance-summary-card">
                 <p className="attendance-summary-value leave">{summary.leave}</p>
@@ -644,10 +646,10 @@ export function AttendancePage() {
                 </select>
               </div>
               {(filterDate || filterStatus) && (
-                <button type="button" className="btn btn-secondary" onClick={handleResetFilter} style={{ padding: '0.4rem 0.9rem', fontSize: '0.875rem' }}>Reset</button>
+                <button type="button" className="btn btn-secondary" onClick={handleResetFilter} style={{ padding: '0.4rem 0.9rem', fontSize: '0.875rem' }}>Atur ulang</button>
               )}
               <button type="button" className="btn btn-primary" onClick={handleDownload} disabled={filteredHistory.length === 0} style={{ padding: '0.4rem 0.9rem', fontSize: '0.875rem', marginLeft: 'auto' }}>
-                Download CSV
+                Unduh CSV
               </button>
             </div>
             <div className="attendance-table-wrapper">
@@ -711,12 +713,12 @@ export function AttendancePage() {
             </div>
           </div>
           
-          {/* Riwayat Log Mentah Absensi Saya */}
+          {/* Riwayat Tombol Absen Saya */}
           <div className="attendance-history-card">
             <div className="log-header-container">
               <div>
-                <h2 className="attendance-history-title log-header-title">Log Aktivitas Tombol Absensi</h2>
-                <p className="log-header-subtitle">Jejak rekaman penekanan tombol absensi (10 aktivitas terakhir)</p>
+                <h2 className="attendance-history-title log-header-title">Riwayat tombol absen</h2>
+                <p className="log-header-subtitle">10 percobaan absen terakhir, termasuk yang ditolak</p>
               </div>
             </div>
             
@@ -725,9 +727,9 @@ export function AttendancePage() {
                 <thead>
                   <tr>
                     <th>Jenis</th>
-                    <th>Waktu Ditekan</th>
+                    <th>Waktu ditekan</th>
                     <th>Sumber</th>
-                    <th>Status / Alasan Ditolak</th>
+                    <th>Status / Alasan ditolak</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -735,7 +737,7 @@ export function AttendancePage() {
                     <tr key={evt.id} className={evt.rejection_reason ? 'log-row-rejected' : 'log-row-default'}>
                       <td>
                         <span className={evt.kind === 'check_in' ? 'log-badge-checkin' : 'log-badge-checkout'}>
-                          {evt.kind === 'check_in' ? 'Check-In' : 'Check-Out'}
+                          {evt.kind === 'check_in' ? 'Absen masuk' : 'Absen pulang'}
                         </span>
                       </td>
                       <td className="log-cell-time">
@@ -747,7 +749,7 @@ export function AttendancePage() {
                       <td>
                         {evt.rejection_reason ? (
                           <div className="log-cell-rejected">
-                            DITOLAK: {evt.rejection_reason}
+                            Ditolak: {toFieldErrorMessage(evt.rejection_reason)}
                           </div>
                         ) : (
                           <span className="log-cell-accepted">Diterima</span>
@@ -758,7 +760,7 @@ export function AttendancePage() {
                   {events.length === 0 && (
                     <tr>
                       <td colSpan={4} className="log-cell-no-data">
-                        Belum ada jejak aktivitas atau API log belum tersedia.
+                        Belum ada riwayat tombol absen.
                       </td>
                     </tr>
                   )}

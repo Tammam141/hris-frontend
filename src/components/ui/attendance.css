@@ -626,3 +626,40 @@
   font-weight: 400;
 }
 
+@media (max-width: 768px) {
+  .attendance-today-card {
+    padding: 16px;
+  }
+
+  .attendance-today-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .attendance-schedule-info,
+  .attendance-time-block,
+  .attendance-action-block {
+    flex: 1 1 auto;
+    width: 100%;
+    text-align: left;
+  }
+
+  .attendance-time-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #e2e8f0;
+    padding-bottom: 8px;
+  }
+
+  .attendance-action-block {
+    justify-content: stretch;
+  }
+
+  .attendance-action-block button {
+    width: 100%;
+  }
+}
+

@@ -19,6 +19,8 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
 import { Pagination } from '../components/ui/Pagination';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 
 export function EmployeePage() {
   const { hasFeature, user } = useAuth();
@@ -265,7 +267,7 @@ export function EmployeePage() {
         } catch {}
       }
 
-      setError(err.message || 'Gagal memuat data karyawan');
+      setError(toUserMessage(err, 'Gagal memuat data karyawan'));
       setIsOfflineMode(false);
     } finally {
       if (!isCancelled?.()) setLoading(false);
@@ -297,7 +299,7 @@ export function EmployeePage() {
       }
     } catch (e: any) {
       const err = e as ApiError;
-      setError(err.message || 'Gagal memuat detail karyawan');
+      setError(toUserMessage(err, 'Gagal memuat detail karyawan'));
     } finally {
       setLoading(false);
     }
@@ -316,11 +318,7 @@ export function EmployeePage() {
           setStaleDetails(err.details);
           setIsStaleModalOpen(true);
         } else {
-          // It's possible that EmployeeModal catches general errors, but if STALE_DATA is thrown, we catch it here.
-          // Wait, if we throw it from EmployeeModal, we handle it here. 
-          // What if we just re-throw general error? Actually, EmployeeModal catches non-stale errors.
-          // So if we get here, it must be STALE_DATA, but just in case, we can set an alert.
-          setError(err.message || 'Gagal menyimpan data karyawan');
+          setError(toUserMessage(err, 'Gagal menyimpan data karyawan'));
         }
       }
     } else {
@@ -358,7 +356,7 @@ export function EmployeePage() {
       loadReferences();
     } catch (e: any) {
       const err = e as ApiError;
-      setAlertMessage(err.message || 'Gagal mengubah status pengguna');
+      setAlertMessage(toUserMessage(err, 'Gagal mengubah status pengguna'));
       setAlertOpen(true);
     } finally {
       setEmpToToggle(null);
@@ -384,7 +382,7 @@ export function EmployeePage() {
         if (err.details && err.details.subordinates) {
           setAlertMessage(
             <>
-              <div style={{ marginBottom: '16px' }}>{err.message || 'Karyawan tidak dapat dihapus karena memiliki bawahan.'}</div>
+              <div style={{ marginBottom: '16px' }}>{toUserMessage(err, 'Karyawan tidak dapat dihapus karena memiliki bawahan.')}</div>
               <div>
                 <p style={{ fontWeight: 600, marginBottom: '8px', color: '#0f172a' }}>
                   Daftar Bawahan ({err.details.subordinates.length}):
@@ -400,7 +398,7 @@ export function EmployeePage() {
             </>
           );
         } else {
-          setAlertMessage(err.message || 'Gagal menghapus karyawan');
+          setAlertMessage(toUserMessage(err, 'Gagal menghapus karyawan'));
         }
         setAlertOpen(true);
       }
@@ -410,12 +408,34 @@ export function EmployeePage() {
   return (
     <div className="dashboard-container employee-container">
       <div className="dashboard-card employee-card">
-        <h1 className="dashboard-title">Daftar Karyawan</h1>
-        <p className="dashboard-subtitle">Kelola data seluruh karyawan perusahaan di sini.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <h1 className="dashboard-title">Daftar Karyawan</h1>
+            <p className="dashboard-subtitle">Kelola data seluruh karyawan perusahaan di sini.</p>
+          </div>
+          <ShowIf feature="employee.create">
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => navigate('/employee/import-csv')}
+              >
+                Impor CSV
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={() => navigate('/employee/create')}
+              >
+                + Tambah Karyawan
+              </button>
+            </div>
+          </ShowIf>
+        </div>
 
         {isOfflineMode && (
           <div style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <AlertTriangleIcon size={18} />
             <span><strong>Mode Offline:</strong> Server backend sedang tidak dapat dihubungi. Menampilkan data karyawan lokal terakhir yang tersimpan di perangkat.</span>
           </div>
         )}
@@ -428,7 +448,7 @@ export function EmployeePage() {
           <input
             type="text"
             className="input-field employee-search-input"
-            placeholder="Cari Nama, Email, atau ID Karyawan..."
+            placeholder="Cari nama, email, atau nomor karyawan..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
@@ -437,7 +457,7 @@ export function EmployeePage() {
             value={departmentId}
             onChange={(e) => { setDepartmentId(e.target.value); setEmployeeResponse(prev => ({ ...prev, page: 1 })); }}
           >
-            <option value="">Semua Departemen</option>
+            <option value="">Semua Unit</option>
             {departments.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
@@ -447,9 +467,9 @@ export function EmployeePage() {
             value={isActive}
             onChange={(e) => { setIsActive(e.target.value); setEmployeeResponse(prev => ({ ...prev, page: 1 })); }}
           >
-            <option value="">Semua Status</option>
+            <option value="">Semua status</option>
             <option value="true">Aktif</option>
-            <option value="false">Tidak Aktif</option>
+            <option value="false">Tidak aktif</option>
           </select>
           <button type="submit" className="btn btn-primary employee-search-btn">
             Cari
@@ -457,69 +477,49 @@ export function EmployeePage() {
         </form>
         </div>
 
-        {/* Tombol Aksi: Upload CSV & Tambah Karyawan (di bawah form pencarian) */}
-        <ShowIf feature="employee.create">
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <button 
-              type="button" 
-              className="btn btn-secondary" 
-              onClick={() => navigate('/employee/import-csv')}
-            >
-              Upload Karyawan by CSV
-            </button>
-            <button 
-              type="button" 
-              className="btn btn-primary btn-success" 
-              onClick={() => navigate('/employee/create')}
-            >
-              + Tambah Karyawan
-            </button>
-          </div>
-        </ShowIf>
-
         {/* Tabel Karyawan */}
         <div className="employee-table-wrapper">
           <table className="employee-table">
             <thead>
               <tr>
-                <th style={{ width: '50px', textAlign: 'center' }}>NO</th>
-                <th>FOTO</th>
-                <th>ID KARYAWAN</th>
-                <th>NAMA LENGKAP</th>
-                <th>EMAIL</th>
-                <th>DEPARTEMEN</th>
-                <th>JABATAN</th>
-                <th>MANAJER</th>
-                <th>STATUS</th>
-                {bisaAksi && <th className="text-center">AKSI</th>}
+                <th style={{ width: '80px', textAlign: 'center' }}>No</th>
+                <th>Karyawan</th>
+                <th>Nomor karyawan</th>
+                <th>Unit</th>
+                <th>Jabatan</th>
+                <th>Atasan</th>
+                <th>Status</th>
+                {bisaAksi && <th className="text-center">Aksi</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={bisaAksi ? 10 : 9} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 8 : 7} className="empty-table-cell">
                     Memuat data...
                   </td>
                 </tr>
-              // 3. Map dipanggil dari employeeResponse.data untuk memunculkan baris tabel
               ) : employeeResponse.data && employeeResponse.data.length > 0 ? (
                 employeeResponse.data.map((emp, index) => (
                   <tr key={emp.id}>
-                    {/* Rumus nomor paginasi dari : ((page - 1) * limit) + index + 1 */}
-                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 500 }}>
-                      {((employeeResponse.page - 1) * employeeResponse.limit) + index + 1}.
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <span style={{ color: '#64748b', fontWeight: 500, fontSize: '13px' }}>
+                          {((employeeResponse.page - 1) * employeeResponse.limit) + index + 1}.
+                        </span>
+                        <Avatar 
+                          photoUrl={emp.photo_url} 
+                          name={emp.full_name} 
+                          size="34px" 
+                          fontSize="13px"
+                        />
+                      </div>
                     </td>
                     <td>
-                      <Avatar 
-                        photoUrl={emp.photo_url} 
-                        name={emp.full_name} 
-                        size="40px" 
-                        fontSize="14px"
-                      />
+                      <div className="employee-name">{emp.full_name}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>{emp.email || '-'}</div>
                     </td>
                     <td>{emp.employee_number}</td>
-                    <td className="employee-name">{emp.full_name}</td>
-                    <td className="employee-subtext">{emp.email || '-'}</td>
                     <td>{emp.department_name || '-'}</td>
                     <td>{emp.position_name || '-'}</td>
                     <td>{emp.manager_name || '-'}</td>
@@ -536,7 +536,7 @@ export function EmployeePage() {
                     {bisaAksi && (
                       <td>
                         <div className="action-buttons">
-                          <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                          <button className="btn-icon btn-edit" onClick={() => openEditModal(emp)} title="Ubah" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
                           <button className="btn-icon btn-delete" onClick={() => handleDelete(emp)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                         </div>
                       </td>
@@ -545,7 +545,7 @@ export function EmployeePage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={bisaAksi ? 10 : 9} className="empty-table-cell">
+                  <td colSpan={bisaAksi ? 8 : 7} className="empty-table-cell">
                     Tidak ada data karyawan ditemukan.
                   </td>
                 </tr>
@@ -582,14 +582,9 @@ export function EmployeePage() {
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
-        title="Konfirmasi Hapus"
-        message={
-          <>
-            <p>Apakah kamu yakin ingin menghapus data karyawan <strong>{employeeToDelete?.full_name}</strong>?</p>
-            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>Tindakan ini tidak dapat dibatalkan.</p>
-          </>
-        }
-        confirmText="Ya, Hapus Data"
+        title="Hapus Karyawan"
+        message={`Hapus data karyawan ${employeeToDelete?.full_name}? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
         isDestructive={true}
         onConfirm={confirmDelete}
         onCancel={() => {

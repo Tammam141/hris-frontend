@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useAuth } from '../hooks/useAuth';
 import { EditIcon } from '../components/icons/EditIcon';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import { toUserMessage } from '../utils/apiMessage';
 import '../components/ui/dashboard.css';
 
 export function WorkScheduleManagementPage() {
@@ -34,7 +35,7 @@ export function WorkScheduleManagementPage() {
         setSchedules(res.data);
       }
     } catch (e: any) {
-      setAlertInfo({ open: true, title: 'Error', message: e.message || 'Gagal memuat jadwal kerja.', type: 'error' });
+      setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(e, 'Gagal memuat jadwal kerja.'), type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -61,12 +62,7 @@ export function WorkScheduleManagementPage() {
       setAlertInfo({ open: true, title: 'Berhasil', message: `Jadwal "${confirmDelete.name}" telah dihapus.`, type: 'success' });
       loadSchedules();
     } catch (e: any) {
-      // Menangani error 409 apabila masih ada yang memakai, atau 400 apabila default.
-      let msg = e.message || 'Gagal menghapus jadwal.';
-      if (e.details?.employee_count) {
-        msg += ` (Masih dipakai ${e.details.employee_count} karyawan)`;
-      }
-      setAlertInfo({ open: true, title: 'Gagal', message: msg, type: 'error' });
+      setAlertInfo({ open: true, title: 'Gagal', message: toUserMessage(e, 'Gagal menghapus jadwal kerja.'), type: 'error' });
     } finally {
       setConfirmDelete(null);
     }
@@ -92,8 +88,8 @@ export function WorkScheduleManagementPage() {
     <div className="dashboard-container">
       <div className="dashboard-header-row">
         <div>
-          <h1 className="dashboard-title">Manajemen Jadwal Kerja</h1>
-          <p className="dashboard-subtitle">Kelola jam kerja, hari operasional, dan toleransi keterlambatan departemen.</p>
+          <h1 className="dashboard-title">Jadwal Kerja</h1>
+          <p className="dashboard-subtitle">Atur jam kerja, hari kerja, dan batas absen untuk setiap unit.</p>
         </div>
         {canManage && (
           <button className="btn btn-primary" onClick={handleAdd}>
@@ -110,11 +106,11 @@ export function WorkScheduleManagementPage() {
             <table className="employee-table" style={{ minWidth: '1000px' }}>
               <thead style={{ backgroundColor: '#f8fafc' }}>
                 <tr>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Nama Jadwal</th>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Divisi</th>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Jam Kerja</th>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Hari Kerja</th>
-                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Toleransi Telat</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Nama jadwal</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Unit</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Jam kerja</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Hari kerja</th>
+                  <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Toleransi terlambat</th>
                   <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600 }}>Status</th>
                   {canManage && <th style={{ padding: '16px 24px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 600, textAlign: 'center' }}>Aksi</th>}
                 </tr>
@@ -127,7 +123,7 @@ export function WorkScheduleManagementPage() {
                       <td style={{ fontWeight: 600, padding: '16px 24px', color: '#0f172a' }}>{schedule.name} {isDefault && <span style={{ fontSize: '11px', backgroundColor: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>Bawaan</span>}</td>
                       <td style={{ padding: '16px 24px' }}>
                         {isDefault ? (
-                          <span style={{ color: '#64748b' }}>Semua Divisi (Bawaan)</span>
+                          <span style={{ color: '#64748b' }}>Semua unit (bawaan)</span>
                         ) : (schedule.departments || []).length === 0 ? (
                           <span style={{ color: '#94a3b8' }}>-</span>
                         ) : (
@@ -156,7 +152,7 @@ export function WorkScheduleManagementPage() {
                       {canManage && (
                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                            <button className="btn-icon" style={{ backgroundColor: '#f1f5f9', padding: '6px', borderRadius: '6px' }} title="Edit" onClick={() => handleEdit(schedule)}>
+                            <button className="btn-icon" style={{ backgroundColor: '#f1f5f9', padding: '6px', borderRadius: '6px' }} title="Ubah" onClick={() => handleEdit(schedule)}>
                               <EditIcon />
                             </button>
                             <button 

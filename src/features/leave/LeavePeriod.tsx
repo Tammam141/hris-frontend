@@ -21,6 +21,7 @@ import { getHolidays, Holiday } from '../../api/holiday';
 import { useAuth } from '../../hooks/useAuth';
 import { compressImage } from '../../utils/imageCompressor';
 import { isStaffingLimitError, formatStaffingLimitMessage } from '../../utils/staffingLimit';
+import { toUserMessage } from '../../utils/apiMessage';
 import '../../components/ui/leave.css';
 
 interface LeavePeriodProps {
@@ -68,6 +69,18 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
     message: string;
   } | null>(null);
 
+  // Keyboard escape untuk colleague confirm modal
+  useEffect(() => {
+    if (!colleagueConfirmModal?.isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setColleagueConfirmModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [colleagueConfirmModal?.isOpen]);
+
   // State pesan banner peringatan visual jika ada rekan cuti di tanggal terpilih
   const [colleagueWarning, setColleagueWarning] = useState<string>('');
 
@@ -101,7 +114,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           return true;
         });
         setLeaveTypes(validTypes);
-        if (validTypes.length > 0) setLeaveType(validTypes[0].id.toString());
         
         if (balRes?.data?.balances) {
           const balMap: Record<string, number> = {};
@@ -392,6 +404,12 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!leaveType) {
+      setAlertType('error');
+      setAlertMessage('Pilih jenis cuti terlebih dahulu.');
+      setIsAlertOpen(true);
+      return;
+    }
     if (!startDate) {
       setAlertType('error');
       setAlertMessage('Harap pilih periode cuti terlebih dahulu.');
@@ -569,7 +587,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
           setAlertType('error');
           setAlertMessage(
-            `Gagal mengunggah foto bukti: ${uploadErr.message || 'Terjadi kesalahan'}. Pengajuan cuti dibatalkan. Silakan coba lagi.`
+            `Gagal mengunggah foto bukti: ${toUserMessage(uploadErr, 'Terjadi kesalahan')}. Pengajuan cuti dibatalkan. Silakan coba lagi.`
           );
           setIsAlertOpen(true);
           fetchInitialData();
@@ -580,7 +598,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       }
 
       setAlertType('success');
-      setAlertMessage('Pengajuan cuti berhasil diajukan dan sedang menunggu persetujuan HR.');
+      setAlertMessage('Pengajuan cuti terkirim dan menunggu persetujuan atasan Anda.');
       setIsAlertOpen(true);
       
       // Reset Form & refresh data cuti
@@ -605,7 +623,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       } else if (apiErr?.status === 409 && apiErr?.details?.conflicting_request_id) {
         setAlertMessage(`Tanggal yang Anda pilih bertabrakan dengan pengajuan cuti Anda yang lain.`);
       } else {
-        setAlertMessage(apiErr?.message || 'Gagal mengajukan cuti.');
+        setAlertMessage(toUserMessage(apiErr, 'Gagal mengajukan cuti.'));
       }
       setIsAlertOpen(true);
     } finally {
@@ -618,8 +636,6 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
   return (
     <div className="leave-container">
-      <h2 className="leave-title">Pengajuan Cuti Karyawan</h2>
-      
       <form onSubmit={handleSubmit} className="leave-grid">
         <div className="leave-column-left">
           
@@ -630,6 +646,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value)}
             >
+              <option value="">Pilih jenis cuti</option>
               {leaveTypes.map(t => (
                 <option key={t.id} value={t.id}>
                   {t.name} {t.deducts_balance && balances[t.id] !== undefined ? `(Sisa: ${balances[t.id]} Hari)` : t.deducts_balance ? '(Memotong Saldo)' : ''}
@@ -694,10 +711,10 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                   </svg>
                 </div>
                 <div>
-                  Batas cuti bersamaan Dept. <strong>{deptCalendar.department.name}</strong>:
+                  Batas cuti bersamaan unit <strong>{deptCalendar.department.name}</strong>:
                   <span className="leave-dept-quota-badge">{deptCalendar.department.max_concurrent_leave} orang/hari</span>
                   {isExemptFromStaffing && (
-                    <span className="leave-exempt-tag">Bebas Kuota</span>
+                    <span className="leave-exempt-tag">Tanpa batas</span>
                   )}
                 </div>
               </div>
@@ -706,11 +723,11 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                 <div className="leave-dept-legend">
                   <span className="leave-legend-item">
                     <span className="legend-indicator legend-indicator--full"></span>
-                    <span>Merah: Kuota penuh</span>
+                    <span>Merah: kuota unit penuh</span>
                   </span>
                   <span className="leave-legend-item">
                     <span className="legend-indicator legend-indicator--warning"></span>
-                    <span>Kuning: Ada rekan cuti / pending</span>
+                    <span>Kuning: ada rekan yang cuti atau menunggu persetujuan</span>
                   </span>
                 </div>
               )}
@@ -728,7 +745,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                 </svg>
               </div>
               <div className="leave-overlap-content">
-                <h4 className="leave-overlap-title" style={{ color: '#854d0e' }}>Peringatan Jadwal Divisi</h4>
+                <h4 className="leave-overlap-title" style={{ color: '#854d0e' }}>Peringatan Jadwal Unit</h4>
                 <p className="leave-overlap-desc" style={{ color: '#a16207' }}>{colleagueWarning}</p>
               </div>
             </div>
@@ -788,7 +805,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
 
           {/* Tombol Upload selalu muncul, bersifat opsional/wajib sesuai kondisi, backend yg validasi akhir */}
           <div className="leave-upload-wrapper">
-            <label className="leave-label">Upload Foto Bukti {selectedType?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(Opsional)</span>}</label>
+            <label className="leave-label">Foto bukti {selectedType?.requires_attachment ? <span className="leave-required-asterisk">*</span> : <span className="leave-optional-text">(opsional)</span>}</label>
             <div className="file-upload-card">
               <input 
                 type="file" 
@@ -830,6 +847,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
                   <button 
                     type="button" 
                     className="file-upload-remove-btn"
+                    aria-label="Hapus foto bukti"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleFileSelect(null);
@@ -860,7 +878,7 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
           <div className="leave-total-card">
             <span className="leave-total-title">Total Hari</span>
             <span className="leave-total-number">{totalDays}</span>
-            <span className="leave-optional-text">hari kerja (estimasi)</span>
+            <span className="leave-optional-text">hari kerja</span>
           </div>
           
           <button 
@@ -893,10 +911,17 @@ export function LeavePeriod({ onSuccess }: LeavePeriodProps) {
       {/* Pop-up Konfirmasi Cuti Bersamaan Rekan Satu Divisi */}
       {colleagueConfirmModal?.isOpen && (
         <div className="modal-overlay" onClick={() => setColleagueConfirmModal(null)}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+          <div 
+            className="modal-content" 
+            style={{ maxWidth: '440px' }} 
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="colleague-modal-title"
+          >
             <div className="modal-header">
-              <h3 className="modal-title" style={{ color: '#b45309' }}>Konfirmasi Pengajuan Cuti</h3>
-              <button type="button" className="modal-close-btn" onClick={() => setColleagueConfirmModal(null)}>&times;</button>
+              <h3 id="colleague-modal-title" className="modal-title" style={{ color: '#b45309' }}>Konfirmasi Pengajuan Cuti</h3>
+              <button type="button" className="modal-close-btn" aria-label="Tutup" onClick={() => setColleagueConfirmModal(null)}>&times;</button>
             </div>
             <div className="modal-body">
               <p style={{ whiteSpace: 'pre-line', fontSize: '14px', color: '#334155', lineHeight: '1.6', margin: '0' }}>

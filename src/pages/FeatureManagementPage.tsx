@@ -13,7 +13,18 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
+import { getFeatureCategoryLabel } from '../utils/labels';
 import '../components/ui/access-profiles.css';
+
+interface PositionDetailModalState {
+  positionName: string;
+  departmentName?: string | null;
+  profile?: AccessProfile | null;
+  isBasicAccess: boolean;
+  hasSensitive: boolean;
+}
 
 export function FeatureManagementPage() {
   const { refreshUser } = useAuth();
@@ -21,7 +32,7 @@ export function FeatureManagementPage() {
   const [positionHolders, setPositionHolders] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Staged changes: positionId -> new access_profile_id (or null for "Tanpa paket")
+  // Staged changes: positionId -> new access_profile_id (or null for "Akses dasar")
   const [stagedAssignments, setStagedAssignments] = useState<Record<string, string | null>>({});
 
   // Filter & Search states
@@ -32,6 +43,7 @@ export function FeatureManagementPage() {
   const [alertInfo, setAlertInfo] = useState({ open: false, title: '', message: '', type: 'success' as 'success' | 'error' });
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [detailModal, setDetailModal] = useState<PositionDetailModalState | null>(null);
 
   const [staleDetails, setStaleDetails] = useState<StaleDataDetails | null>(null);
   const [isStaleModalOpen, setIsStaleModalOpen] = useState(false);
@@ -39,6 +51,20 @@ export function FeatureManagementPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (detailModal) {
+          setDetailModal(null);
+        } else if (isReviewModalOpen && !isSaving) {
+          setIsReviewModalOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [detailModal, isReviewModalOpen, isSaving]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -48,25 +74,32 @@ export function FeatureManagementPage() {
         getPositions(),
       ]);
 
+      const holderMap: Record<string, number> = {};
+
       if (matrixRes.status === 'fulfilled' && matrixRes.value.success) {
         setMatrixData(matrixRes.value.data);
+        matrixRes.value.data.positions?.forEach(p => {
+          if (p.holder_count !== undefined) {
+            holderMap[p.id] = p.holder_count;
+          }
+        });
       }
 
       if (positionsRes.status === 'fulfilled' && positionsRes.value.success) {
-        const holderMap: Record<string, number> = {};
         positionsRes.value.data.forEach(p => {
-          if (p.current_holders !== undefined) {
-            holderMap[p.id] = p.current_holders;
+          const count = (p as any).holder_count ?? p.current_holders;
+          if (count !== undefined) {
+            holderMap[p.id] = count;
           }
         });
-        setPositionHolders(holderMap);
       }
+
+      setPositionHolders(holderMap);
     } catch (e: any) {
-      const error = e as ApiError;
       setAlertInfo({
         open: true,
-        title: 'Error',
-        message: error.message || 'Gagal memuat data akses jabatan',
+        title: 'Gagal',
+        message: toUserMessage(e, 'Gagal memuat data akses jabatan.'),
         type: 'error',
       });
     } finally {
@@ -258,7 +291,7 @@ export function FeatureManagementPage() {
         setAlertInfo({
           open: true,
           title: 'Gagal Menyimpan',
-          message: error.message || 'Terjadi kesalahan saat memperbarui akses jabatan.',
+          message: toUserMessage(error, 'Gagal menyimpan perubahan akses jabatan.'),
           type: 'error',
         });
       }
@@ -287,7 +320,7 @@ export function FeatureManagementPage() {
       <div className="access-page-header">
         <h1 className="access-page-title">Akses Jabatan</h1>
         <p className="access-page-subtitle">
-          Tentukan paket akses untuk setiap jabatan. Pengaturan ini langsung menentukan hak akses seluruh pemegang jabatan.
+          Tentukan hak akses untuk setiap jabatan. Semua karyawan pada jabatan itu langsung mendapat izin dari hak akses yang dipilih.
         </p>
       </div>
 
@@ -299,25 +332,25 @@ export function FeatureManagementPage() {
           <span className="access-stat-subtext">Terdaftar di sistem</span>
         </div>
         <div className="access-stat-card">
-          <span className="access-stat-label">Paket Dipakai</span>
+          <span className="access-stat-label">Jabatan dengan hak akses tambahan</span>
           <span className="access-stat-value" style={{ color: '#0369a1' }}>
             {summaryMetrics.withProfileCount}
           </span>
           <span className="access-stat-subtext">Memiliki hak akses khusus</span>
         </div>
         <div className="access-stat-card">
-          <span className="access-stat-label">Tanpa Paket</span>
+          <span className="access-stat-label">Hanya akses dasar</span>
           <span className="access-stat-value" style={{ color: '#64748b' }}>
             {summaryMetrics.withoutProfileCount}
           </span>
-          <span className="access-stat-subtext">Hanya swalayan mandiri</span>
+          <span className="access-stat-subtext">Absen, cuti, dan profil sendiri</span>
         </div>
         <div className="access-stat-card">
-          <span className="access-stat-label">Pemegang Fitur Sensitif</span>
+          <span className="access-stat-label">Karyawan dengan izin sensitif</span>
           <span className="access-stat-value" style={{ color: '#b45309' }}>
             {summaryMetrics.sensitiveCount}
           </span>
-          <span className="access-stat-subtext">Karyawan berwenang tinggi</span>
+          <span className="access-stat-subtext">Perlu ditinjau berkala</span>
         </div>
       </div>
 
@@ -347,7 +380,7 @@ export function FeatureManagementPage() {
             className={`access-chip ${selectedFilterProfileId === 'NONE' ? 'active' : ''}`}
             onClick={() => setSelectedFilterProfileId('NONE')}
           >
-            Tanpa paket
+            Akses dasar
             <span className="access-chip-count">{profileFilterCounts.NONE || 0}</span>
           </button>
 
@@ -373,8 +406,8 @@ export function FeatureManagementPage() {
               <th style={{ width: '25%' }}>Jabatan</th>
               <th style={{ width: '18%' }}>Unit</th>
               <th style={{ width: '12%' }}>Pemegang</th>
-              <th style={{ width: '25%' }}>Paket Akses</th>
-              <th style={{ width: '20%' }}>Yang Bisa Dilakukan</th>
+              <th style={{ width: '25%' }}>Hak akses</th>
+              <th style={{ width: '20%' }}>Yang bisa dilakukan</th>
             </tr>
           </thead>
           <tbody>
@@ -408,15 +441,18 @@ export function FeatureManagementPage() {
                     {/* Pemegang */}
                     <td>
                       <span style={{ color: '#334155', fontWeight: 500 }}>
-                        {positionHolders[pos.id] !== undefined ? `${positionHolders[pos.id]} orang` : '-'}
+                        {(() => {
+                          const count = positionHolders[pos.id] ?? pos.holder_count;
+                          return count !== undefined ? `${count} orang` : '0 orang';
+                        })()}
                       </span>
                     </td>
 
-                    {/* Paket Akses Dropdown */}
+                    {/* Hak Akses Dropdown */}
                     <td>
                       <div className="access-select-wrapper">
                         <label htmlFor={`select-pos-${pos.id}`} className="sr-only" style={{ display: 'none' }}>
-                          Pilih Paket Akses untuk {pos.name}
+                          Pilih Hak Akses untuk {pos.name}
                         </label>
                         <select
                           id={`select-pos-${pos.id}`}
@@ -424,17 +460,17 @@ export function FeatureManagementPage() {
                           value={pos.effectiveProfileId || ''}
                           onChange={e => handleProfileSelectChange(pos.id, e.target.value)}
                         >
-                          <option value="">Tanpa paket (swalayan)</option>
+                          <option value="">Akses dasar saja</option>
                           {matrixData?.access_profiles?.map(prof => (
                             <option key={prof.id} value={prof.id}>
-                              {prof.name} {prof.is_system ? '(Standar)' : ''}
+                              {prof.name}
                             </option>
                           ))}
                         </select>
 
                         {pos.isModified && (
                           <span className="access-change-label">
-                            Diubah dari: {origProfile?.name || 'Tanpa paket'}
+                            Diubah dari: {origProfile?.name || 'Akses dasar'}
                           </span>
                         )}
                       </div>
@@ -442,26 +478,64 @@ export function FeatureManagementPage() {
 
                     {/* Yang Bisa Dilakukan */}
                     <td>
-                      {assignedProfile ? (
-                        <div>
-                          {assignedProfile.description && (
-                            <span className="capability-chip">
-                              {assignedProfile.description.length > 40
-                                ? assignedProfile.description.slice(0, 40) + '...'
-                                : assignedProfile.description}
-                            </span>
-                          )}
+                      <button
+                        type="button"
+                        className="capability-trigger-btn"
+                        onClick={() =>
+                          setDetailModal({
+                            positionName: pos.name,
+                            departmentName: pos.department_name,
+                            profile: assignedProfile,
+                            isBasicAccess: !assignedProfile,
+                            hasSensitive,
+                          })
+                        }
+                        title="Klik untuk membuka rincian apa yang bisa dilakukan"
+                        aria-label={`Lihat rincian hak akses untuk ${pos.name}`}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="capability-trigger-text">
+                            {assignedProfile ? (
+                              assignedProfile.description || 'Memiliki hak akses khusus'
+                            ) : (
+                              'Absen, cuti, dan profil sendiri'
+                            )}
+                          </div>
                           {hasSensitive && (
-                            <span className="badge-sensitive">
-                              ⚠️ Fitur sensitif
-                            </span>
+                            <div style={{ marginTop: '4px' }}>
+                              <span
+                                className="badge-sensitive"
+                                style={{
+                                  fontSize: '10px',
+                                  padding: '1px 6px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                <AlertTriangleIcon size={11} />
+                                Izin sensitif
+                              </span>
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <span className="capability-chip">
-                          Swalayan (absen, cuti, profil)
+                        <span className="capability-trigger-icon" title="Buka rincian">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
                         </span>
-                      )}
+                      </button>
                     </td>
                   </tr>
                 );
@@ -512,11 +586,15 @@ export function FeatureManagementPage() {
             className="modal-content"
             style={{ maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-access-title"
           >
             <div className="modal-header">
-              <h2 className="modal-title">Tinjau Perubahan Akses Jabatan</h2>
+              <h2 id="review-access-title" className="modal-title">Tinjau Perubahan Akses Jabatan</h2>
               <button
                 className="modal-close-btn"
+                aria-label="Tutup"
                 onClick={() => !isSaving && setIsReviewModalOpen(false)}
                 disabled={isSaving}
               >
@@ -526,7 +604,7 @@ export function FeatureManagementPage() {
 
             <div className="modal-body" style={{ overflowY: 'auto', flex: 1, paddingRight: '12px' }}>
               <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '18px' }}>
-                Berikut adalah ringkasan perubahan hak akses fitur untuk <strong>{modifiedPositions.length} jabatan</strong>:
+                Berikut adalah ringkasan perubahan hak akses untuk <strong>{modifiedPositions.length} jabatan</strong>:
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -555,6 +633,12 @@ export function FeatureManagementPage() {
                   });
 
                   const givesSensitive = newProf ? profileHasSensitive(newProf.id) : false;
+                  const sensitiveNames = newProf
+                    ? newProf.codes
+                        .filter(c => sensitiveFeatureCodes.has(c))
+                        .map(c => allFeaturesMap.get(c)?.name || c)
+                        .join(', ')
+                    : '';
 
                   return (
                     <div
@@ -581,16 +665,16 @@ export function FeatureManagementPage() {
                       </div>
 
                       <div style={{ fontSize: '13px', color: '#334155', marginBottom: '10px' }}>
-                        <span style={{ color: '#64748b' }}>{oldProf?.name || 'Tanpa paket'}</span>
+                        <span style={{ color: '#64748b' }}>{oldProf?.name || 'Akses dasar'}</span>
                         <span style={{ margin: '0 8px', color: '#94a3b8' }}>&rarr;</span>
-                        <strong style={{ color: '#2563eb' }}>{newProf?.name || 'Tanpa paket'}</strong>
+                        <strong style={{ color: '#2563eb' }}>{newProf?.name || 'Akses dasar'}</strong>
                       </div>
 
                       {/* Diff lists */}
                       {addedFeatures.length > 0 && (
                         <div className="diff-section" style={{ marginBottom: '8px' }}>
                           <span className="diff-title" style={{ color: '#16a34a' }}>
-                            + Fitur Ditambah ({addedFeatures.length}):
+                            + Izin Ditambah ({addedFeatures.length}):
                           </span>
                           <div>
                             {addedFeatures.map(f => (
@@ -605,7 +689,7 @@ export function FeatureManagementPage() {
                       {removedFeatures.length > 0 && (
                         <div className="diff-section" style={{ marginBottom: '8px' }}>
                           <span className="diff-title" style={{ color: '#dc2626' }}>
-                            - Fitur Dicabut ({removedFeatures.length}):
+                            - Izin Dicabut ({removedFeatures.length}):
                           </span>
                           <div>
                             {removedFeatures.map(f => (
@@ -618,9 +702,14 @@ export function FeatureManagementPage() {
                       )}
 
                       {givesSensitive && (
-                        <div className="warning-callout-box" style={{ marginTop: '10px', padding: '10px' }}>
-                          <p className="warning-callout-text" style={{ fontSize: '12px' }}>
-                            ⚠️ Paket baru memberikan akses ke fitur berkategori <strong>Sensitif</strong>.
+                        <div className="warning-callout-box" style={{ marginTop: '10px', padding: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                          </svg>
+                          <p className="warning-callout-text" style={{ fontSize: '12px', margin: 0 }}>
+                            Hak akses baru memberi izin sensitif: <strong>{sensitiveNames}</strong>
                           </p>
                         </div>
                       )}
@@ -646,6 +735,220 @@ export function FeatureManagementPage() {
                 disabled={isSaving}
               >
                 {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Rincian Hak Akses (Yang Bisa Dilakukan) */}
+      {detailModal && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 1100 }}
+          onClick={() => setDetailModal(null)}
+        >
+          <div
+            className="modal-content"
+            style={{ maxWidth: '600px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-access-title"
+          >
+            <div className="modal-header">
+              <div>
+                <h2 id="detail-access-title" className="modal-title" style={{ fontSize: '18px' }}>
+                  {detailModal.profile ? detailModal.profile.name : 'Akses Dasar'}
+                </h2>
+                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                  Jabatan: <strong style={{ color: '#0f172a' }}>{detailModal.positionName}</strong>
+                  {detailModal.departmentName && ` · Unit: ${detailModal.departmentName}`}
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                aria-label="Tutup"
+                onClick={() => setDetailModal(null)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
+              {/* Badges status */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <span className="badge-standard">
+                  {detailModal.profile
+                    ? detailModal.profile.is_system
+                      ? 'Bawaan sistem'
+                      : 'Hak akses kustom'
+                    : 'Akses standar'}
+                </span>
+                {detailModal.hasSensitive && (
+                  <span className="badge-sensitive">
+                    <AlertTriangleIcon size={12} />
+                    Memuat izin sensitif
+                  </span>
+                )}
+              </div>
+
+              {/* Box Deskripsi */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Ringkasan Akses
+                </div>
+                <div style={{ fontSize: '13px', color: '#1e293b', lineHeight: '1.5' }}>
+                  {detailModal.profile?.description || (
+                    detailModal.isBasicAccess
+                      ? 'Akses dasar yang dimiliki oleh seluruh karyawan untuk mencatat kehadiran mandiri, mengajukan cuti, dan mengelola profil sendiri.'
+                      : 'Tidak ada deskripsi tertulis untuk hak akses ini.'
+                  )}
+                </div>
+              </div>
+
+              {/* Alert jika sensitif */}
+              {detailModal.hasSensitive && (
+                <div className="warning-callout-box" style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                    <AlertTriangleIcon size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                    <p className="warning-callout-text">
+                      Jabatan ini memiliki izin sensitif yang dapat mengakses data rahasia atau mengubah konfigurasi penting.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Rincian Izin / Kemampuan */}
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '10px' }}>
+                  Rincian Yang Bisa Dilakukan:
+                </div>
+
+                {detailModal.isBasicAccess ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a', marginBottom: '2px' }}>
+                        Absensi Mandiri
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                        Melakukan absensi masuk dan absensi pulang harian sesuai jadwal kerja.
+                      </div>
+                    </div>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a', marginBottom: '2px' }}>
+                        Pengajuan Cuti
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                        Mengajukan permohonan cuti, memilih jenis cuti, serta melihat kuota dan riwayat persetujuan cuti pribadi.
+                      </div>
+                    </div>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a', marginBottom: '2px' }}>
+                        Profil Pribadi
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                        Melihat data kepegawaian pribadi, memperbarui informasi profil dasar, dan mengatur kata sandi akun.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {(() => {
+                      const codeSet = new Set(detailModal.profile?.codes || []);
+                      const categories = (matrixData?.categories || [])
+                        .map(cat => ({
+                          category: cat.category,
+                          label: cat.label || getFeatureCategoryLabel(cat.category),
+                          features: cat.features.filter(f => codeSet.has(f.code)),
+                        }))
+                        .filter(cat => cat.features.length > 0);
+
+                      if (categories.length === 0) {
+                        return (
+                          <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', padding: '12px' }}>
+                            Tidak ada izin khusus yang terdaftar di dalam hak akses ini.
+                          </div>
+                        );
+                      }
+
+                      return categories.map(cat => (
+                        <div key={cat.category} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              background: '#f1f5f9',
+                              padding: '8px 12px',
+                              fontWeight: 600,
+                              fontSize: '12px',
+                              color: '#334155',
+                              borderBottom: '1px solid #e2e8f0',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <span>Modul: {cat.label}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                              {cat.features.length} izin
+                            </span>
+                          </div>
+                          <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '8px', background: '#ffffff' }}>
+                            {cat.features.map(feat => (
+                              <div
+                                key={feat.code}
+                                style={{
+                                  padding: '6px 0',
+                                  borderBottom: '1px solid #f8fafc',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '2px',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
+                                    {feat.name}
+                                  </span>
+                                  {feat.is_sensitive && (
+                                    <span className="badge-sensitive" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                                      Sensitif
+                                    </span>
+                                  )}
+                                </div>
+                                {feat.description && (
+                                  <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                                    {feat.description}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+
+                    <div style={{ fontSize: '12px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
+                      ℹ️ Semua karyawan pada jabatan ini otomatis juga memiliki hak akses dasar (absen, cuti, dan profil sendiri).
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-access btn-access-secondary"
+                onClick={() => setDetailModal(null)}
+              >
+                Tutup
               </button>
             </div>
           </div>

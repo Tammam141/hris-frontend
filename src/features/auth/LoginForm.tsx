@@ -4,6 +4,7 @@ import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
 import { isRateLimited } from '../../utils/rateLimit';
+import { toUserMessage } from '../../utils/apiMessage';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 import { AppFooter } from '../../components/layout/AppFooter';
@@ -17,11 +18,32 @@ export function LoginForm() {
   const [errorObj, setErrorObj] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const configuredVersion = import.meta.env.VITE_APP_VERSION || '0.8.0';
+  const [appVersion, setAppVersion] = useState(configuredVersion);
 
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = location.state?.message;
+
+  useEffect(() => {
+    // Jika VITE_APP_VERSION sudah disetel secara eksplisit, utamakan versi tersebut
+    if (import.meta.env.VITE_APP_VERSION) return;
+
+    const base = import.meta.env.VITE_API_BASE_URL ?? '';
+    fetch(`${base}/health`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.version) {
+          const backendVer = data.version.replace(/^v/, '');
+          // Jangan turunkan ke 0.7.1 jika server backend lokal masih menjalankan build lama
+          if (backendVer !== '0.7.1') {
+            setAppVersion(data.version);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Tampilkan pesan error ramah jika terjadi auto-logout / 401 dari server
   useEffect(() => {
@@ -76,10 +98,10 @@ export function LoginForm() {
       // Rate Limit: Jika kena 429 RATE_LIMIT_EXCEEDED, mulai hitung mundur dari err.retryAfter
       if (isRateLimited(err)) {
         setCountdown(err.retryAfter);
-        setErrorMsg(`Terlalu banyak percobaan login. Coba lagi dalam ${err.retryAfter} detik.`);
+        setErrorMsg(`Terlalu banyak percobaan masuk. Coba lagi dalam ${err.retryAfter} detik.`);
         setErrorObj(err);
       } else {
-        setErrorMsg(err.message || 'Gagal terhubung ke server');
+        setErrorMsg(toUserMessage(err, 'Gagal terhubung ke server. Periksa koneksi internet Anda.'));
         setErrorObj(err);
       }
     } finally {
@@ -88,14 +110,14 @@ export function LoginForm() {
   }
 
   const currentErrorMsg = countdown > 0
-    ? `Terlalu banyak percobaan login. Coba lagi dalam ${countdown} detik.`
+    ? `Terlalu banyak percobaan masuk. Coba lagi dalam ${countdown} detik.`
     : errorMsg;
 
   return (
     <div className="auth-page-container has-footer">
       <div className="auth-card-wrapper">
         <div className="ui-card">
-        <h2 className="ui-card-title">Login</h2>
+        <h2 className="ui-card-title">Masuk ke HRIS</h2>
 
         {successMessage && <div className="alert-success">{successMessage}</div>}
 
@@ -128,14 +150,14 @@ export function LoginForm() {
             required
           />
 
-          <label htmlFor="password" className="input-label">Password</label>
+          <label htmlFor="password" className="input-label">Kata Sandi</label>
           <div style={{ position: 'relative' }}>
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               className="input-field"
               style={{ paddingRight: '40px', width: '100%' }}
-              placeholder="Masukkan password"
+              placeholder="Masukkan kata sandi"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading || countdown > 0}
@@ -158,8 +180,8 @@ export function LoginForm() {
                 justifyContent: 'center',
                 padding: '4px'
               }}
-              title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
-              aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+              title={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+              aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
             >
               {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
             </button>
@@ -167,22 +189,22 @@ export function LoginForm() {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px', marginBottom: '16px' }}>
             <Link to="/forgot-password" style={{ fontSize: '14px', color: '#1a78d7', textDecoration: 'none' }}>
-              Lupa Password?
+              Lupa kata sandi?
             </Link>
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading || countdown > 0}>
-            {loading ? 'Memproses...' : countdown > 0 ? `Coba lagi dalam ${countdown} detik` : 'Login'}
+            {loading ? 'Memproses...' : countdown > 0 ? `Coba lagi dalam ${countdown} detik` : 'Masuk'}
           </button>
         </form>
 
         <div className="auth-links">
           <p className="auth-text">
-            Belum punya akun?
-            <Link to="/register" className="auth-link">Register</Link>
+            Belum punya akun?{' '}
+            <Link to="/register" className="auth-link">Daftar</Link>
           </p>
           <p className="auth-text" style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px', textAlign: 'center' }}>
-            HRIS v0.7.1
+            HRIS v{appVersion.replace(/^v/, '')}
           </p>
         </div>
       </div>

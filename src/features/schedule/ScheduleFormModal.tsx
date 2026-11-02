@@ -7,6 +7,7 @@ import { StaleDataModal } from '../../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../../utils/staleData';
 import '../employee/employee-modal.css';
 import { ApiError } from '../../api/client';
+import { toUserMessage } from '../../utils/apiMessage';
 
 interface ScheduleFormModalProps {
   isOpen: boolean;
@@ -28,6 +29,16 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
   const [currentUpdatedAt, setCurrentUpdatedAt] = useState<string | undefined>(undefined);
   
   const isDefaultSchedule = schedule?.is_default === true;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -213,11 +224,11 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
         );
         setDeptError(msgs.join(' '));
       } else if (error.status === 400 && Array.isArray(error.details?.missing_department_ids)) {
-        setDeptError('Sebagian divisi yang dipilih tidak ditemukan. Muat ulang halaman lalu coba lagi.');
+        setDeptError('Sebagian unit yang dipilih tidak ditemukan. Muat ulang halaman lalu coba lagi.');
       } else if (error.status === 400 && /at least one department/i.test(error.message || '')) {
-        setDeptError('Pilih minimal 1 divisi untuk jadwal ini.');
+        setDeptError('Pilih minimal 1 unit untuk jadwal ini.');
       } else {
-        setErrorMsg(error.message || 'Gagal menyimpan jadwal kerja.');
+        setErrorMsg(toUserMessage(error, 'Gagal menyimpan jadwal kerja.'));
       }
     } finally {
       setIsSubmitting(false);
@@ -252,11 +263,11 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title">
       <div className="modal-content" style={{ maxWidth: '600px' }}>
         <div className="modal-header">
-          <h2 className="modal-title">{schedule ? 'Edit Jadwal Kerja' : 'Tambah Jadwal Kerja'}</h2>
-          <button type="button" className="modal-close-btn" onClick={onClose}><XIcon /></button>
+          <h2 id="schedule-modal-title" className="modal-title">{schedule ? 'Ubah Jadwal Kerja' : 'Tambah Jadwal Kerja'}</h2>
+          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Tutup"><XIcon /></button>
         </div>
         
         <div className="modal-body">
@@ -281,15 +292,15 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           </div>
 
           <div className="form-group">
-            <label className="input-label">Divisi</label>
+            <label className="input-label">Unit</label>
             {isDefaultSchedule ? (
-              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Berlaku untuk semua divisi yang tidak punya jadwal sendiri</p>
+              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Berlaku untuk semua unit yang tidak punya jadwal sendiri</p>
             ) : (
               <>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Cari divisi..."
+                  placeholder="Cari unit..."
                   value={deptSearch}
                   onChange={e => setDeptSearch(e.target.value)}
                   style={{ marginBottom: '8px' }}
@@ -312,9 +323,9 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
                         </label>
                       );
                     })}
-                  {departments.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>Tidak ada divisi.</span>}
+                  {departments.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>Tidak ada unit.</span>}
                 </div>
-                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{formData.department_ids.length} divisi dipilih</p>
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{formData.department_ids.length} unit dipilih</p>
                 {deptError && <span style={{ color: '#ef4444', fontSize: '12px', display: 'block', marginTop: '4px' }}>{deptError}</span>}
               </>
             )}
@@ -322,7 +333,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
-              <label className="input-label">Jam Masuk (Start Time)</label>
+              <label className="input-label">Jam Masuk</label>
               <input 
                 type="time" 
                 name="start_time"
@@ -334,7 +345,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
             
             <div className="form-group">
-              <label className="input-label">Jam Pulang (End Time)</label>
+              <label className="input-label">Jam Pulang</label>
               <input 
                 type="time" 
                 name="end_time"
@@ -346,7 +357,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
 
             <div className="form-group">
-              <label className="input-label">Toleransi Terlambat (Menit)</label>
+              <label className="input-label">Toleransi terlambat (menit)</label>
               <input 
                 type="number" 
                 name="late_tolerance_minutes"
@@ -359,7 +370,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
             </div>
 
             <div className="form-group">
-              <label className="input-label">Batas Absen Masuk</label>
+              <label className="input-label">Batas absen masuk</label>
               <input 
                 type="time" 
                 name="absent_cutoff_time"
@@ -368,7 +379,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
                 onChange={handleChange} 
                 required 
               />
-              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Datang setelah jam ini dihitung tidak hadir.</p>
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Absen masuk setelah jam ini ditolak dan hari itu tercatat tidak hadir.</p>
             </div>
 
             <div className="form-group">
@@ -388,7 +399,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           </div>
 
           <div className="form-group">
-            <label className="input-label">Hari Kerja</label>
+            <label className="input-label">Hari kerja</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               {[
                 { name: 'works_monday', label: 'Senin' },
@@ -424,7 +435,7 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
               style={{ width: '16px', height: '16px', accentColor: '#2563eb' }}
             />
             <label htmlFor="is_active" style={{ cursor: isDefaultSchedule ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>
-              Jadwal Aktif
+              Jadwal aktif
             </label>
             {isDefaultSchedule && <span style={{ fontSize: '12px', color: '#64748b', marginLeft: 'auto' }}>*Jadwal bawaan selalu aktif</span>}
           </div>

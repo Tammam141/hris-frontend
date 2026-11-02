@@ -117,10 +117,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         <div className="navbar-right">
           <div className="navbar-user">
-            <span>Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
+            <span className="navbar-user-greeting">Halo, <strong>{user?.employee?.full_name || user?.full_name || 'Pengguna'}</strong></span>
             <Avatar 
               photoUrl={user?.employee?.photo_url} 
-              name={user?.full_name || ''} 
+              name={user?.employee?.full_name || user?.full_name || user?.email || 'Pengguna'} 
               size="34px" 
               fontSize="14px"
             />
@@ -132,6 +132,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className="notif-bell-btn" 
                 onClick={() => navigate('/notifications')}
                 title="Notifikasi"
+                aria-label="Notifikasi"
               >
                 <BellIcon size={20} />
                 {unreadCount > 0 && (
@@ -143,12 +144,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <button 
               onClick={() => setIsChangePasswordOpen(true)} 
               className="btn-change-password-icon" 
-              title="Ganti Password"
+              title="Ubah kata sandi"
+              aria-label="Ubah kata sandi"
             >
               <KeyIcon size={18} />
             </button>
             <button onClick={handleLogout} className="btn-logout">
-              Logout
+              Keluar
             </button>
           </div>
         </div>
@@ -166,7 +168,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <aside className={`app-sidebar ${isSidebarOpen ? 'open' : ''}`}>
           <nav className="sidebar-nav">
             <ShowIf feature={ROUTE_PERMISSIONS['/dashboard'].features}>
-              <NavLink to="/dashboard" className="sidebar-link" onClick={() => setIsSidebarOpen(false)}>Dashboard</NavLink>
+              <NavLink to="/dashboard" className="sidebar-link" onClick={() => setIsSidebarOpen(false)}>Beranda</NavLink>
             </ShowIf>
 
             <ShowIf feature={['employee.view_all', 'employee.create']}>
@@ -203,13 +205,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             <ShowIf feature={ROUTE_PERMISSIONS['/department'].features}>
               <NavLink to="/department" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BuildingIcon /> Department
+                <BuildingIcon /> Unit Organisasi
               </NavLink>
             </ShowIf>
 
             <ShowIf feature={ROUTE_PERMISSIONS['/position'].features}>
               <NavLink to="/position" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BriefcaseIcon /> Position
+                <BriefcaseIcon /> Jabatan
               </NavLink>
             </ShowIf>
 
@@ -225,7 +227,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
             </ShowIf>
             
-            {/* Master Data Cuti Dropdown - Kita asumsikan jika bisa lihat leave-types, maka bisa lihat dropdown ini */}
+            {/* Master Data Cuti Dropdown */}
             <ShowIf feature={['leave.manage_type', 'organization.holiday', 'leave.adjust_balance']}>
               <div className="sidebar-dropdown-container">
                 <button 
@@ -258,14 +260,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
             </ShowIf>
 
-            {/* Attendance Module */}
+            {/* Modul Absensi */}
             <div className="sidebar-dropdown-container">
               <button 
                 className="sidebar-link" 
                 onClick={() => setIsAttendanceOpen(!isAttendanceOpen)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', color: '#1e293b' }}
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ClockIcon /> Modul Absensi</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ClockIcon /> Absensi</span>
                 <span style={{ transform: isAttendanceOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '12px' }}>▼</span>
               </button>
               {isAttendanceOpen && (
@@ -280,7 +282,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <NavLink to="/attendance/all" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Semua Absensi</NavLink>
                   </ShowIf>
                   <ShowIf feature={['attendance.report']}>
-                    <NavLink to="/attendance/events" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Log Mentah Absensi</NavLink>
+                    <NavLink to="/attendance/events" className="sidebar-link" style={{ paddingLeft: '48px', fontSize: '14px', paddingTop: '8px', paddingBottom: '8px' }} onClick={() => setIsSidebarOpen(false)}>Riwayat Tombol Absen</NavLink>
                   </ShowIf>
                 </div>
               )}
@@ -288,7 +290,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             <ShowIf feature={ROUTE_PERMISSIONS['/leave'].features}>
               <NavLink to="/leave" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarWeekIcon /> Cuti (Leave)
+                <CalendarWeekIcon /> Ajukan Cuti
               </NavLink>
             </ShowIf>
             
@@ -299,7 +301,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <UserCheckIcon /> Akses Jabatan
                 </NavLink>
                 <NavLink to="/access-profiles" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <KeyIcon /> Paket Akses
+                  <KeyIcon /> Hak Akses
                 </NavLink>
               </>
             )}

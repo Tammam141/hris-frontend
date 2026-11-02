@@ -14,6 +14,7 @@ import { AlertModal } from '../components/ui/AlertModal';
 import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
+import { toUserMessage } from '../utils/apiMessage';
 
 export function PositionPage() {
   const [positions, setPositions] = useState<Position[]>([]);
@@ -49,6 +50,17 @@ export function PositionPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   async function loadData() {
     setLoading(true);
     setError('');
@@ -60,8 +72,7 @@ export function PositionPage() {
       if (posRes.success) setPositions(posRes.data);
       if (depRes.success) setDepartments(depRes.data);
     } catch (e: any) {
-      const err = e as ApiError;
-      setError(err.message || 'Gagal memuat data jabatan');
+      setError(toUserMessage(e, 'Gagal memuat data jabatan.'));
     } finally {
       setLoading(false);
     }
@@ -180,9 +191,9 @@ export function PositionPage() {
       } else {
         const field = err.details?.field;
         if (field) {
-          setFieldErrors({ [field]: err.message });
+          setFieldErrors({ [field]: toUserMessage(err, err.message) });
         } else {
-          setFormError(err.message || 'Gagal menyimpan jabatan');
+          setFormError(toUserMessage(err, 'Gagal menyimpan jabatan.'));
         }
       }
     }
@@ -217,9 +228,8 @@ export function PositionPage() {
         setPosToDelete(null);
         loadData();
       } catch (e: any) {
-        const err = e as ApiError;
         setIsDeleteConfirmOpen(false);
-        setAlertMessage(err.message || 'Gagal menghapus jabatan');
+        setAlertMessage(toUserMessage(e, 'Gagal menghapus jabatan.'));
         setAlertOpen(true);
       }
     }
@@ -280,11 +290,11 @@ export function PositionPage() {
               <table className="employee-table">
                 <thead>
                   <tr>
-                    <th>Nama Jabatan</th>
+                    <th>Nama jabatan</th>
                     <th>Kode</th>
                     <th>Atasan</th>
-                    <th>Kepala Unit</th>
-                    <th>Kuota Kursi</th>
+                    <th>Kepala unit</th>
+                    <th>Kuota kursi</th>
                     <th style={{ width: '100px' }}>Aksi</th>
                   </tr>
                 </thead>
@@ -340,11 +350,11 @@ export function PositionPage() {
                 <table className="employee-table">
                   <thead>
                     <tr>
-                      <th>Nama Jabatan</th>
+                      <th>Nama jabatan</th>
                       <th>Kode</th>
-                      <th>Atasan Jabatan</th>
-                      <th>Status Kepala</th>
-                      <th>Kuota Kursi</th>
+                      <th>Atasan jabatan</th>
+                      <th>Status kepala</th>
+                      <th>Kuota kursi</th>
                       <th style={{ width: '100px' }}>Aksi</th>
                     </tr>
                   </thead>
@@ -396,7 +406,7 @@ export function PositionPage() {
                         </td>
                         <td>
                           <div className="action-buttons">
-                            <button className="btn-icon btn-edit" onClick={() => openEditModal(pos)} title="Edit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
+                            <button className="btn-icon btn-edit" onClick={() => openEditModal(pos)} title="Ubah" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EditIcon /></button>
                             <button className="btn-icon btn-delete" onClick={() => handleDelete(pos)} title="Hapus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrashIcon /></button>
                           </div>
                         </td>
@@ -413,9 +423,9 @@ export function PositionPage() {
       {/* Modal Form Jabatan */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
             <div className="modal-header">
-              <h2 className="modal-title">{modalMode === 'create' ? 'Tambah Jabatan Baru' : 'Ubah Data Jabatan'}</h2>
+              <h2 id="pos-modal-title" className="modal-title">{modalMode === 'create' ? 'Tambah Jabatan Baru' : 'Ubah Data Jabatan'}</h2>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -580,9 +590,9 @@ export function PositionPage() {
       {/* Confirm & Alert Modals */}
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
-        title="Konfirmasi Hapus"
-        message={`Apakah kamu yakin ingin menghapus jabatan ${posToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText="Ya, Hapus"
+        title="Hapus Jabatan"
+        message={`Apakah Anda yakin ingin menghapus jabatan ${posToDelete?.name}? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Hapus"
         isDestructive={true}
         onConfirm={confirmDelete}
         onCancel={() => {

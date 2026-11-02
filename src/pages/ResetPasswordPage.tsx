@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { resetPasswordApi } from '../api/auth';
 import { validatePassword } from '../utils/passwordValidation';
 import { PasswordRequirements } from '../components/ui/PasswordRequirements';
+import { toUserMessage } from '../utils/apiMessage';
 import '../components/ui/auth.css';
 
 export function ResetPasswordPage() {
@@ -22,7 +23,7 @@ export function ResetPasswordPage() {
     setError('');
 
     if (!email || !token) {
-      setError('Tautan reset password tidak valid atau tidak lengkap. Pastikan Anda mengklik tautan dari email.');
+      setError('Tautan atur ulang kata sandi tidak valid atau tidak lengkap. Pastikan Anda membuka tautan dari email.');
       return;
     }
 
@@ -33,7 +34,7 @@ export function ResetPasswordPage() {
     }
 
     if (password !== confirmPassword) {
-      setError('Password baru dan konfirmasi tidak cocok');
+      setError('Kata sandi baru dan konfirmasi kata sandi tidak cocok.');
       return;
     }
 
@@ -41,10 +42,10 @@ export function ResetPasswordPage() {
     try {
       await resetPasswordApi(email, token, password, confirmPassword);
       navigate('/login', {
-        state: { message: 'Password berhasil direset! Silakan login dengan password baru Anda.' }
+        state: { message: 'Kata sandi berhasil diatur ulang! Silakan masuk dengan kata sandi baru Anda.' }
       });
     } catch (err: any) {
-      setError(err.message || 'Gagal me-reset password. Tautan mungkin kedaluwarsa.');
+      setError(toUserMessage(err, 'Gagal mengatur ulang kata sandi. Tautan mungkin sudah kedaluwarsa.'));
     } finally {
       setLoading(false);
     }
@@ -55,12 +56,12 @@ export function ResetPasswordPage() {
     return (
       <div className="auth-page-container">
         <div className="ui-card">
-          <h2 className="ui-card-title">Reset Password</h2>
+          <h2 className="ui-card-title">Atur Ulang Kata Sandi</h2>
           <div className="alert-error">
-            Tautan tidak valid. Mohon akses halaman ini melalui link yang dikirimkan ke email Anda.
+            Tautan tidak valid. Mohon akses halaman ini melalui tautan yang dikirimkan ke email Anda.
           </div>
           <div className="auth-links" style={{ marginTop: '16px' }}>
-            <Link to="/login" className="btn btn-primary" style={{ textDecoration: 'none' }}>Kembali ke Halaman Login</Link>
+            <Link to="/login" className="btn btn-primary" style={{ textDecoration: 'none' }}>Kembali ke Halaman Masuk</Link>
           </div>
         </div>
       </div>
@@ -70,15 +71,15 @@ export function ResetPasswordPage() {
   return (
     <div className="auth-page-container">
       <div className="ui-card">
-        <h2 className="ui-card-title">Buat Password Baru</h2>
+        <h2 className="ui-card-title">Buat Kata Sandi Baru</h2>
         <p className="auth-text" style={{ marginBottom: '24px', textAlign: 'center' }}>
-          Silakan masukkan password baru untuk akun <strong>{email}</strong>.
+          Silakan masukkan kata sandi baru untuk akun <strong>{email}</strong>.
         </p>
 
         {error && <div className="alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <label htmlFor="password" className="input-label">Password Baru</label>
+          <label htmlFor="password" className="input-label">Kata Sandi Baru</label>
           <input
             id="password"
             type="password"
@@ -92,12 +93,12 @@ export function ResetPasswordPage() {
           />
           <PasswordRequirements password={password} />
 
-          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Password Baru</label>
+          <label htmlFor="confirmPassword" className="input-label">Konfirmasi Kata Sandi Baru</label>
           <input
             id="confirmPassword"
             type="password"
             className="input-field"
-            placeholder="Ulangi password di atas"
+            placeholder="Ulangi kata sandi baru di atas"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             minLength={8}
@@ -106,7 +107,7 @@ export function ResetPasswordPage() {
           />
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }} disabled={loading}>
-            {loading ? 'Memproses...' : 'Simpan Password Baru'}
+            {loading ? 'Memproses...' : 'Simpan Kata Sandi Baru'}
           </button>
         </form>
       </div>
