@@ -294,9 +294,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
             
             {/* Admin Only features */}
             {user?.role === 'admin' && (
-              <NavLink to="/features" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserCheckIcon /> Matriks Fitur
-              </NavLink>
+              <>
+                <NavLink to="/features" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UserCheckIcon /> Akses Jabatan
+                </NavLink>
+                <NavLink to="/access-profiles" className="sidebar-link" onClick={() => setIsSidebarOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <KeyIcon /> Paket Akses
+                </NavLink>
+              </>
             )}
 
             <ShowIf feature={ROUTE_PERMISSIONS['/activity-logs'].features}>

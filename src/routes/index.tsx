@@ -28,6 +28,7 @@ const HolidayPage = lazy(() => import('../pages/HolidayPage').then(m => ({ defau
 const BalanceAdjustmentPage = lazy(() => import('../pages/BalanceAdjustmentPage').then(m => ({ default: m.BalanceAdjustmentPage })));
 const ProfileEditPage = lazy(() => import('../pages/ProfileEditPage').then(m => ({ default: m.ProfileEditPage })));
 const FeatureManagementPage = lazy(() => import('../pages/FeatureManagementPage').then(m => ({ default: m.FeatureManagementPage })));
+const AccessProfilePage = lazy(() => import('../pages/AccessProfilePage').then(m => ({ default: m.AccessProfilePage })));
 const WorkScheduleManagementPage = lazy(() => import('../pages/WorkScheduleManagementPage').then(m => ({ default: m.WorkScheduleManagementPage })));
 const AttendancePage = lazy(() => import('../pages/AttendancePage').then(m => ({ default: m.AttendancePage })));
 const AllAttendancesPage = lazy(() => import('../pages/AllAttendancesPage').then(m => ({ default: m.AllAttendancesPage })));
@@ -128,6 +129,10 @@ export function AppRoutes() {
             
             <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/features']} />}>
               <Route path="/features" element={<FeatureManagementPage />} />
+            </Route>
+
+            <Route element={<FeatureProtectedRoute rule={ROUTE_PERMISSIONS['/access-profiles']} />}>
+              <Route path="/access-profiles" element={<AccessProfilePage />} />
             </Route>
             
             {/* Work Schedules */}
