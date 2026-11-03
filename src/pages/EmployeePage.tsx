@@ -561,8 +561,6 @@ export function EmployeePage() {
             totalPages={employeeResponse.total_pages}
             totalItems={employeeResponse.total}
             itemLabel="karyawan"
-            prevLabel="Previous"
-            nextLabel="Next"
             onPageChange={(p) => setEmployeeResponse(prev => ({ ...prev, page: p }))}
           />
         )}

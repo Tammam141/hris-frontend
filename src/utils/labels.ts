@@ -18,10 +18,16 @@ const ROLE_LABELS: Record<string, string> = {
 
 const FEATURE_CATEGORY_LABELS: Record<string, string> = {
   employee: 'Karyawan',
+  employment: 'Karyawan',
   organization: 'Organisasi',
   leave: 'Cuti',
   attendance: 'Absensi',
   system: 'Sistem',
+  schedule: 'Jadwal Kerja',
+  work_schedule: 'Jadwal Kerja',
+  holiday: 'Hari Libur',
+  department: 'Unit Organisasi',
+  position: 'Jabatan',
 };
 
 const UNIT_TYPE_LABELS: Record<string, string> = {
@@ -107,7 +113,76 @@ export function getRoleLabel(role: string | null | undefined): string {
 
 export function getFeatureCategoryLabel(category: string | null | undefined): string {
   if (!category) return '-';
-  return FEATURE_CATEGORY_LABELS[category.toLowerCase()] || category;
+  const clean = category.toLowerCase().trim();
+  return FEATURE_CATEGORY_LABELS[clean] || category;
+}
+
+// Penamaan izin hak akses diselaraskan dengan menu sidebar
+export const FEATURE_NAMES_BY_CODE: Record<string, string> = {
+  // Karyawan
+  'employee.approve_user': 'Persetujuan Akun',
+  'employee.view_all': 'Daftar Karyawan',
+  'employee.create': 'Tambah Karyawan',
+  'employee.update': 'Ubah Karyawan',
+  'employee.delete': 'Hapus Karyawan',
+
+  // Organisasi
+  'organization.manage': 'Struktur & Unit Organisasi',
+  'organization.schedule': 'Jadwal Kerja',
+  'organization.holiday': 'Hari Libur',
+
+  // Cuti
+  'leave.approve_team': 'Persetujuan Cuti Bawahan',
+  'leave.approve_all': 'Persetujuan Semua Cuti',
+  'leave.view_all': 'Semua Pengajuan Cuti',
+  'leave.manage_type': 'Jenis Cuti',
+  'leave.adjust_balance': 'Penyesuaian Saldo',
+
+  // Absensi
+  'attendance.view_team': 'Absensi Tim',
+  'attendance.view_all': 'Semua Absensi',
+  'attendance.report': 'Riwayat Tombol Absen',
+  'attendance.correct': 'Koreksi Absensi',
+
+  // Sistem
+  'system.view_log': 'Log Aktivitas',
+  'system.view_api_docs': 'Dokumentasi API',
+};
+
+export const FEATURE_DESCRIPTIONS_BY_CODE: Record<string, string> = {
+  'employee.approve_user': 'Meninjau dan menyetujui akun baru yang mendaftar mandiri (menu Persetujuan Akun).',
+  'employee.view_all': 'Melihat daftar dan profil seluruh karyawan (menu Daftar Karyawan).',
+  'employee.create': 'Menambah karyawan baru serta akunnya secara manual atau impor CSV (menu Tambah Karyawan & Impor CSV).',
+  'employee.update': 'Mengubah data profil, jabatan, dan penempatan karyawan.',
+  'employee.delete': 'Menghapus data karyawan dari sistem.',
+
+  'organization.manage': 'Mengelola bagan organisasi, unit, jabatan, dan atasan (menu Struktur Organisasi, Unit Organisasi, Jabatan).',
+  'organization.schedule': 'Mengatur jam kerja, hari kerja, dan toleransi absensi unit (menu Jadwal Kerja).',
+  'organization.holiday': 'Mengelola hari libur nasional dan cuti bersama (menu Hari Libur).',
+
+  'leave.approve_team': 'Menyetujui atau menolak cuti karyawan bawahan langsung (menu Persetujuan Cuti).',
+  'leave.approve_all': 'Menyetujui atau menolak cuti seluruh karyawan perusahaan melebihi batas unit (menu Persetujuan Cuti).',
+  'leave.view_all': 'Melihat seluruh riwayat pengajuan cuti semua karyawan (menu Persetujuan Cuti).',
+  'leave.manage_type': 'Mengatur tipe cuti, kuota tahunan, dan aturan lampiran (menu Jenis Cuti).',
+  'leave.adjust_balance': 'Menyesuaikan saldo cuti karyawan secara manual (menu Penyesuaian Saldo).',
+
+  'attendance.view_team': 'Melihat kehadiran dan riwayat absensi bawahan langsung (menu Absensi Tim).',
+  'attendance.view_all': 'Melihat dan mengekspor seluruh catatan absensi perusahaan (menu Semua Absensi).',
+  'attendance.report': 'Melihat riwayat percobaan tekan tombol absen masuk dan pulang (menu Riwayat Tombol Absen).',
+  'attendance.correct': 'Melakukan koreksi atau penyesuaian jam absensi karyawan.',
+
+  'system.view_log': 'Melihat jejak riwayat aktivitas dan audit trail sistem (menu Log Aktivitas).',
+  'system.view_api_docs': 'Melihat dokumentasi endpoint Swagger/OpenAPI (menu Dokumentasi API).',
+};
+
+export function getFeatureName(code: string | null | undefined, fallbackName?: string): string {
+  if (!code) return fallbackName || '-';
+  return FEATURE_NAMES_BY_CODE[code] || fallbackName || code;
+}
+
+export function getFeatureDescription(code: string | null | undefined, fallbackDesc?: string | null): string {
+  if (!code) return fallbackDesc || '';
+  return FEATURE_DESCRIPTIONS_BY_CODE[code] || fallbackDesc || '';
 }
 
 export function getUnitTypeLabel(unitType: string | null | undefined): string {

@@ -562,8 +562,6 @@ export function AllAttendancesPage() {
             totalPages={attendanceResponse.total_pages}
             totalItems={attendanceResponse.total}
             itemLabel="data absensi"
-            prevLabel="Prev"
-            nextLabel="Next"
             onPageChange={(p) => setPage(p)}
           />
         )}

@@ -298,8 +298,6 @@ export function HolidayPage() {
             totalPages={totalPages}
             totalItems={holidayResponse.total}
             itemLabel="hari libur"
-            prevLabel="Prev"
-            nextLabel="Next"
             onPageChange={(p) => setPage(p)}
           />
         )}

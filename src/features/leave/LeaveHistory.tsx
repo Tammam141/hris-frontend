@@ -194,8 +194,6 @@ export function LeaveHistory({ refreshKey = 0 }: LeaveHistoryProps) {
       <Pagination
         currentPage={page}
         totalPages={totalPages}
-        prevLabel="Prev"
-        nextLabel="Next"
         onPageChange={(p) => setPage(p)}
       />
     );

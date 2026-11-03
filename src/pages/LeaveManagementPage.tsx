@@ -476,8 +476,6 @@ export function LeaveManagementPage() {
             totalPages={leaveResponse.total_pages}
             totalItems={leaveResponse.total}
             itemLabel="pengajuan cuti"
-            prevLabel="Prev"
-            nextLabel="Next"
             onPageChange={(p) => setLeaveResponse(prev => ({ ...prev, page: p }))}
           />
         )}
