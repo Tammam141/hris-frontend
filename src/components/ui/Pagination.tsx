@@ -8,6 +8,8 @@ export interface PaginationProps {
   totalItems?: number;
   itemLabel?: string;
   align?: 'center' | 'between';
+  firstLabel?: string;
+  lastLabel?: string;
   prevLabel?: string;
   nextLabel?: string;
   hideOnSinglePage?: boolean;
@@ -20,6 +22,8 @@ export function Pagination({
   totalItems,
   itemLabel = 'data',
   align,
+  firstLabel = 'Awal',
+  lastLabel = 'Akhir',
   prevLabel = 'Sebelumnya',
   nextLabel = 'Selanjutnya',
   hideOnSinglePage = false,
@@ -70,6 +74,12 @@ export function Pagination({
 
   const containerAlign = align || (totalItems !== undefined ? 'between' : 'center');
 
+  // Normalisasi label tombol paginasi ke Bahasa Indonesia jika masih menggunakan teks bahasa Inggris
+  const displayFirst = !firstLabel || firstLabel.toLowerCase() === 'first' ? 'Awal' : firstLabel;
+  const displayLast = !lastLabel || lastLabel.toLowerCase() === 'last' ? 'Akhir' : lastLabel;
+  const displayPrev = !prevLabel || prevLabel.toLowerCase().startsWith('prev') ? 'Sebelumnya' : prevLabel;
+  const displayNext = !nextLabel || nextLabel.toLowerCase() === 'next' ? 'Selanjutnya' : nextLabel;
+
   return (
     <div className={`app-pagination-container ${containerAlign === 'center' ? 'align-center' : ''}`}>
       {totalItems !== undefined && (
@@ -85,7 +95,7 @@ export function Pagination({
           onClick={() => onPageChange(1)}
           disabled={currentPage <= 1}
         >
-          First
+          {displayFirst}
         </button>
         <button
           type="button"
@@ -93,7 +103,7 @@ export function Pagination({
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage <= 1}
         >
-          {prevLabel}
+          {displayPrev}
         </button>
 
         <div className="app-pagination-input-wrap">
@@ -119,7 +129,7 @@ export function Pagination({
           onClick={() => onPageChange(Math.min(maxPages, currentPage + 1))}
           disabled={currentPage >= maxPages}
         >
-          {nextLabel}
+          {displayNext}
         </button>
 
         <button
@@ -128,7 +138,7 @@ export function Pagination({
           onClick={() => onPageChange(maxPages)}
           disabled={currentPage >= maxPages}
         >
-          Last
+          {displayLast}
         </button>
       </div>
     </div>

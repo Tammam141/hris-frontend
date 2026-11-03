@@ -235,8 +235,6 @@ export function AttendanceEventsLogPage() {
           totalPages={totalPages}
           totalItems={eventResponse.total}
           itemLabel="data log absensi"
-          prevLabel="Sebelumnya"
-          nextLabel="Selanjutnya"
           onPageChange={(p) => setPage(p)}
         />
       )}

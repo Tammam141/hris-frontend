@@ -15,6 +15,7 @@ import { StaleDataModal } from '../components/ui/StaleDataModal';
 import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
 import { toUserMessage } from '../utils/apiMessage';
+import { getFeatureCategoryLabel, getFeatureName, getFeatureDescription } from '../utils/labels';
 import '../components/ui/access-profiles.css';
 
 export function AccessProfilePage() {
@@ -178,7 +179,7 @@ export function AccessProfilePage() {
 
   const handleToggleFeature = (code: string, isChecked: boolean) => {
     const feat = allFeaturesMap.get(code);
-    const targetName = feat?.name || code;
+    const targetName = getFeatureName(code, feat?.name || code);
 
     if (isChecked) {
       // 1. Add feature and all its transitive requirements
@@ -201,7 +202,7 @@ export function AccessProfilePage() {
       // Check which additional features were auto-added
       const autoAddedCodes = Array.from(toAdd).filter(c => c !== code && !formCodes.has(c));
       if (autoAddedCodes.length > 0) {
-        const autoNames = autoAddedCodes.map(c => allFeaturesMap.get(c)?.name || c).join(', ');
+        const autoNames = autoAddedCodes.map(c => getFeatureName(c, allFeaturesMap.get(c)?.name || c)).join(', ');
         showCalloutInfo(`Izin ${autoNames} ikut dicentang karena dibutuhkan oleh ${targetName}.`);
       }
 
@@ -230,7 +231,7 @@ export function AccessProfilePage() {
 
       const autoRemovedCodes = Array.from(toRemove).filter(c => c !== code);
       if (autoRemovedCodes.length > 0) {
-        const autoNames = autoRemovedCodes.map(c => allFeaturesMap.get(c)?.name || c).join(', ');
+        const autoNames = autoRemovedCodes.map(c => getFeatureName(c, allFeaturesMap.get(c)?.name || c)).join(', ');
         showCalloutInfo(`Izin ${autoNames} ikut dicabut karena membutuhkan ${targetName}.`);
       }
 
@@ -263,7 +264,7 @@ export function AccessProfilePage() {
     });
 
     const hasAddedSensitive = added.some(f => f.is_sensitive);
-    const addedSensitiveNames = added.filter(f => f.is_sensitive).map(f => f.name);
+    const addedSensitiveNames = added.filter(f => f.is_sensitive).map(f => getFeatureName(f.code, f.name));
 
     return {
       added,
@@ -541,7 +542,7 @@ export function AccessProfilePage() {
                 <div key={category.category} className="feature-area-section">
                   <div className="feature-area-header">
                     <span className="feature-area-title">
-                      {category.label}
+                      {getFeatureCategoryLabel(category.category || category.label)}
                     </span>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
                       {checkedInCat} dari {totalInCat}
@@ -551,8 +552,10 @@ export function AccessProfilePage() {
                   <div className="feature-cards-grid">
                     {category.features.map(feat => {
                       const isChecked = formCodes.has(feat.code);
+                      const featName = getFeatureName(feat.code, feat.name);
+                      const featDesc = getFeatureDescription(feat.code, feat.description);
                       const requiresNames = (feat.requires || [])
-                        .map(r => allFeaturesMap.get(r)?.name || r)
+                        .map(r => getFeatureName(r, allFeaturesMap.get(r)?.name || r))
                         .filter(Boolean);
 
                       return (
@@ -571,7 +574,7 @@ export function AccessProfilePage() {
 
                           <div className="feature-card-content">
                             <div className="feature-card-title-row">
-                              <span className="feature-card-name">{feat.name}</span>
+                              <span className="feature-card-name">{featName}</span>
                               {feat.is_sensitive && (
                                 <span className="badge-sensitive">
                                   Sensitif
@@ -580,7 +583,7 @@ export function AccessProfilePage() {
                             </div>
 
                             <p className="feature-card-desc">
-                              {feat.description || 'Tidak ada keterangan izin.'}
+                              {featDesc || 'Tidak ada keterangan izin.'}
                             </p>
 
                             {requiresNames.length > 0 && (
@@ -685,7 +688,7 @@ export function AccessProfilePage() {
                   <div>
                     {diffFeatures.added.map(f => (
                       <span key={f.code} className="diff-badge-add">
-                        + {f.name} {f.is_sensitive ? '(Sensitif)' : ''}
+                        + {getFeatureName(f.code, f.name)} {f.is_sensitive ? '(Sensitif)' : ''}
                       </span>
                     ))}
                   </div>
@@ -701,7 +704,7 @@ export function AccessProfilePage() {
                   <div>
                     {diffFeatures.removed.map(f => (
                       <span key={f.code} className="diff-badge-remove">
-                        - {f.name}
+                        - {getFeatureName(f.code, f.name)}
                       </span>
                     ))}
                   </div>

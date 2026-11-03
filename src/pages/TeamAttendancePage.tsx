@@ -189,8 +189,6 @@ export function TeamAttendancePage() {
             totalPages={totalPages}
             totalItems={teamAttendanceResponse.total}
             itemLabel="data absensi tim"
-            prevLabel="Prev"
-            nextLabel="Next"
             onPageChange={(p) => setPage(p)}
           />
         )}

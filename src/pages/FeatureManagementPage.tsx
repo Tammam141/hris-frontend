@@ -15,7 +15,7 @@ import { isStaleData, StaleDataDetails } from '../utils/staleData';
 import { ApiError } from '../api/client';
 import { toUserMessage } from '../utils/apiMessage';
 import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
-import { getFeatureCategoryLabel } from '../utils/labels';
+import { getFeatureCategoryLabel, getFeatureName, getFeatureDescription } from '../utils/labels';
 import '../components/ui/access-profiles.css';
 
 interface PositionDetailModalState {
@@ -636,7 +636,7 @@ export function FeatureManagementPage() {
                   const sensitiveNames = newProf
                     ? newProf.codes
                         .filter(c => sensitiveFeatureCodes.has(c))
-                        .map(c => allFeaturesMap.get(c)?.name || c)
+                        .map(c => getFeatureName(c, allFeaturesMap.get(c)?.name || c))
                         .join(', ')
                     : '';
 
@@ -679,7 +679,7 @@ export function FeatureManagementPage() {
                           <div>
                             {addedFeatures.map(f => (
                               <span key={f.code} className="diff-badge-add">
-                                + {f.name}
+                                + {getFeatureName(f.code, f.name)}
                               </span>
                             ))}
                           </div>
@@ -694,7 +694,7 @@ export function FeatureManagementPage() {
                           <div>
                             {removedFeatures.map(f => (
                               <span key={f.code} className="diff-badge-remove">
-                                - {f.name}
+                                - {getFeatureName(f.code, f.name)}
                               </span>
                             ))}
                           </div>
@@ -867,7 +867,7 @@ export function FeatureManagementPage() {
                       const categories = (matrixData?.categories || [])
                         .map(cat => ({
                           category: cat.category,
-                          label: cat.label || getFeatureCategoryLabel(cat.category),
+                          label: getFeatureCategoryLabel(cat.category || cat.label),
                           features: cat.features.filter(f => codeSet.has(f.code)),
                         }))
                         .filter(cat => cat.features.length > 0);
@@ -914,7 +914,7 @@ export function FeatureManagementPage() {
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                   <span style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
-                                    {feat.name}
+                                    {getFeatureName(feat.code, feat.name)}
                                   </span>
                                   {feat.is_sensitive && (
                                     <span className="badge-sensitive" style={{ fontSize: '10px', padding: '1px 5px' }}>
@@ -922,11 +922,9 @@ export function FeatureManagementPage() {
                                     </span>
                                   )}
                                 </div>
-                                {feat.description && (
-                                  <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
-                                    {feat.description}
-                                  </div>
-                                )}
+                                <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                                  {getFeatureDescription(feat.code, feat.description) || feat.description}
+                                </div>
                               </div>
                             ))}
                           </div>
