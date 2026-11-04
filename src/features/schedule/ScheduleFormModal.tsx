@@ -126,6 +126,8 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
     (s.department_ids || []).forEach(id => usedByOther.set(id, s.name));
   });
 
+  const activeOtherSchedules = otherSchedules.filter(s => s.id !== schedule?.id && s.is_active);
+
   const toggleDepartment = (id: string) => {
     setDeptError('');
     setFormData(prev => ({
@@ -223,6 +225,21 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
           `${c.department_name} sudah memakai ${c.schedule_name}. Lepaskan dulu dari jadwal itu.`
         );
         setDeptError(msgs.join(' '));
+      } else if (error.status === 409 && Array.isArray(error.details?.overlaps)) {
+        if (error.details.overlaps.length > 0) {
+          const overlapList = error.details.overlaps
+            .map((o: any) => {
+              const start = (o.start_time || '').substring(0, 5);
+              const end = (o.end_time || '').substring(0, 5);
+              return `${o.name} (${start}–${end})`;
+            })
+            .join(', ');
+          setErrorMsg(
+            `Jam kerja beririsan dengan jadwal lain: ${overlapList}. Jadwal hanya boleh bersambung, misalnya satu selesai 17:00 dan berikutnya mulai 17:00.`
+          );
+        } else {
+          setErrorMsg(toUserMessage(error, 'Jam kerja beririsan dengan jadwal lain. Jadwal hanya boleh bersambung di batas jam.'));
+        }
       } else if (error.status === 400 && Array.isArray(error.details?.missing_department_ids)) {
         setDeptError('Sebagian unit yang dipilih tidak ditemukan. Muat ulang halaman lalu coba lagi.');
       } else if (error.status === 400 && /at least one department/i.test(error.message || '')) {
@@ -396,6 +413,21 @@ export function ScheduleFormModal({ isOpen, onClose, onSuccess, schedule }: Sche
               />
               <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Lembur dihitung penuh sejak jam pulang bila mencapai batas ini.</p>
             </div>
+
+            {activeOtherSchedules.length > 0 && (
+              <div style={{ gridColumn: 'span 2', backgroundColor: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
+                  💡 Aturan Jam Kerja Antar Jadwal Aktif:
+                </div>
+                <div>
+                  Jam kerja tidak boleh beririsan pada hari kerja yang sama (boleh bersambung di batas jam, misalnya selesai 17:00 dan mulai 17:00).
+                </div>
+                <div style={{ marginTop: '6px' }}>
+                  <span style={{ fontWeight: 600, color: '#334155' }}>Jadwal aktif lainnya:</span>{' '}
+                  {activeOtherSchedules.map(s => `${s.name} (${s.start_time.substring(0, 5)}–${s.end_time.substring(0, 5)})`).join(', ')}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="form-group">

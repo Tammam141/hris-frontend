@@ -89,7 +89,7 @@ export function WorkScheduleManagementPage() {
       <div className="dashboard-header-row">
         <div>
           <h1 className="dashboard-title">Jadwal Kerja</h1>
-          <p className="dashboard-subtitle">Atur jam kerja, hari kerja, dan batas absen untuk setiap unit.</p>
+          <p className="dashboard-subtitle">Atur jam kerja, hari kerja, dan batas absen untuk setiap unit. Jam kerja antar jadwal aktif tidak boleh beririsan pada hari yang sama.</p>
         </div>
         {canManage && (
           <button className="btn btn-primary" onClick={handleAdd}>
@@ -137,7 +137,21 @@ export function WorkScheduleManagementPage() {
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '16px 24px', fontWeight: 500, color: '#334155' }}>{schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}</td>
+                      <td style={{ padding: '16px 24px' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          backgroundColor: '#f1f5f9',
+                          color: '#0f172a',
+                          border: '1px solid #e2e8f0',
+                        }}>
+                          {schedule.start_time.substring(0, 5)} – {schedule.end_time.substring(0, 5)}
+                        </span>
+                      </td>
                       <td style={{ padding: '16px 24px', color: '#475569' }}>{formatDays(schedule)}</td>
                       <td style={{ padding: '16px 24px', color: '#475569' }}>{schedule.late_tolerance_minutes} Menit</td>
                       <td style={{ padding: '16px 24px' }}>

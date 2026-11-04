@@ -143,6 +143,14 @@ const ERROR_DICTIONARY: DictionaryRule[] = [
     replace: 'Unit berikut sudah memakai jadwal lain: $1. Lepaskan dulu dari jadwal tersebut.',
   },
   {
+    pattern: /Working hours (\S+) overlap with another work schedule:\s*(.+?)\.\s*Schedules may only meet/i,
+    replace: 'Jam kerja $1 beririsan dengan jadwal lain: $2. Jadwal hanya boleh bersambung, misalnya satu selesai 17:00 dan berikutnya mulai 17:00.',
+  },
+  {
+    pattern: /Working hours (\S+) overlap with another work schedule:\s*(.+)/i,
+    replace: 'Jam kerja $1 beririsan dengan jadwal lain: $2. Jadwal hanya boleh bersambung, misalnya satu selesai 17:00 dan berikutnya mulai 17:00.',
+  },
+  {
     pattern: /Choose at least one department/i,
     replace: 'Pilih minimal satu unit untuk jadwal ini.',
   },
