@@ -223,7 +223,7 @@ const ERROR_DICTIONARY: DictionaryRule[] = [
     replace: 'Data yang diisi belum benar.',
   },
   {
-    pattern: /Invalid email or password/i,
+    pattern: /(?:Invalid|Incorrect) email or password/i,
     replace: 'Email atau kata sandi salah.',
   },
   {

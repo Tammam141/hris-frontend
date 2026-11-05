@@ -4,7 +4,7 @@ import { loginApi } from '../../api/auth';
 import { loginSchema } from './authSchema';
 import { useAuth } from '../../hooks/useAuth';
 import { isRateLimited } from '../../utils/rateLimit';
-import { toUserMessage } from '../../utils/apiMessage';
+import { toUserMessage, translateMessage } from '../../utils/apiMessage';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 import { AppFooter } from '../../components/layout/AppFooter';
@@ -99,6 +99,10 @@ export function LoginForm() {
       if (isRateLimited(err)) {
         setCountdown(err.retryAfter);
         setErrorMsg(`Terlalu banyak percobaan masuk. Coba lagi dalam ${err.retryAfter} detik.`);
+        setErrorObj(err);
+      } else if (err?.status === 401) {
+        // Di halaman login, 401 berarti kredensial salah, bukan sesi berakhir
+        setErrorMsg(translateMessage(err.message) || 'Email atau kata sandi salah.');
         setErrorObj(err);
       } else {
         setErrorMsg(toUserMessage(err, 'Gagal terhubung ke server. Periksa koneksi internet Anda.'));
